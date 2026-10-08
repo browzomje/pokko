@@ -1,0 +1,87 @@
+name: 🚀 Release (semantic-release)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing draft tag to rebuild (empty: calculate next version)'
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: semantic-release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-22.04
+    outputs:
+      tag: ${{ steps.release.outputs.tag || steps.retry.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run check
+      - name: Cache dependencies for lockfile synchronization
+        run: cargo fetch --locked --manifest-path src-tauri/Cargo.toml
+      - name: Calculate version and create draft
+        if: inputs.release_tag == ''
+        id: release
+        run: node scripts/semantic-release.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate existing draft for retry
+        if: inputs.release_tag != ''
+        id: retry
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = true
+          git rev-parse --verify "refs/tags/$RELEASE_TAG"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ needs.version.outputs.tag || github.sha }}
+
+  publish:
+    needs: [version, build]
+    if: needs.version.outputs.tag != ''
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: pokko-*-${{ github.run_id }}
+          path: release-assets
+          merge-multiple: true
+      - name: Verify installers, generate checksums and publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p installers
+          for extension in exe msi deb rpm AppImage; do
+            mapfile -t files < <(find release-assets -type f -name "*.$extension")
+            test "${#files[@]}" -gt 0 || { echo "Missing $extension installer"; exit 1; }
+            cp "${files[@]}" installers/
+          done
+          (cd installers && sha256sum * > SHA256SUMS.txt)
+          gh release upload "$RELEASE_TAG" installers/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest
