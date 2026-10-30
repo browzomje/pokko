@@ -607,6 +607,7 @@ pub fn lab_open_output(path: String) -> Result<(), String> {
 }
 
 static FIREFOX_PROCESS: std::sync::Mutex<Option<std::process::Child>> = std::sync::Mutex::new(None);
+static MARIONETTE_PORT: std::sync::Mutex<u16> = std::sync::Mutex::new(2828);
 
 pub fn is_firefox_installed() -> bool {
     std::process::Command::new("firefox")
@@ -616,35 +617,61 @@ pub fn is_firefox_installed() -> bool {
         .unwrap_or(false)
 }
 
-pub async fn ensure_firefox_profile_with_ublock() -> Result<PathBuf, String> {
+fn get_available_port() -> u16 {
+    if std::net::TcpListener::bind("127.0.0.1:2828").is_ok() {
+        2828
+    } else {
+        std::net::TcpListener::bind("127.0.0.1:0")
+            .and_then(|l| l.local_addr())
+            .map(|a| a.port())
+            .unwrap_or(2829)
+    }
+}
+
+pub async fn ensure_firefox_profile_with_ublock(port: u16) -> Result<PathBuf, String> {
     let profile_dir = std::env::temp_dir().join("pokko-firefox-profile");
     let ext_dir = profile_dir.join("extensions");
     fs::create_dir_all(&ext_dir).map_err(|e| e.to_string())?;
+
+    // Clean stale lock files
+    for lock in [".parentlock", "parent.lock", "lock"] {
+        let p = profile_dir.join(lock);
+        if p.exists() {
+            let _ = fs::remove_file(p);
+        }
+    }
 
     // Download official uBlock Origin XPI if missing
     let xpi_path = ext_dir.join("uBlock0@raymondhill.net.xpi");
     if !xpi_path.exists() || fs::metadata(&xpi_path).map(|m| m.len()).unwrap_or(0) < 1000 {
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(20))
             .build()
             .map_err(|e| e.to_string())?;
-        let res = client
+        match client
             .get("https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi")
             .header(reqwest::header::USER_AGENT, "Mozilla/5.0")
             .send()
             .await
-            .map_err(|e| format!("Impossibile scaricare uBlock Origin: {e}"))?;
-        if res.status().is_success() {
-            let bytes = res.bytes().await.map_err(|e| e.to_string())?;
-            fs::write(&xpi_path, bytes).map_err(|e| e.to_string())?;
-            crate::logger::info("lab", "uBlock Origin scaricato e installato nel profilo Firefox");
+        {
+            Ok(res) if res.status().is_success() => {
+                if let Ok(bytes) = res.bytes().await {
+                    let _ = fs::write(&xpi_path, bytes);
+                    crate::logger::info("lab", "uBlock Origin scaricato e salvato nel profilo");
+                }
+            }
+            Err(e) => {
+                crate::logger::warn("lab", &format!("Download uBlock Origin non riuscito ({e}), avvio senza estensione"));
+            }
+            _ => {}
         }
     }
 
     // Write user.js preferences
     let user_js = profile_dir.join("user.js");
-    let prefs = r#"
-user_pref("marionette.port", 2828);
+    let prefs = format!(
+        r#"
+user_pref("marionette.port", {});
 user_pref("marionette.enabled", true);
 user_pref("extensions.autoDisableScopes", 0);
 user_pref("extensions.enabledScopes", 15);
@@ -660,25 +687,29 @@ user_pref("extensions.pocket.enabled", false);
 user_pref("browser.newtabpage.enabled", false);
 user_pref("app.update.auto", false);
 user_pref("app.update.enabled", false);
-"#;
+"#,
+        port
+    );
     let _ = fs::write(user_js, prefs);
 
     Ok(profile_dir)
 }
 
 fn marionette_connect() -> Result<std::net::TcpStream, String> {
-    for _ in 0..20 {
+    let port = MARIONETTE_PORT.lock().map(|p| *p).unwrap_or(2828);
+    let addr = format!("127.0.0.1:{port}");
+    for _ in 0..40 {
         if let Ok(stream) = std::net::TcpStream::connect_timeout(
-            &"127.0.0.1:2828".parse().unwrap(),
-            std::time::Duration::from_millis(300),
+            &addr.parse().unwrap(),
+            std::time::Duration::from_millis(250),
         ) {
-            let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
-            let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(5)));
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(10)));
+            let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(10)));
             return Ok(stream);
         }
-        std::thread::sleep(std::time::Duration::from_millis(250));
+        std::thread::sleep(std::time::Duration::from_millis(200));
     }
-    Err("Connessione a Marionette non riuscita (porta 2828)".into())
+    Err(format!("Connessione a Marionette non riuscita (porta {port})"))
 }
 
 fn marionette_read_packet(stream: &mut std::net::TcpStream) -> Result<Value, String> {
@@ -712,11 +743,8 @@ fn marionette_send_cmd(stream: &mut std::net::TcpStream, id: u64, name: &str, pa
 
 pub fn marionette_exec(name: &str, params: Value) -> Result<Value, String> {
     let mut stream = marionette_connect()?;
-    // Read init handshake
     let _ = marionette_read_packet(&mut stream)?;
-    // Start session
     let _ = marionette_send_cmd(&mut stream, 1, "WebDriver:NewSession", json!({}))?;
-    // Execute command
     let resp = marionette_send_cmd(&mut stream, 2, name, params)?;
     if let Some(arr) = resp.as_array() {
         if arr.len() > 3 {
@@ -730,30 +758,34 @@ pub fn marionette_exec(name: &str, params: Value) -> Result<Value, String> {
 pub async fn lab_firefox_launch(url: String) -> Result<bool, String> {
     provider::site(&url)?;
     if !is_firefox_installed() {
-        return Ok(false);
+        return Err("Firefox non è installato sul sistema. Puoi comunque incollare l'URL manualmente per continuare nel laboratorio.".into());
+    }
+
+    let port = get_available_port();
+    if let Ok(mut p) = MARIONETTE_PORT.lock() {
+        *p = port;
     }
 
     // If Firefox is already running, try navigating via Marionette
     if let Ok(mut guard) = FIREFOX_PROCESS.lock() {
         if let Some(ref mut child) = *guard {
             if child.try_wait().ok().flatten().is_none() {
-                // Process is still running, navigate active tab
-                if marionette_exec("WebDriver:ExecuteScript", json!({"script": format!("window.location.href = '{}';", url), "args": []})).is_ok() {
+                if marionette_exec("WebDriver:Navigate", json!({"url": url})).is_ok() {
                     return Ok(true);
                 }
             }
         }
     }
 
-    let profile_dir = ensure_firefox_profile_with_ublock().await?;
+    let profile_dir = ensure_firefox_profile_with_ublock(port).await?;
 
-    // Spawn Firefox process
+    // Spawn Firefox process starting on about:blank
     let child = std::process::Command::new("firefox")
         .arg("--marionette")
         .arg("--profile")
-        .arg(profile_dir)
+        .arg(&profile_dir)
         .arg("--new-instance")
-        .arg(&url)
+        .arg("about:blank")
         .spawn()
         .map_err(|e| format!("Errore avvio Firefox: {e}"))?;
 
@@ -761,7 +793,16 @@ pub async fn lab_firefox_launch(url: String) -> Result<bool, String> {
         *guard = Some(child);
     }
 
-    crate::logger::info("lab", &format!("Firefox avviato con uBlock Origin su URL: {url}"));
+    // Connect Marionette, install uBlock Origin XPI if present, and navigate to target URL
+    tokio::task::spawn_blocking(move || {
+        let xpi_path = profile_dir.join("extensions").join("uBlock0@raymondhill.net.xpi");
+        if xpi_path.exists() {
+            let _ = marionette_exec("Addon:Install", json!({"path": xpi_path.display().to_string(), "temporary": false}));
+        }
+        let _ = marionette_exec("WebDriver:Navigate", json!({"url": url}));
+    }).await.map_err(|e| e.to_string())?;
+
+    crate::logger::info("lab", "Firefox avviato con uBlock Origin attivo");
     Ok(true)
 }
 
@@ -855,8 +896,18 @@ pub fn lab_firefox_close() -> Result<(), String> {
     if let Ok(mut guard) = FIREFOX_PROCESS.lock() {
         if let Some(mut child) = guard.take() {
             let _ = child.kill();
+            let _ = child.wait();
         }
     }
+    // Clean stale lock files
+    let profile_dir = std::env::temp_dir().join("pokko-firefox-profile");
+    for lock in [".parentlock", "parent.lock", "lock"] {
+        let p = profile_dir.join(lock);
+        if p.exists() {
+            let _ = fs::remove_file(p);
+        }
+    }
+    crate::logger::info("lab", "Firefox chiuso e lock di profilo rimossi");
     Ok(())
 }
 

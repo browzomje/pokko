@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+
+<html dir="ltr" lang="en-US" prefix="og: https://ogp.me/ns#">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<link href="https://gmpg.org/xfn/11" rel="profile"/>
+<link crossorigin="" href="https://cdn.readberserk.com" rel="preconnect"/>
+<link href="https://cdn.readberserk.com" rel="dns-prefetch"/>
+<style type="text/css">@font-face {font-family:'Roboto';font-style:normal;font-weight:400;src:url(/cf-fonts/v/roboto/5.2.10/vietnamese/wght/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:400;src:url(/cf-fonts/v/roboto/5.2.10/greek-ext/wght/normal.woff2);unicode-range:U+1F00-1FFF;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:400;src:url(/cf-fonts/v/roboto/5.2.10/latin/wght/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:400;src:url(/cf-fonts/v/roboto/5.2.10/math/wght/normal.woff2);unicode-range:U+0302-0303,U+0305,U+0307-0308,U+0310,U+0312,U+0315,U+031A,U+0326-0327,U+032C,U+032F-0330,U+0332-0333,U+0338,U+033A,U+0346,U+034D,U+0391-03A1,U+03A3-03A9,U+03B1-03C9,U+03D1,U+03D5-03D6,U+03F0-03F1,U+03F4-03F5,U+2016-2017,U+2034-2038,U+203C,U+2040,U+2043,U+2047,U+2050,U+2057,U+205F,U+2070-2071,U+2074-208E,U+2090-209C,U+20D0-20DC,U+20E1,U+20E5-20EF,U+2100-2112,U+2114-2115,U+2117-2121,U+2123-214F,U+2190,U+2192,U+2194-21AE,U+21B0-21E5,U+21F1-21F2,U+21F4-2211,U+2213-2214,U+2216-22FF,U+2308-230B,U+2310,U+2319,U+231C-2321,U+2336-237A,U+237C,U+2395,U+239B-23B7,U+23D0,U+23DC-23E1,U+2474-2475,U+25AF,U+25B3,U+25B7,U+25BD,U+25C1,U+25CA,U+25CC,U+25FB,U+266D-266F,U+27C0-27FF,U+2900-2AFF,U+2B0E-2B11,U+2B30-2B4C,U+2BFE,U+3030,U+FF5B,U+FF5D,U+1D400-1D7FF,U+1EE00-1EEFF;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:400;src:url(/cf-fonts/v/roboto/5.2.10/latin-ext/wght/normal.woff2);unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:400;src:url(/cf-fonts/v/roboto/5.2.10/cyrillic/wght/normal.woff2);unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:400;src:url(/cf-fonts/v/roboto/5.2.10/symbols/wght/normal.woff2);unicode-range:U+0001-000C,U+000E-001F,U+007F-009F,U+20DD-20E0,U+20E2-20E4,U+2150-218F,U+2190,U+2192,U+2194-2199,U+21AF,U+21E6-21F0,U+21F3,U+2218-2219,U+2299,U+22C4-22C6,U+2300-243F,U+2440-244A,U+2460-24FF,U+25A0-27BF,U+2800-28FF,U+2921-2922,U+2981,U+29BF,U+29EB,U+2B00-2BFF,U+4DC0-4DFF,U+FFF9-FFFB,U+10140-1018E,U+10190-1019C,U+101A0,U+101D0-101FD,U+102E0-102FB,U+10E60-10E7E,U+1D2C0-1D2D3,U+1D2E0-1D37F,U+1F000-1F0FF,U+1F100-1F1AD,U+1F1E6-1F1FF,U+1F30D-1F30F,U+1F315,U+1F31C,U+1F31E,U+1F320-1F32C,U+1F336,U+1F378,U+1F37D,U+1F382,U+1F393-1F39F,U+1F3A7-1F3A8,U+1F3AC-1F3AF,U+1F3C2,U+1F3C4-1F3C6,U+1F3CA-1F3CE,U+1F3D4-1F3E0,U+1F3ED,U+1F3F1-1F3F3,U+1F3F5-1F3F7,U+1F408,U+1F415,U+1F41F,U+1F426,U+1F43F,U+1F441-1F442,U+1F444,U+1F446-1F449,U+1F44C-1F44E,U+1F453,U+1F46A,U+1F47D,U+1F4A3,U+1F4B0,U+1F4B3,U+1F4B9,U+1F4BB,U+1F4BF,U+1F4C8-1F4CB,U+1F4D6,U+1F4DA,U+1F4DF,U+1F4E3-1F4E6,U+1F4EA-1F4ED,U+1F4F7,U+1F4F9-1F4FB,U+1F4FD-1F4FE,U+1F503,U+1F507-1F50B,U+1F50D,U+1F512-1F513,U+1F53E-1F54A,U+1F54F-1F5FA,U+1F610,U+1F650-1F67F,U+1F687,U+1F68D,U+1F691,U+1F694,U+1F698,U+1F6AD,U+1F6B2,U+1F6B9-1F6BA,U+1F6BC,U+1F6C6-1F6CF,U+1F6D3-1F6D7,U+1F6E0-1F6EA,U+1F6F0-1F6F3,U+1F6F7-1F6FC,U+1F700-1F7FF,U+1F800-1F80B,U+1F810-1F847,U+1F850-1F859,U+1F860-1F887,U+1F890-1F8AD,U+1F8B0-1F8BB,U+1F8C0-1F8C1,U+1F900-1F90B,U+1F93B,U+1F946,U+1F984,U+1F996,U+1F9E9,U+1FA00-1FA6F,U+1FA70-1FA7C,U+1FA80-1FA89,U+1FA8F-1FAC6,U+1FACE-1FADC,U+1FADF-1FAE9,U+1FAF0-1FAF8,U+1FB00-1FBFF;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:400;src:url(/cf-fonts/v/roboto/5.2.10/cyrillic-ext/wght/normal.woff2);unicode-range:U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:400;src:url(/cf-fonts/v/roboto/5.2.10/greek/wght/normal.woff2);unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:500;src:url(/cf-fonts/v/roboto/5.2.10/cyrillic-ext/wght/normal.woff2);unicode-range:U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:500;src:url(/cf-fonts/v/roboto/5.2.10/vietnamese/wght/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:500;src:url(/cf-fonts/v/roboto/5.2.10/latin-ext/wght/normal.woff2);unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:500;src:url(/cf-fonts/v/roboto/5.2.10/math/wght/normal.woff2);unicode-range:U+0302-0303,U+0305,U+0307-0308,U+0310,U+0312,U+0315,U+031A,U+0326-0327,U+032C,U+032F-0330,U+0332-0333,U+0338,U+033A,U+0346,U+034D,U+0391-03A1,U+03A3-03A9,U+03B1-03C9,U+03D1,U+03D5-03D6,U+03F0-03F1,U+03F4-03F5,U+2016-2017,U+2034-2038,U+203C,U+2040,U+2043,U+2047,U+2050,U+2057,U+205F,U+2070-2071,U+2074-208E,U+2090-209C,U+20D0-20DC,U+20E1,U+20E5-20EF,U+2100-2112,U+2114-2115,U+2117-2121,U+2123-214F,U+2190,U+2192,U+2194-21AE,U+21B0-21E5,U+21F1-21F2,U+21F4-2211,U+2213-2214,U+2216-22FF,U+2308-230B,U+2310,U+2319,U+231C-2321,U+2336-237A,U+237C,U+2395,U+239B-23B7,U+23D0,U+23DC-23E1,U+2474-2475,U+25AF,U+25B3,U+25B7,U+25BD,U+25C1,U+25CA,U+25CC,U+25FB,U+266D-266F,U+27C0-27FF,U+2900-2AFF,U+2B0E-2B11,U+2B30-2B4C,U+2BFE,U+3030,U+FF5B,U+FF5D,U+1D400-1D7FF,U+1EE00-1EEFF;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:500;src:url(/cf-fonts/v/roboto/5.2.10/cyrillic/wght/normal.woff2);unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:500;src:url(/cf-fonts/v/roboto/5.2.10/latin/wght/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:500;src:url(/cf-fonts/v/roboto/5.2.10/greek/wght/normal.woff2);unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:500;src:url(/cf-fonts/v/roboto/5.2.10/symbols/wght/normal.woff2);unicode-range:U+0001-000C,U+000E-001F,U+007F-009F,U+20DD-20E0,U+20E2-20E4,U+2150-218F,U+2190,U+2192,U+2194-2199,U+21AF,U+21E6-21F0,U+21F3,U+2218-2219,U+2299,U+22C4-22C6,U+2300-243F,U+2440-244A,U+2460-24FF,U+25A0-27BF,U+2800-28FF,U+2921-2922,U+2981,U+29BF,U+29EB,U+2B00-2BFF,U+4DC0-4DFF,U+FFF9-FFFB,U+10140-1018E,U+10190-1019C,U+101A0,U+101D0-101FD,U+102E0-102FB,U+10E60-10E7E,U+1D2C0-1D2D3,U+1D2E0-1D37F,U+1F000-1F0FF,U+1F100-1F1AD,U+1F1E6-1F1FF,U+1F30D-1F30F,U+1F315,U+1F31C,U+1F31E,U+1F320-1F32C,U+1F336,U+1F378,U+1F37D,U+1F382,U+1F393-1F39F,U+1F3A7-1F3A8,U+1F3AC-1F3AF,U+1F3C2,U+1F3C4-1F3C6,U+1F3CA-1F3CE,U+1F3D4-1F3E0,U+1F3ED,U+1F3F1-1F3F3,U+1F3F5-1F3F7,U+1F408,U+1F415,U+1F41F,U+1F426,U+1F43F,U+1F441-1F442,U+1F444,U+1F446-1F449,U+1F44C-1F44E,U+1F453,U+1F46A,U+1F47D,U+1F4A3,U+1F4B0,U+1F4B3,U+1F4B9,U+1F4BB,U+1F4BF,U+1F4C8-1F4CB,U+1F4D6,U+1F4DA,U+1F4DF,U+1F4E3-1F4E6,U+1F4EA-1F4ED,U+1F4F7,U+1F4F9-1F4FB,U+1F4FD-1F4FE,U+1F503,U+1F507-1F50B,U+1F50D,U+1F512-1F513,U+1F53E-1F54A,U+1F54F-1F5FA,U+1F610,U+1F650-1F67F,U+1F687,U+1F68D,U+1F691,U+1F694,U+1F698,U+1F6AD,U+1F6B2,U+1F6B9-1F6BA,U+1F6BC,U+1F6C6-1F6CF,U+1F6D3-1F6D7,U+1F6E0-1F6EA,U+1F6F0-1F6F3,U+1F6F7-1F6FC,U+1F700-1F7FF,U+1F800-1F80B,U+1F810-1F847,U+1F850-1F859,U+1F860-1F887,U+1F890-1F8AD,U+1F8B0-1F8BB,U+1F8C0-1F8C1,U+1F900-1F90B,U+1F93B,U+1F946,U+1F984,U+1F996,U+1F9E9,U+1FA00-1FA6F,U+1FA70-1FA7C,U+1FA80-1FA89,U+1FA8F-1FAC6,U+1FACE-1FADC,U+1FADF-1FAE9,U+1FAF0-1FAF8,U+1FB00-1FBFF;font-display:swap;}@font-face {font-family:'Roboto';font-style:normal;font-weight:500;src:url(/cf-fonts/v/roboto/5.2.10/greek-ext/wght/normal.woff2);unicode-range:U+1F00-1FFF;font-display:swap;}</style>
+<link as="font" crossorigin="" href="/cf-fonts/v/roboto/5.2.10/latin/wght/normal.woff2" rel="preload" type="font/woff2"/>
+<title>Read Berserk Manga Online</title>
+<!-- All in One SEO 5.0.4 - aioseo.com -->
+<meta content="Read Berserk Manga in English Online for free at readberserk.com" name="description"/>
+<meta content="max-image-preview:large" name="robots"/>
+<meta content="berserk,berserk manga,read berserk,read berserk manga,berserk online" name="keywords"/>
+<link href="https://readberserk.com/" rel="canonical"/>
+<meta content="All in One SEO (AIOSEO) 5.0.4" name="generator"/>
+<meta content="en_US" property="og:locale"/>
+<meta content="Read Berserk Manga Online" property="og:site_name"/>
+<meta content="article" property="og:type"/>
+<meta content="Read Berserk Manga Online" property="og:title"/>
+<meta content="Read Berserk Manga in English Online for free at readberserk.com" property="og:description"/>
+<meta content="https://readberserk.com/" property="og:url"/>
+<meta content="https://readberserk.com/wp-content/uploads/2017/06/berserk-1.jpg" property="og:image"/>
+<meta content="https://readberserk.com/wp-content/uploads/2017/06/berserk-1.jpg" property="og:image:secure_url"/>
+<meta content="summary" name="twitter:card"/>
+<meta content="Read Berserk Manga Online" name="twitter:title"/>
+<meta content="Read Berserk Manga in English Online for free at readberserk.com" name="twitter:description"/>
+<meta content="http://readberserk.com/wp-content/uploads/2017/06/berserk-1.jpg" name="twitter:image"/>
+<script class="aioseo-schema" type="application/ld+json">
+			{"@context":"https:\/\/schema.org","@graph":[{"@type":"BreadcrumbList","@id":"https:\/\/readberserk.com\/#breadcrumblist","itemListElement":[{"@type":"ListItem","@id":"https:\/\/readberserk.com\/#listItem","position":1,"name":"Home"}]},{"@type":"CollectionPage","@id":"https:\/\/readberserk.com\/#collectionpage","url":"https:\/\/readberserk.com\/","name":"Read Berserk Manga Online","description":"Read Berserk Manga in English Online for free at readberserk.com","inLanguage":"en-US","isPartOf":{"@id":"https:\/\/readberserk.com\/#website"},"breadcrumb":{"@id":"https:\/\/readberserk.com\/#breadcrumblist"},"about":{"@id":"https:\/\/readberserk.com\/#organization"}},{"@type":"Organization","@id":"https:\/\/readberserk.com\/#organization","name":"Read Berserk Manga Online","description":"Read and Download Berserk Manga in English Online for free at readberserk.com","url":"https:\/\/readberserk.com\/"},{"@type":"WebSite","@id":"https:\/\/readberserk.com\/#website","url":"https:\/\/readberserk.com\/","name":"Read Berserk Manga Online","description":"Read and Download Berserk Manga in English Online for free at readberserk.com","inLanguage":"en-US","publisher":{"@id":"https:\/\/readberserk.com\/#organization"}}]}
+		</script>
+<!-- All in One SEO -->
+<link href="https://readberserk.com/feed/" rel="alternate" title="Read Berserk Manga Online » Feed" type="application/rss+xml"/>
+<link href="https://readberserk.com/comments/feed/" rel="alternate" title="Read Berserk Manga Online » Comments Feed" type="application/rss+xml"/>
+<style id="wp-img-auto-sizes-contain-inline-css">
+img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
+/*# sourceURL=wp-img-auto-sizes-contain-inline-css */
+</style>
+<style id="wp-emoji-styles-inline-css">
+
+	img.wp-smiley, img.emoji {
+		display: inline !important;
+		border: none !important;
+		box-shadow: none !important;
+		height: 1em !important;
+		width: 1em !important;
+		margin: 0 0.07em !important;
+		vertical-align: -0.1em !important;
+		background: none !important;
+		padding: 0 !important;
+	}
+/*# sourceURL=wp-emoji-styles-inline-css */
+</style>
+<style id="wp-block-library-inline-css">
+:root{--wp-block-synced-color:#7a00df;--wp-block-synced-color--rgb:122,0,223;--wp-bound-block-color:var(--wp-block-synced-color);--wp-editor-canvas-background:#ddd;--wp-admin-theme-color:#007cba;--wp-admin-theme-color--rgb:0,124,186;--wp-admin-theme-color-darker-10:#006ba1;--wp-admin-theme-color-darker-10--rgb:0,107,160.5;--wp-admin-theme-color-darker-20:#005a87;--wp-admin-theme-color-darker-20--rgb:0,90,135;--wp-admin-border-width-focus:2px}@media (min-resolution:192dpi){:root{--wp-admin-border-width-focus:1.5px}}.wp-element-button{cursor:pointer}:root .has-very-light-gray-background-color{background-color:#eee}:root .has-very-dark-gray-background-color{background-color:#313131}:root .has-very-light-gray-color{color:#eee}:root .has-very-dark-gray-color{color:#313131}:root .has-vivid-green-cyan-to-vivid-cyan-blue-gradient-background{background:linear-gradient(135deg,#00d084,#0693e3)}:root .has-purple-crush-gradient-background{background:linear-gradient(135deg,#34e2e4,#4721fb 50%,#ab1dfe)}:root .has-hazy-dawn-gradient-background{background:linear-gradient(135deg,#faaca8,#dad0ec)}:root .has-subdued-olive-gradient-background{background:linear-gradient(135deg,#fafae1,#67a671)}:root .has-atomic-cream-gradient-background{background:linear-gradient(135deg,#fdd79a,#004a59)}:root .has-nightshade-gradient-background{background:linear-gradient(135deg,#330968,#31cdcf)}:root .has-midnight-gradient-background{background:linear-gradient(135deg,#020381,#2874fc)}:root{--wp--preset--font-size--normal:16px;--wp--preset--font-size--huge:42px}.has-regular-font-size{font-size:1em}.has-larger-font-size{font-size:2.625em}.has-normal-font-size{font-size:var(--wp--preset--font-size--normal)}.has-huge-font-size{font-size:var(--wp--preset--font-size--huge)}:root .has-text-align-center{text-align:center}:root .has-text-align-left{text-align:left}:root .has-text-align-right{text-align:right}.has-fit-text{white-space:nowrap!important}#end-resizable-editor-section{display:none}.aligncenter{clear:both}.items-justified-left{justify-content:flex-start}.items-justified-center{justify-content:center}.items-justified-right{justify-content:flex-end}.items-justified-space-between{justify-content:space-between}.screen-reader-text{word-wrap:normal!important;border:0;clip-path:inset(50%);height:1px;margin:-1px;overflow:hidden;padding:0;position:absolute;width:1px;word-break:normal!important}.screen-reader-text:focus{background-color:#ddd;clip-path:none;color:#444;display:block;font-size:1em;height:auto;left:5px;line-height:normal;padding:15px 23px 14px;text-decoration:none;top:5px;width:auto;z-index:100000}html :where(.has-border-color){border-style:solid}html :where([style^=border-color],[style*=";border-color"],[style*="; border-color"]){border-style:solid}html :where([style^=border-top-color],[style*=";border-top-color"],[style*="; border-top-color"]){border-top-style:solid}html :where([style^=border-right-color],[style*=";border-right-color"],[style*="; border-right-color"]){border-right-style:solid}html :where([style^=border-bottom-color],[style*=";border-bottom-color"],[style*="; border-bottom-color"]){border-bottom-style:solid}html :where([style^=border-left-color],[style*=";border-left-color"],[style*="; border-left-color"]){border-left-style:solid}html :where([style^=border-width],[style*=";border-width"],[style*="; border-width"]){border-style:solid}html :where([style^=border-top-width],[style*=";border-top-width"],[style*="; border-top-width"]){border-top-style:solid}html :where([style^=border-right-width],[style*=";border-right-width"],[style*="; border-right-width"]){border-right-style:solid}html :where([style^=border-bottom-width],[style*=";border-bottom-width"],[style*="; border-bottom-width"]){border-bottom-style:solid}html :where([style^=border-left-width],[style*=";border-left-width"],[style*="; border-left-width"]){border-left-style:solid}html :where(img[class*=wp-image-]){height:auto;max-width:100%}:where(figure){margin:0 0 1em}html :where(.is-position-sticky){--wp-admin--admin-bar--position-offset:var(--wp-admin--admin-bar--height,0px)}@media screen and (max-width:600px){html :where(.is-position-sticky){--wp-admin--admin-bar--position-offset:0px}}
+
+/*# sourceURL=/wp-includes/css/dist/block-library/common.min.css */
+</style>
+<style id="wp-block-paragraph-inline-css">
+.is-small-text{font-size:.875em}.is-regular-text{font-size:1em}.is-large-text{font-size:2.25em}.is-larger-text{font-size:3em}.has-drop-cap:not(:focus):first-letter{float:left;font-size:8.4em;font-style:normal;font-weight:100;line-height:.68;margin:.05em .1em 0 0;text-transform:uppercase}body.rtl .has-drop-cap:not(:focus):first-letter{float:none;margin-left:.1em}p.has-drop-cap.has-background{overflow:hidden}:root :where(p.has-background){padding:1.25em 2.375em}:where(p.has-text-color:not(.has-link-color)) a{color:inherit}p.has-text-align-left[style*="writing-mode:vertical-lr"],p.has-text-align-right[style*="writing-mode:vertical-rl"]{rotate:180deg}
+/*# sourceURL=https://readberserk.com/wp-includes/blocks/paragraph/style.min.css */
+</style>
+<style id="classic-theme-styles-inline-css">
+/*! This file is auto-generated */
+.wp-block-button__link{color:#fff;background-color:#32373c;border-radius:9999px;box-shadow:none;text-decoration:none;padding:calc(.667em + 2px) calc(1.333em + 2px);font-size:1.125em}.wp-block-file__button{background:#32373c;color:#fff;text-decoration:none}
+/*# sourceURL=/wp-includes/css/classic-themes.min.css */
+</style>
+<link href="https://readberserk.com/wp-content/plugins/dracula-dark-mode/assets/css/frontend.css?ver=1.3.4" id="dracula-frontend-css" media="all" rel="stylesheet"/>
+<style id="global-styles-inline-css">
+:root{--wp--preset--aspect-ratio--square: 1;--wp--preset--aspect-ratio--4-3: 4/3;--wp--preset--aspect-ratio--3-4: 3/4;--wp--preset--aspect-ratio--3-2: 3/2;--wp--preset--aspect-ratio--2-3: 2/3;--wp--preset--aspect-ratio--16-9: 16/9;--wp--preset--aspect-ratio--9-16: 9/16;--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgb(6,147,227) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgb(252,185,0) 0%,rgb(255,105,0) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgb(255,105,0) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgb(255, 255, 255), 6px 6px rgb(0, 0, 0);--wp--preset--shadow--crisp: 6px 6px 0px rgb(0, 0, 0);}.wp-block-button{--wp--preset--dimension--25: 25%;--wp--preset--dimension--50: 50%;--wp--preset--dimension--75: 75%;--wp--preset--dimension--100: 100%;}:where(body) { margin: 0; }:where(.is-layout-flex){gap: 0.5em;}:where(.is-layout-grid){gap: 0.5em;}body .is-layout-flex{display: flex;}.is-layout-flex{flex-wrap: wrap;align-items: center;}.is-layout-flex > :is(*, div){margin: 0;}body .is-layout-grid{display: grid;}.is-layout-grid > :is(*, div){margin: 0;}body{padding-top: 0px;padding-right: 0px;padding-bottom: 0px;padding-left: 0px;}:root :where(.wp-element-button, .wp-block-button__link){background-color: #32373c;border-width: 0;color: #fff;font-family: inherit;font-size: inherit;font-style: inherit;font-weight: inherit;letter-spacing: inherit;line-height: inherit;padding-top: calc(0.667em + 2px);padding-right: calc(1.333em + 2px);padding-bottom: calc(0.667em + 2px);padding-left: calc(1.333em + 2px);text-decoration: none;text-transform: inherit;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+/*# sourceURL=global-styles-inline-css */
+</style>
+<link href="https://readberserk.com/wp-content/themes/Manga/style.css?ver=1.0.0" id="mangapill-style-css" media="all" rel="stylesheet"/>
+<script id="jquery-core-js" src="https://readberserk.com/wp-includes/js/jquery/jquery.min.js?ver=3.7.1" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<script id="jquery-migrate-js" src="https://readberserk.com/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<script id="dracula-dark-mode-js-extra" type="5336d8eb3e05bf641a2a0a26-text/javascript">
+var dracula = {"homeUrl":"https://readberserk.com","adminUrl":"https://readberserk.com/wp-admin/","ajaxUrl":"https://readberserk.com/wp-admin/admin-ajax.php","pluginUrl":"https://readberserk.com/wp-content/plugins/dracula-dark-mode","settings":{"excludes":[""],"lowBrightnessImages":false,"darkenBackgroundImages":false},"isPro":"","nonce":"617516bdd5","switches":{"1":"\u003Cdiv class=\"toggle-icon-wrap dracula-ignore\"\u003E \u003Cdiv class=\"toggle-icon __dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"toggle-icon __light\"\u003E\u003C/div\u003E \u003C/div\u003E","2":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"dracula-toggle-label\"\u003E \u003Cspan class=\"--light\"\u003ELight\u003C/span\u003E \u003Cspan class=\"--dark\"\u003EDark\u003C/span\u003E \u003C/div\u003E","3":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","4":"\u003Cdiv class=\"prefix-icon\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"suffix-icon\"\u003E\u003C/div\u003E","5":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E","6":"\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E \u003C/div\u003E","7":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","8":"\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","9":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","10":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","11":"\u003Cdiv class=\"toggle-prefix\"\u003ELight\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-suffix\"\u003EDark\u003C/div\u003E","12":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","13":"\u003Cspan class=\"toggle-prefix-icon\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-prefix-text\"\u003EDark Mode\u003C/span\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","14":"\u003Cspan class=\"dracula-toggle-icon\"\u003E\u003C/span\u003E \u003Cdiv class=\"toggle-modal dracula-ignore\"\u003E \u003Cdiv class=\"toggle-modal-content\"\u003E \u003Cdiv class=\"toggle-option light\"\u003E \u003Cspan class=\"toggle-option-icon --light\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-option-label\"\u003ELight Mode\u003C/span\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-option dark\"\u003E \u003Cspan class=\"toggle-option-icon --dark\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-option-label\"\u003EDark Mode\u003C/span\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-option auto\"\u003E \u003Cspan class=\"toggle-option-icon --auto\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-option-label\"\u003ESystem Mode\u003C/span\u003E \u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-modal-arrow\"\u003E\u003C/div\u003E \u003C/div\u003E","15":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\u003C/div\u003E","16":"\u003Cspan class=\"toggle-prefix-icon\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-prefix-text dracula-toggle-text\"\u003ELight Mode\u003C/span\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","17":"\u003Cbutton class=\"dracula-toggle-icon --typography\"\u003E\u003C/button\u003E \u003Cbutton class=\"dracula-toggle-icon --light\"\u003E\u003C/button\u003E","18":"\u003Cbutton type=\"button\" class=\"dracula-toggle-icon --light\"\u003E\u003C/button\u003E \u003Cbutton type=\"button\" class=\"dracula-toggle-icon --typography\"\u003E\u003C/button\u003E"},"customSwitches":{"1":"\u003Cdiv class=\"toggle-icon-wrap\"\u003E\n\t\t\t\t\u003Cspan class=\"toggle-icon __dark\"\u003E\u003C/span\u003E\n\t\t\t\t\u003Cspan class=\"toggle-icon __light\"\u003E\u003C/span\u003E\n\t\t\t\u003C/div\u003E","2":"\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon position-before\"\u003E\u003C/div\u003E\n\t\t\t\u003Cdiv class=\"dracula-toggle-label\"\u003E\n                \u003Cspan class=\"--light\"\u003E\u003C/span\u003E\n                \u003Cspan class=\"--dark\"\u003E\u003C/span\u003E\n            \u003C/div\u003E\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon position-after\"\u003E\u003C/div\u003E\n\t\t","3":"\n\t\t\t\u003Cdiv class=\"toggle-prefix\"\u003E\u003C/div\u003E\n            \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\n                \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E\n            \u003C/div\u003E\n            \u003Cdiv class=\"toggle-suffix\"\u003E\u003C/div\u003E\n\t\t","4":"\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\n                \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E\n            \u003C/div\u003E\n\n            \u003Cdiv class=\"dracula-toggle-label\"\u003E\n                \u003Cspan class=\"--light\"\u003E\u003C/span\u003E\n                \u003Cspan class=\"--dark\"\u003E\u003C/span\u003E\n            \u003C/div\u003E\n\t\t","5":"\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\n                \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E\n            \u003C/div\u003E\n\n            \u003Cspan class=\"dracula-toggle-label --light\"\u003E\u003C/span\u003E\n            \u003Cspan class=\"dracula-toggle-label --dark\"\u003E\u003C/span\u003E\n\t\t"},"presets":[{"key":"default","label":"Default","colors":{"bg":"#181a1b","text":"#e8e6e3","secondary_bg":"#202324","link":"#6ea5d9","link_hover":"#88b9e3","btn_bg":"#3b6f99","btn_text":"#dcdcdc","btn_text_hover":"#f0f0f0","btn_hover_bg":"#325d80","input_text":"#e8e6e3","input_bg":"#1f2223","input_placeholder":"#8c8c8c","border":"#2d2d2d"}},{"key":"dracula","label":"Dracula","colors":{"bg":"#282b36","text":"#e8e6e3","secondary_bg":"#343746","link":"#9a87cc","link_hover":"#b79ce2","btn_bg":"#5a6288","btn_text":"#dedede","btn_text_hover":"#f0f0f0","btn_hover_bg":"#4b5274","input_text":"#e8e6e3","input_bg":"#3a3c4e","input_placeholder":"#8b8b9c","border":"#45475a"}},{"key":"catppuccin","label":"Catppuccin","isPro":true,"colors":{"bg":"#161320","text":"#d9e0ee","secondary_bg":"#1e1a2e","link":"#b69ad8","link_hover":"#c5b0e1","btn_bg":"#8a74b8","btn_text":"#d9e0ee","btn_text_hover":"#ffffff","btn_hover_bg":"#7a66a3","input_text":"#d9e0ee","input_bg":"#1e1a2e","input_placeholder":"#8e89a3","border":"#2a2438"}},{"key":"gruvbox","label":"Gruvbox","isPro":true,"colors":{"bg":"#282828","text":"#ebdbb2","secondary_bg":"#32302f","link":"#d4a73c","link_hover":"#e0b252","btn_bg":"#a97e2c","btn_text":"#ebdbb2","btn_text_hover":"#ffffff","btn_hover_bg":"#8f6a25","input_text":"#ebdbb2","input_bg":"#32302f","input_placeholder":"#a89984","border":"#504945"}},{"key":"nord","label":"Nord","isPro":true,"colors":{"bg":"#2e3440","text":"#eceff4","secondary_bg":"#3b4252","link":"#88c0d0","link_hover":"#a3d1dc","btn_bg":"#5e81ac","btn_text":"#eceff4","btn_text_hover":"#ffffff","btn_hover_bg":"#4c6a92","input_text":"#eceff4","input_bg":"#434c5e","input_placeholder":"#9aa0a6","border":"#4c566a"}},{"key":"rosePine","label":"Rose Pine","isPro":true,"colors":{"bg":"#191724","text":"#e0def4","secondary_bg":"#1f1d2e","link":"#d2879d","link_hover":"#e2a3b7","btn_bg":"#6d879c","btn_text":"#e0def4","btn_text_hover":"#ffffff","btn_hover_bg":"#5a6f81","input_text":"#e0def4","input_bg":"#26233a","input_placeholder":"#908caa","border":"#524f67"}},{"key":"solarized","label":"Solarized","isPro":true,"colors":{"bg":"#002b36","text":"#93a1a1","secondary_bg":"#073642","link":"#6aa6a6","link_hover":"#82bcbc","btn_bg":"#2f5f66","btn_text":"#cfe3e3","btn_text_hover":"#e6f0f0","btn_hover_bg":"#2a5359","input_text":"#a7b6b6","input_bg":"#0d3944","input_placeholder":"#6f8383","border":"#0f3a44"}},{"key":"tokyoNight","label":"Tokyo Night","colors":{"bg":"#1a1b26","text":"#a9b1d6","secondary_bg":"#1f2230","link":"#7aa2f7","link_hover":"#8fb5ff","btn_bg":"#3b4a7a","btn_text":"#cfd6f2","btn_text_hover":"#ffffff","btn_hover_bg":"#323f68","input_text":"#b7bfe1","input_bg":"#212335","input_placeholder":"#7c85a9","border":"#2a2e42"}},{"key":"monokai","label":"Monokai","colors":{"bg":"#272822","text":"#f8f8f2","secondary_bg":"#2f302a","link":"#8fc66a","link_hover":"#a1d57a","btn_bg":"#5b6e4a","btn_text":"#e6f1dd","btn_text_hover":"#ffffff","btn_hover_bg":"#4d5e3f","input_text":"#efeede","input_bg":"#303126","input_placeholder":"#9aa08f","border":"#3a3b33"}},{"key":"ayuMirage","label":"Ayu Mirage","colors":{"bg":"#1f2430","text":"#cbccc6","secondary_bg":"#252b39","link":"#9ccfd8","link_hover":"#b7e0e6","btn_bg":"#5f7890","btn_text":"#dfe2e0","btn_text_hover":"#ffffff","btn_hover_bg":"#50677d","input_text":"#d5d6d0","input_bg":"#262d3b","input_placeholder":"#8d94a1","border":"#2c3443"}},{"key":"ayuDark","label":"Ayu Dark","colors":{"bg":"#0a0e14","text":"#b3b1ad","secondary_bg":"#121721","link":"#5aa7c8","link_hover":"#72b8d5","btn_bg":"#3a6075","btn_text":"#cfd6da","btn_text_hover":"#e7eef2","btn_hover_bg":"#314f61","input_text":"#c2c0bc","input_bg":"#121722","input_placeholder":"#808693","border":"#1b2230"}},{"key":"material","label":"Material","colors":{"bg":"#263238","text":"#eceff1","secondary_bg":"#2e3b41","link":"#82b1ff","link_hover":"#9bbfff","btn_bg":"#546e7a","btn_text":"#e6eff3","btn_text_hover":"#ffffff","btn_hover_bg":"#465c65","input_text":"#e4eaee","input_bg":"#2b3940","input_placeholder":"#9aaab1","border":"#31434a"}},{"key":"oneDark","label":"One Dark","colors":{"bg":"#282c34","text":"#abb2bf","secondary_bg":"#2f3440","link":"#6fb4f0","link_hover":"#89c2f4","btn_bg":"#3d5872","btn_text":"#cfd6e2","btn_text_hover":"#eaf1fb","btn_hover_bg":"#334a60","input_text":"#b9c0cd","input_bg":"#2c303a","input_placeholder":"#8a909c","border":"#3a3f4a"}},{"key":"oceanicNext","label":"Oceanic Next","colors":{"bg":"#1B2B34","text":"#CDD3DE","secondary_bg":"#203340","link":"#5fb3b3","link_hover":"#77c4c4","btn_bg":"#3f6d6d","btn_text":"#d8e4e4","btn_text_hover":"#f0f7f7","btn_hover_bg":"#355c5c","input_text":"#d2d8e1","input_bg":"#223746","input_placeholder":"#8ca1ad","border":"#2a4050"}},{"key":"cityLights","label":"City Lights","colors":{"bg":"#1d252c","text":"#b6bfc4","secondary_bg":"#232c34","link":"#76a8d9","link_hover":"#8bb9e3","btn_bg":"#3e5f7a","btn_text":"#d4dde2","btn_text_hover":"#f0f6fb","btn_hover_bg":"#344f66","input_text":"#c2cbd0","input_bg":"#232c34","input_placeholder":"#8b97a0","border":"#2a343e"}},{"key":"nightOwl","label":"Night Owl","colors":{"bg":"#011627","text":"#d6deeb","secondary_bg":"#071d33","link":"#82aaff","link_hover":"#9bb6ff","btn_bg":"#425b8a","btn_text":"#e4ecfa","btn_text_hover":"#ffffff","btn_hover_bg":"#394f78","input_text":"#dbe3f0","input_bg":"#0a1f36","input_placeholder":"#8aa0be","border":"#0f2740"}},{"key":"youtube","label":"YouTube","colors":{"bg":"#181818","text":"#ffffff","secondary_bg":"#202020","link":"#e05a5a","link_hover":"#ff6b6b","btn_bg":"#8a2b2b","btn_text":"#f2f2f2","btn_text_hover":"#ffffff","btn_hover_bg":"#722424","input_text":"#f0f0f0","input_bg":"#222222","input_placeholder":"#9a9a9a","border":"#2a2a2a"}},{"key":"twitter","label":"Twitter","colors":{"bg":"#15202b","text":"#ffffff","secondary_bg":"#1b2733","link":"#69b3ff","link_hover":"#8cc6ff","btn_bg":"#3a6fa1","btn_text":"#e8f3ff","btn_text_hover":"#ffffff","btn_hover_bg":"#325f8a","input_text":"#eef6ff","input_bg":"#1e2a36","input_placeholder":"#8ea5bd","border":"#263544"}},{"key":"reddit","label":"Reddit (Night mode)","colors":{"bg":"#1a1a1b","text":"#d7dadc","secondary_bg":"#202021","link":"#ff9566","link_hover":"#ffb187","btn_bg":"#7a4a2e","btn_text":"#efd9cf","btn_text_hover":"#ffffff","btn_hover_bg":"#693f27","input_text":"#e3e6e8","input_bg":"#222223","input_placeholder":"#9aa0a3","border":"#2a2a2b"}},{"key":"discord","label":"Discord","colors":{"bg":"#36393f","text":"#dcddde","secondary_bg":"#3c4047","link":"#8ea1e1","link_hover":"#a5b3ea","btn_bg":"#4957d6","btn_text":"#e7e9ff","btn_text_hover":"#ffffff","btn_hover_bg":"#3f4bc0","input_text":"#e3e4e6","input_bg":"#40444b","input_placeholder":"#9aa1ae","border":"#454a52"}},{"key":"slack","label":"Slack","colors":{"bg":"#1d1c1d","text":"#e7e7e7","secondary_bg":"#232223","link":"#cf8fb6","link_hover":"#dda6c5","btn_bg":"#6b5a6e","btn_text":"#efe3ef","btn_text_hover":"#ffffff","btn_hover_bg":"#5b4d5d","input_text":"#ededed","input_bg":"#242324","input_placeholder":"#9a969b","border":"#2a292a"}},{"key":"whatsapp","label":"WhatsApp","colors":{"bg":"#121212","text":"#e6e5e4","secondary_bg":"#161616","link":"#67b97a","link_hover":"#7acc8d","btn_bg":"#2f6b3e","btn_text":"#d8f0df","btn_text_hover":"#f2fff6","btn_hover_bg":"#285b35","input_text":"#ecebe9","input_bg":"#1a1a1a","input_placeholder":"#8d8d8d","border":"#222222"}},{"key":"github","label":"GitHub","colors":{"bg":"#0d1117","text":"#c9d1d9","secondary_bg":"#11161e","link":"#6aa6ff","link_hover":"#8abaff","btn_bg":"#2f3a4a","btn_text":"#d8e2ec","btn_text_hover":"#ffffff","btn_hover_bg":"#26303d","input_text":"#d3dbe2","input_bg":"#0f1420","input_placeholder":"#8894a1","border":"#1a2230"}},{"key":"stackoverflow","label":"StackOverflow","colors":{"bg":"#2d2d2d","text":"#f2f2f2","secondary_bg":"#333333","link":"#ffa654","link_hover":"#ffbb7a","btn_bg":"#7a4e1f","btn_text":"#fdeedd","btn_text_hover":"#ffffff","btn_hover_bg":"#683f18","input_text":"#f0f0f0","input_bg":"#353535","input_placeholder":"#9a9a9a","border":"#3c3c3c"}}]};
+var dracula = {"homeUrl":"https://readberserk.com","adminUrl":"https://readberserk.com/wp-admin/","ajaxUrl":"https://readberserk.com/wp-admin/admin-ajax.php","pluginUrl":"https://readberserk.com/wp-content/plugins/dracula-dark-mode","settings":{"excludes":[""],"lowBrightnessImages":false,"darkenBackgroundImages":false},"isPro":"","nonce":"617516bdd5","switches":{"1":"\u003Cdiv class=\"toggle-icon-wrap dracula-ignore\"\u003E \u003Cdiv class=\"toggle-icon __dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"toggle-icon __light\"\u003E\u003C/div\u003E \u003C/div\u003E","2":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"dracula-toggle-label\"\u003E \u003Cspan class=\"--light\"\u003ELight\u003C/span\u003E \u003Cspan class=\"--dark\"\u003EDark\u003C/span\u003E \u003C/div\u003E","3":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","4":"\u003Cdiv class=\"prefix-icon\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"suffix-icon\"\u003E\u003C/div\u003E","5":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E","6":"\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E \u003C/div\u003E","7":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","8":"\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","9":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","10":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","11":"\u003Cdiv class=\"toggle-prefix\"\u003ELight\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-suffix\"\u003EDark\u003C/div\u003E","12":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","13":"\u003Cspan class=\"toggle-prefix-icon\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-prefix-text\"\u003EDark Mode\u003C/span\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","14":"\u003Cspan class=\"dracula-toggle-icon\"\u003E\u003C/span\u003E \u003Cdiv class=\"toggle-modal dracula-ignore\"\u003E \u003Cdiv class=\"toggle-modal-content\"\u003E \u003Cdiv class=\"toggle-option light\"\u003E \u003Cspan class=\"toggle-option-icon --light\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-option-label\"\u003ELight Mode\u003C/span\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-option dark\"\u003E \u003Cspan class=\"toggle-option-icon --dark\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-option-label\"\u003EDark Mode\u003C/span\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-option auto\"\u003E \u003Cspan class=\"toggle-option-icon --auto\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-option-label\"\u003ESystem Mode\u003C/span\u003E \u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-modal-arrow\"\u003E\u003C/div\u003E \u003C/div\u003E","15":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\u003C/div\u003E","16":"\u003Cspan class=\"toggle-prefix-icon\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-prefix-text dracula-toggle-text\"\u003ELight Mode\u003C/span\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","17":"\u003Cbutton class=\"dracula-toggle-icon --typography\"\u003E\u003C/button\u003E \u003Cbutton class=\"dracula-toggle-icon --light\"\u003E\u003C/button\u003E","18":"\u003Cbutton type=\"button\" class=\"dracula-toggle-icon --light\"\u003E\u003C/button\u003E \u003Cbutton type=\"button\" class=\"dracula-toggle-icon --typography\"\u003E\u003C/button\u003E"},"customSwitches":{"1":"\u003Cdiv class=\"toggle-icon-wrap\"\u003E\n\t\t\t\t\u003Cspan class=\"toggle-icon __dark\"\u003E\u003C/span\u003E\n\t\t\t\t\u003Cspan class=\"toggle-icon __light\"\u003E\u003C/span\u003E\n\t\t\t\u003C/div\u003E","2":"\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon position-before\"\u003E\u003C/div\u003E\n\t\t\t\u003Cdiv class=\"dracula-toggle-label\"\u003E\n                \u003Cspan class=\"--light\"\u003E\u003C/span\u003E\n                \u003Cspan class=\"--dark\"\u003E\u003C/span\u003E\n            \u003C/div\u003E\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon position-after\"\u003E\u003C/div\u003E\n\t\t","3":"\n\t\t\t\u003Cdiv class=\"toggle-prefix\"\u003E\u003C/div\u003E\n            \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\n                \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E\n            \u003C/div\u003E\n            \u003Cdiv class=\"toggle-suffix\"\u003E\u003C/div\u003E\n\t\t","4":"\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\n                \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E\n            \u003C/div\u003E\n\n            \u003Cdiv class=\"dracula-toggle-label\"\u003E\n                \u003Cspan class=\"--light\"\u003E\u003C/span\u003E\n                \u003Cspan class=\"--dark\"\u003E\u003C/span\u003E\n            \u003C/div\u003E\n\t\t","5":"\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\n                \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E\n            \u003C/div\u003E\n\n            \u003Cspan class=\"dracula-toggle-label --light\"\u003E\u003C/span\u003E\n            \u003Cspan class=\"dracula-toggle-label --dark\"\u003E\u003C/span\u003E\n\t\t"},"presets":[{"key":"default","label":"Default","colors":{"bg":"#181a1b","text":"#e8e6e3","secondary_bg":"#202324","link":"#6ea5d9","link_hover":"#88b9e3","btn_bg":"#3b6f99","btn_text":"#dcdcdc","btn_text_hover":"#f0f0f0","btn_hover_bg":"#325d80","input_text":"#e8e6e3","input_bg":"#1f2223","input_placeholder":"#8c8c8c","border":"#2d2d2d"}},{"key":"dracula","label":"Dracula","colors":{"bg":"#282b36","text":"#e8e6e3","secondary_bg":"#343746","link":"#9a87cc","link_hover":"#b79ce2","btn_bg":"#5a6288","btn_text":"#dedede","btn_text_hover":"#f0f0f0","btn_hover_bg":"#4b5274","input_text":"#e8e6e3","input_bg":"#3a3c4e","input_placeholder":"#8b8b9c","border":"#45475a"}},{"key":"catppuccin","label":"Catppuccin","isPro":true,"colors":{"bg":"#161320","text":"#d9e0ee","secondary_bg":"#1e1a2e","link":"#b69ad8","link_hover":"#c5b0e1","btn_bg":"#8a74b8","btn_text":"#d9e0ee","btn_text_hover":"#ffffff","btn_hover_bg":"#7a66a3","input_text":"#d9e0ee","input_bg":"#1e1a2e","input_placeholder":"#8e89a3","border":"#2a2438"}},{"key":"gruvbox","label":"Gruvbox","isPro":true,"colors":{"bg":"#282828","text":"#ebdbb2","secondary_bg":"#32302f","link":"#d4a73c","link_hover":"#e0b252","btn_bg":"#a97e2c","btn_text":"#ebdbb2","btn_text_hover":"#ffffff","btn_hover_bg":"#8f6a25","input_text":"#ebdbb2","input_bg":"#32302f","input_placeholder":"#a89984","border":"#504945"}},{"key":"nord","label":"Nord","isPro":true,"colors":{"bg":"#2e3440","text":"#eceff4","secondary_bg":"#3b4252","link":"#88c0d0","link_hover":"#a3d1dc","btn_bg":"#5e81ac","btn_text":"#eceff4","btn_text_hover":"#ffffff","btn_hover_bg":"#4c6a92","input_text":"#eceff4","input_bg":"#434c5e","input_placeholder":"#9aa0a6","border":"#4c566a"}},{"key":"rosePine","label":"Rose Pine","isPro":true,"colors":{"bg":"#191724","text":"#e0def4","secondary_bg":"#1f1d2e","link":"#d2879d","link_hover":"#e2a3b7","btn_bg":"#6d879c","btn_text":"#e0def4","btn_text_hover":"#ffffff","btn_hover_bg":"#5a6f81","input_text":"#e0def4","input_bg":"#26233a","input_placeholder":"#908caa","border":"#524f67"}},{"key":"solarized","label":"Solarized","isPro":true,"colors":{"bg":"#002b36","text":"#93a1a1","secondary_bg":"#073642","link":"#6aa6a6","link_hover":"#82bcbc","btn_bg":"#2f5f66","btn_text":"#cfe3e3","btn_text_hover":"#e6f0f0","btn_hover_bg":"#2a5359","input_text":"#a7b6b6","input_bg":"#0d3944","input_placeholder":"#6f8383","border":"#0f3a44"}},{"key":"tokyoNight","label":"Tokyo Night","colors":{"bg":"#1a1b26","text":"#a9b1d6","secondary_bg":"#1f2230","link":"#7aa2f7","link_hover":"#8fb5ff","btn_bg":"#3b4a7a","btn_text":"#cfd6f2","btn_text_hover":"#ffffff","btn_hover_bg":"#323f68","input_text":"#b7bfe1","input_bg":"#212335","input_placeholder":"#7c85a9","border":"#2a2e42"}},{"key":"monokai","label":"Monokai","colors":{"bg":"#272822","text":"#f8f8f2","secondary_bg":"#2f302a","link":"#8fc66a","link_hover":"#a1d57a","btn_bg":"#5b6e4a","btn_text":"#e6f1dd","btn_text_hover":"#ffffff","btn_hover_bg":"#4d5e3f","input_text":"#efeede","input_bg":"#303126","input_placeholder":"#9aa08f","border":"#3a3b33"}},{"key":"ayuMirage","label":"Ayu Mirage","colors":{"bg":"#1f2430","text":"#cbccc6","secondary_bg":"#252b39","link":"#9ccfd8","link_hover":"#b7e0e6","btn_bg":"#5f7890","btn_text":"#dfe2e0","btn_text_hover":"#ffffff","btn_hover_bg":"#50677d","input_text":"#d5d6d0","input_bg":"#262d3b","input_placeholder":"#8d94a1","border":"#2c3443"}},{"key":"ayuDark","label":"Ayu Dark","colors":{"bg":"#0a0e14","text":"#b3b1ad","secondary_bg":"#121721","link":"#5aa7c8","link_hover":"#72b8d5","btn_bg":"#3a6075","btn_text":"#cfd6da","btn_text_hover":"#e7eef2","btn_hover_bg":"#314f61","input_text":"#c2c0bc","input_bg":"#121722","input_placeholder":"#808693","border":"#1b2230"}},{"key":"material","label":"Material","colors":{"bg":"#263238","text":"#eceff1","secondary_bg":"#2e3b41","link":"#82b1ff","link_hover":"#9bbfff","btn_bg":"#546e7a","btn_text":"#e6eff3","btn_text_hover":"#ffffff","btn_hover_bg":"#465c65","input_text":"#e4eaee","input_bg":"#2b3940","input_placeholder":"#9aaab1","border":"#31434a"}},{"key":"oneDark","label":"One Dark","colors":{"bg":"#282c34","text":"#abb2bf","secondary_bg":"#2f3440","link":"#6fb4f0","link_hover":"#89c2f4","btn_bg":"#3d5872","btn_text":"#cfd6e2","btn_text_hover":"#eaf1fb","btn_hover_bg":"#334a60","input_text":"#b9c0cd","input_bg":"#2c303a","input_placeholder":"#8a909c","border":"#3a3f4a"}},{"key":"oceanicNext","label":"Oceanic Next","colors":{"bg":"#1B2B34","text":"#CDD3DE","secondary_bg":"#203340","link":"#5fb3b3","link_hover":"#77c4c4","btn_bg":"#3f6d6d","btn_text":"#d8e4e4","btn_text_hover":"#f0f7f7","btn_hover_bg":"#355c5c","input_text":"#d2d8e1","input_bg":"#223746","input_placeholder":"#8ca1ad","border":"#2a4050"}},{"key":"cityLights","label":"City Lights","colors":{"bg":"#1d252c","text":"#b6bfc4","secondary_bg":"#232c34","link":"#76a8d9","link_hover":"#8bb9e3","btn_bg":"#3e5f7a","btn_text":"#d4dde2","btn_text_hover":"#f0f6fb","btn_hover_bg":"#344f66","input_text":"#c2cbd0","input_bg":"#232c34","input_placeholder":"#8b97a0","border":"#2a343e"}},{"key":"nightOwl","label":"Night Owl","colors":{"bg":"#011627","text":"#d6deeb","secondary_bg":"#071d33","link":"#82aaff","link_hover":"#9bb6ff","btn_bg":"#425b8a","btn_text":"#e4ecfa","btn_text_hover":"#ffffff","btn_hover_bg":"#394f78","input_text":"#dbe3f0","input_bg":"#0a1f36","input_placeholder":"#8aa0be","border":"#0f2740"}},{"key":"youtube","label":"YouTube","colors":{"bg":"#181818","text":"#ffffff","secondary_bg":"#202020","link":"#e05a5a","link_hover":"#ff6b6b","btn_bg":"#8a2b2b","btn_text":"#f2f2f2","btn_text_hover":"#ffffff","btn_hover_bg":"#722424","input_text":"#f0f0f0","input_bg":"#222222","input_placeholder":"#9a9a9a","border":"#2a2a2a"}},{"key":"twitter","label":"Twitter","colors":{"bg":"#15202b","text":"#ffffff","secondary_bg":"#1b2733","link":"#69b3ff","link_hover":"#8cc6ff","btn_bg":"#3a6fa1","btn_text":"#e8f3ff","btn_text_hover":"#ffffff","btn_hover_bg":"#325f8a","input_text":"#eef6ff","input_bg":"#1e2a36","input_placeholder":"#8ea5bd","border":"#263544"}},{"key":"reddit","label":"Reddit (Night mode)","colors":{"bg":"#1a1a1b","text":"#d7dadc","secondary_bg":"#202021","link":"#ff9566","link_hover":"#ffb187","btn_bg":"#7a4a2e","btn_text":"#efd9cf","btn_text_hover":"#ffffff","btn_hover_bg":"#693f27","input_text":"#e3e6e8","input_bg":"#222223","input_placeholder":"#9aa0a3","border":"#2a2a2b"}},{"key":"discord","label":"Discord","colors":{"bg":"#36393f","text":"#dcddde","secondary_bg":"#3c4047","link":"#8ea1e1","link_hover":"#a5b3ea","btn_bg":"#4957d6","btn_text":"#e7e9ff","btn_text_hover":"#ffffff","btn_hover_bg":"#3f4bc0","input_text":"#e3e4e6","input_bg":"#40444b","input_placeholder":"#9aa1ae","border":"#454a52"}},{"key":"slack","label":"Slack","colors":{"bg":"#1d1c1d","text":"#e7e7e7","secondary_bg":"#232223","link":"#cf8fb6","link_hover":"#dda6c5","btn_bg":"#6b5a6e","btn_text":"#efe3ef","btn_text_hover":"#ffffff","btn_hover_bg":"#5b4d5d","input_text":"#ededed","input_bg":"#242324","input_placeholder":"#9a969b","border":"#2a292a"}},{"key":"whatsapp","label":"WhatsApp","colors":{"bg":"#121212","text":"#e6e5e4","secondary_bg":"#161616","link":"#67b97a","link_hover":"#7acc8d","btn_bg":"#2f6b3e","btn_text":"#d8f0df","btn_text_hover":"#f2fff6","btn_hover_bg":"#285b35","input_text":"#ecebe9","input_bg":"#1a1a1a","input_placeholder":"#8d8d8d","border":"#222222"}},{"key":"github","label":"GitHub","colors":{"bg":"#0d1117","text":"#c9d1d9","secondary_bg":"#11161e","link":"#6aa6ff","link_hover":"#8abaff","btn_bg":"#2f3a4a","btn_text":"#d8e2ec","btn_text_hover":"#ffffff","btn_hover_bg":"#26303d","input_text":"#d3dbe2","input_bg":"#0f1420","input_placeholder":"#8894a1","border":"#1a2230"}},{"key":"stackoverflow","label":"StackOverflow","colors":{"bg":"#2d2d2d","text":"#f2f2f2","secondary_bg":"#333333","link":"#ffa654","link_hover":"#ffbb7a","btn_bg":"#7a4e1f","btn_text":"#fdeedd","btn_text_hover":"#ffffff","btn_hover_bg":"#683f18","input_text":"#f0f0f0","input_bg":"#353535","input_placeholder":"#9a9a9a","border":"#3c3c3c"}}]};
+//# sourceURL=dracula-dark-mode-js-extra
+</script>
+<script id="dracula-dark-mode-js" src="https://readberserk.com/wp-content/plugins/dracula-dark-mode/assets/js/dark-mode.js?ver=1.3.4" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<script id="mangapill-bundle-js" src="https://readberserk.com/wp-content/themes/Manga/js/bundle.js?ver=1.0.0" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<link href="https://readberserk.com/wp-json/" rel="https://api.w.org/"/><link href="https://readberserk.com/xmlrpc.php?rsd" rel="EditURI" title="RSD" type="application/rsd+xml"/>
+<meta content="WordPress 7.1.4" name="generator"/>
+<!-- Colors Variable -->
+<style class="dracula-inline-css" id="dracula-inline-css">
+    :not(.menu-item) > .dracula-toggle-wrap .dracula-toggle{ --toggle-scale: 1; }.menu-item-type-dracula-dark-mode-switch .dracula-toggle{ --toggle-scale: 1; }</style>
+<style id="dracula-scrollbar-css">
+        html,
+        * {
+            scrollbar-width: thin;
+
+            &[data-dracula-scheme="dark"] {
+                scrollbar-color: #3e4142 #2a2d2e;
+            }
+        }
+    </style>
+<script type="5336d8eb3e05bf641a2a0a26-text/javascript">
+    const isPerformanceMode = false;
+
+    const isStatic = false;
+    const isDefaultMode = false;
+    const isAuto = true;
+    const isTimeBasedMode = false;
+    const timeBasedModeStart = "19:00";
+    const timeBasedModeEnd = "07:00";
+    const urlParameterEnabled = false;
+
+    const draculaConfig = {"mode":1,"brightness":100,"contrast":90,"sepia":10,"grayscale":0,"excludes":".dracula-ignore","darkenBackgroundImages":false,"textStroke":"0","scrollbarColor":"auto"};
+
+    function initDraculaDarkMode() {
+        const draculaDarkMode = window.draculaDarkMode;
+
+        if (isDefaultMode) {
+            window.draculaMode = 'dark';
+        }
+
+        const savedMode = localStorage.getItem('dracula_mode');
+
+        if (savedMode) {
+            window.draculaMode = savedMode;
+        }
+
+        if ('dark' === window.draculaMode) {
+            draculaDarkMode?.enable(draculaConfig);
+        } else if ('auto' === savedMode || (isAuto && !savedMode)) {
+            draculaDarkMode?.auto(draculaConfig);
+        }
+
+        // Time based mode
+        
+        // URL Parameter
+        
+        if (draculaDarkMode?.isEnabled()) {
+            jQuery(document).ready(function() {
+                // Change toggle text
+                const toggleTextElements = document.querySelectorAll('.toggle-prefix-text');
+                toggleTextElements.forEach(el => {
+                    el.textContent = "Dark Mode";
+                });
+
+                // Send dark mode page view analytics event
+                if (dracula.isPro && dracula.settings.enableAnalytics) {
+                    wp.ajax.post('dracula_track_analytics', {
+                        type: 'dark_view'
+                    });
+                }
+            });
+        } else {
+            const toggleTextElements = document.querySelectorAll('.toggle-prefix-text');
+            toggleTextElements.forEach(el => {
+                el.textContent = "Light Mode";
+            });
+        }
+    }
+
+    if (isPerformanceMode) {
+            } else {
+        initDraculaDarkMode();
+    }
+</script><link href="/apple-touch-icon.png" rel="apple-touch-icon"/>
+<link href="/apple-touch-icon-152x152-precomposed.png" rel="apple-touch-icon" sizes="152x152"/>
+<link href="/apple-touch-icon-120x120.png" rel="apple-touch-icon" sizes="120x120"/>
+<link href="/apple-touch-icon-120x120-precomposed.png" rel="apple-touch-icon" sizes="120x120"/>
+<link href="/apple-touch-icon-152x152.png" rel="apple-touch-icon" sizes="152x152"/>
+<meta content="https://readberserk.com/wp-content/uploads/2017/06/berserk.jpg" property="og:image"/>
+<!-- Yandex tag (gtag.js) Start-->
+<script type="5336d8eb3e05bf641a2a0a26-text/javascript">(function(s){s.dataset.zone='11744342',s.src='https://dd133.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+<!-- Yandex tag (gtag.js) End-->
+<!--GKSTCK-->
+<script async="" data-cfasync="false" src="//wn.fuzeszoeal.com/s8ZW4yh5oiEjcw/145971" type="text/javascript"></script>
+<!-- Google tag (gtag.js) -->
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-DLZVH4PZFQ" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<script type="5336d8eb3e05bf641a2a0a26-text/javascript">
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+		    if (typeof gtag === 'function') {
+  gtag('js', new Date());
+
+  gtag('config', 'G-DLZVH4PZFQ');
+				}
+</script>
+<meta content="envJ_mrQjxfFz_Y520-GrF8kwOb9ADjsskWygR7rBWk" name="google-site-verification"/>
+<script type="5336d8eb3e05bf641a2a0a26-text/javascript">(function(d,z,s){s.src='https://'+d+'/401/'+z;try{(document.body||document.documentElement).appendChild(s)}catch(e){}})('wugroansaghadry.com',9653971,document.createElement('script'))</script></head>
+<body class="home blog wp-theme-Manga hfeed"><a aria-hidden="true" href="https://readberserk.com/cdn-cgi/content?id=S26W8vw6udDy7MvNWVRasG70qTAImj2.TDJJsd3xCag-1793384618.1160083-1.2.1.1-uFDXGSVlgR4baEgBQvcHUdtYP4_MtTxazbRlyMCNVfOvX4DedwcIvyY9BlKwsOyX" rel="nofollow noopener" style="display: none !important; visibility: hidden !important"></a>
+<div class="site" id="page">
+<div class="header-banner text-center">
+<div class="col-md-12 p-lg-5 mx-auto">
+<a href="https://readberserk.com/">
+<h1 class="font-weight-normal text-uppercase">Read Berserk Manga Online</h1>
+<p class="font-weight-normal mb-0 pb-2">Read and Download Berserk Manga in English Online for free at readberserk.com</p>
+</a>
+</div>
+</div>
+<div class="nav-background">
+<div class="container-fluid">
+<nav class="navbar navbar-expand-lg navbar-light">
+<div class="collapse navbar-collapse" id="navbarSupportedContent">
+<ul class="navbar-nav mx-auto">
+<li class="nav-item"><a class="nav-link" href="https://readberserk.com">Home</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://readberserk.com/download-berserk.html">Download</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://readberserk.com/manga/berserk-official-guidebook/">Guidebook</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://readberserk.com/manga/berserk-colored/">Colored</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://readberserk.com/chapter/berserk-the-motion-comic-episode-1-the-black-swordsman-part-1/">Motion Comic</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://readberserk.com/manga/duranki/">Duranki</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://readberserk.com/manga/gigantomakhia/">Gigantomakhia</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://readberserk.com/manga/futatabi/">Futatabi</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://readberserk.com/manga/noa/">NOA</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://readberserk.com/manga/japan/">Japan</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://readberserk.com/manga/king-of-wolves/">Ourou</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://readberserk.com/manga/legend-of-the-king-of-wolves/">Ourouden</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://es.readberserk.com/">Español</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://ww3.readopm.com/contact-us/">Contact Us</a></li>
+
+<li class="nav-item"><a class="nav-link" href="https://amzn.to/3GRnJAW">Store</a></li>
+
+</ul>
+</div>
+<button aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation" class="navbar-toggler" data-target="#navbarSupportedContent" data-toggle="collapse" type="button">
+<span class="navbar-toggler-icon"></span>
+					Menu
+				</button>
+</nav>
+</div>
+</div>
+<main id="main-content">
+<div class="my-5 container" id="content">
+<div class="row">
+<div class="col-md-8">
+<h4>Featured Chapters</h4>
+<div class="row mb-3">
+<div class="col-md-4 mb-1">
+<div class="card">
+<img class="card-img-top" src="https://readberserk.com/wp-content/uploads/2017/06/berserk-1-150x150.jpg"/>
+<div class="card-body">
+<h5 class="card-title">Berserk Chapter 387 Predictions</h5>
+<a class="btn btn-primary btn-sm" href="https://readberserk.com/chapter/berserk-chapter-387-predictions/">READ</a>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-1">
+<div class="card">
+<img class="card-img-top" src="https://readberserk.com/wp-content/uploads/2017/06/berserk-1-150x150.jpg"/>
+<div class="card-body">
+<h5 class="card-title">Berserk Chapter 386</h5>
+<a class="btn btn-primary btn-sm" href="https://readberserk.com/chapter/berserk-chapter-386/">READ</a>
+</div>
+</div>
+</div>
+<div class="col-md-4 mb-1">
+<div class="card">
+<img class="card-img-top" src="https://readberserk.com/wp-content/uploads/2017/06/berserk-1-150x150.jpg"/>
+<div class="card-body">
+<h5 class="card-title">Berserk Spoilers &amp; RAW Chapter 386</h5>
+<a class="btn btn-primary btn-sm" href="https://readberserk.com/chapter/berserk-spoilers-raw-chapter-386/">READ</a>
+</div>
+</div>
+</div>
+</div>
+<center>
+<div><script async="" data-cfasync="false" src="//yq.yakanorby.com/tIeSTRjthjTIOH/111243" type="text/javascript"></script></div><br/><br/><center><!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Simple Ad Section - Flexbox</title>
+<style>
+        /* Basic styles for the ad */
+        .simple-ad {
+            width: 100%;
+            max-width: 400px;
+            background-color: #333;
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            text-align: center;
+            margin: 20px auto;
+            /* Flexbox properties for the main container */
+            display: flex;
+            flex-wrap: wrap; /* Allows items to wrap to the next line */
+            justify-content: space-around; /* Distributes space around items */
+            gap: 15px; /* Adds space between flex items */
+        }
+
+        .simple-ad .title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            /* Ensure title takes full width in flex container */
+            flex-basis: 100%;
+        }
+
+        .simple-ad .tagline {
+            font-size: 14px;
+            color: #ddd;
+            margin-bottom: 20px;
+            /* Ensure tagline takes full width in flex container */
+            flex-basis: 100%;
+        }
+
+        .simple-ad .image-section {
+            width: 45%; /* Approximate width for two items side by side with gap */
+            position: relative;
+            box-sizing: border-box; /* Include padding/border in width */
+            /* No display: block needed here, as flex items are block-like by default */
+        }
+
+        .simple-ad img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+            border-radius: 10px;
+        }
+
+        .simple-ad .image-text {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.6);
+            color: #000;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+<div id="ad-placeholder"></div>
+<script type="5336d8eb3e05bf641a2a0a26-text/javascript">
+        // Define the ad data
+        const ads = [
+            {
+                imgSrc: 'https://m.media-amazon.com/images/I/51IrW578SQL._SY445_SX342_PQ35_.jpg',
+                imgAlt: 'Anime / Manga',
+                link: 'https://amzn.to/4lCflod',
+                text: 'Anime / Manga'
+            },
+            {
+                imgSrc: 'https://m.media-amazon.com/images/I/417NygyCIGL._AC_SY535_.jpg',
+                imgAlt: 'Merchandise',
+                link: 'https://amzn.to/3GRnJAW',
+                text: 'Merchandise'
+            }
+        ];
+
+        // Dynamically create the ad content
+        const adContainer = document.createElement('div');
+        adContainer.classList.add('simple-ad');
+
+        const title = document.createElement('div');
+        title.classList.add('title');
+        title.textContent = "Support by Shopping";
+
+        const tagline = document.createElement('div');
+        tagline.classList.add('tagline');
+        tagline.textContent = "All sponsors are verified Amazon stores.";
+
+        // Append the title and tagline to the ad container
+        adContainer.appendChild(title);
+        adContainer.appendChild(tagline);
+
+        // Loop through ads and add images and links dynamically
+        ads.forEach(ad => {
+            const imageSection = document.createElement('div');
+            imageSection.classList.add('image-section');
+
+            const link = document.createElement('a');
+            link.href = ad.link;
+            link.target = '_blank'; // Open in a new tab
+
+            const image = document.createElement('img');
+            image.src = ad.imgSrc;
+            image.alt = ad.imgAlt;
+
+            const imageText = document.createElement('div');
+            imageText.classList.add('image-text');
+            imageText.textContent = ad.text;
+
+            link.appendChild(image);
+            link.appendChild(imageText);
+            imageSection.appendChild(link);
+
+            adContainer.appendChild(imageSection);
+        });
+
+        // Find the placeholder container and append the ad there
+        const placeholder = document.getElementById('ad-placeholder');
+        placeholder.appendChild(adContainer);
+    </script>
+<script data-cf-settings="5336d8eb3e05bf641a2a0a26-|49" defer="" src="/cdn-cgi/scripts/7d0fa10a/cloudflare-static/rocket-loader.min.js"></script><script crossorigin="anonymous" data-cf-beacon='{"version":"2024.11.0","token":"0b76cdcdbfa7449d9519fe4bf5b7de47","r":1,"spa":2}' integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" type="module"></script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a52c73c73886a0f9',t:'MTc5MzM4NDYxOA=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a52c73c73886a0f9',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
+</center>
+<div class="card card-table">
+<div class="card-header">
+<div class="title">Chapters</div>
+</div>
+<div class="card-body table-responsive p-0">
+<table class="table table-striped table-borderless">
+<thead>
+<tr>
+<th style="width:60%;">Chapter</th>
+<th style="width:20%;">Date</th>
+<th style="width:10%;">Action</th>
+</tr>
+</thead>
+<tbody class="no-border-x">
+<tr>
+<td>Berserk Chapter 386</td>
+<td>Jul 10, 2026</td>
+<td>
+<div class="d-flex">
+<a class="btn btn-sm btn-primary mr-2" href="https://readberserk.com/chapter/berserk-chapter-386/">Read</a>
+</div>
+</td>
+</tr>
+<tr>
+<td>Berserk Chapter 385</td>
+<td>Jun 25, 2026</td>
+<td>
+<div class="d-flex">
+<a class="btn btn-sm btn-primary mr-2" href="https://readberserk.com/chapter/berserk-chapter-385/">Read</a>
+</div>
+</td>
+</tr>
+<tr>
+<td>Berserk Chapter 384</td>
+<td>Jun 13, 2026</td>
+<td>
+<div class="d-flex">
+<a class="btn btn-sm btn-primary mr-2" href="https://readberserk.com/chapter/berserk-chapter-384/">Read</a>
+</div>
+</td>
+</tr>
+<tr>
+<td>Berserk Chapter 383</td>
+<td>Sep 11, 2025</td>
+<td>
+<div class="d-flex">
+<a class="btn btn-sm btn-primary mr-2" href="https://readberserk.com/chapter/berserk-chapter-383/">Read</a>
+</div>
+</td>
+</tr>
+<tr>
+<td>Berserk Chapter 382</td>
+<td>Jun 28, 2025</td>
+<td>
+<div class="d-flex">
+<a class="btn btn-sm btn-primary mr-2" href="https://readberserk.com/chapter/berserk-chapter-382/">Read</a>
+</div>
+</td>
+</tr>
+<tr>
+<td>Berserk Chapter 381</td>
+<td>Jun 12, 2025</td>
+<td>
+<div class="d-flex">
+<a class="btn btn-sm btn-primary mr-2" href="https://readberserk.com/chapter/berserk-chapter-381/">Read</a>
+</div>
+</td>
+</tr>
+<tr>
+<td>Berserk Chapter 380</td>
+<td>Feb 28, 2025</td>
+<td>
+<div class="d-flex">
+<a class="btn btn-sm btn-primary mr-2" href="https://readberserk.com/chapter/berserk-chapter-380/">Read</a>
+</div>
+</td>
+</tr>
+<tr>
+<td>Berserk Chapter 379</td>
+<td>Feb 28, 2025</td>
+<td>
+<div class="d-flex">
+<a class="btn btn-sm btn-primary mr-2" href="https://readberserk.com/chapter/berserk-chapter-379/">Read</a>
+</div>
+</td>
+</tr>
+<tr>
+<td>Berserk Chapter 378</td>
+<td>Nov 07, 2024</td>
+<td>
+<div class="d-flex">
+<a class="btn btn-sm btn-primary mr-2" href="https://readberserk.com/chapter/berserk-chapter-378/">Read</a>
+</div>
+</td>
+</tr>
+<tr>
+<td>Berserk Chapter 377</td>
+<td>Oct 26, 2024</td>
+<td>
+<div class="d-flex">
+<a class="btn btn-sm btn-primary mr-2" href="https://readberserk.com/chapter/berserk-chapter-377/">Read</a>
+</div>
+</td>
+</tr>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</tbody>
+</table>
+</div>
+</div>
+</center></div>
+<div class="col-md-4">
+<aside class="widget-area" id="secondary">
+<div class="card mb-3">
+<p class="wp-block-paragraph"></p>
+</div><div class="card mb-3">
+<p class="wp-block-paragraph"></p>
+</div><div class="card mb-3"><div class="manga-ad-spot"></div> <br/><br/>
+<script async="" data-category="anime" data-cfasync="false" data-id="dl-banner-300x250" data-size="300x250" data-zone="11744453" src="//aqle3.com/btag.min.js"></script></div><div class="card mb-3">Here is a list of awesome Manga which you can read online. Just click the links on the right to visit the websites:
+
+
+Ichi The Witch
+<a href="http://readichithewitch.com/">Ichi The Witch</a>
+
+Sakamoto Days
+<a href="http://readsakadays.com/">Sakamoto Days</a>
+
+My Anime Twin
+<a href="https://myanimetwin.com/">My Anime twin</a>
+
+Tokyo Ghoul re
+<a href="http://tokyoghoulre.com/">Tokyo Ghoul re</a>
+
+The Promised Neverland
+<a href=" https://mangabolt.com/manga/the-promised-neverland/">The Promised Neverland</a>
+
+Tokyo Revengers
+<a href=" https://mangabolt.com/manga/tokyo-revengers/">Tokyo Revengers</a>
+
+Kingdom
+<a href="http://readkingdom.com/">Kingdom</a>
+
+Eden Zero
+<a href="https://ww3.readfairytail.com/manga/edens-zero/">Eden Zero</a>
+
+One Piece
+<a href="http://readonepiece.com/">One Piece</a>
+
+Haikyuu!!
+<a href="http://readhaikyuu.com/">Haikyuu!!</a>
+
+Vinland Saga
+<a href="https://readvinlandSaga.com/">Vinland Saga</a>
+
+My Hero Academia
+<a href="http://readmha.com/">My Hero Academia</a>
+
+Kaguya Sama
+<a href=" https://mangabolt.com/manga/kaguya-sama-love-is-war/">Kaguya Sama</a>
+
+Jujutsu Kaisen
+<a href="http://readJujutsuKaisen.com/">Jujutsu Kaisen</a>
+
+Jujutsu Kaisen Part 2
+<a href="http://readJujutsuKaisen.com/">Jujutsu Kaisen</a>
+
+ChainSaw Man
+<a href="https://readchainsawman.com/">ChainSaw Man</a>
+
+Demon Slayer - Kimetsu No Yaiba
+<a href="https://demonslayermanga.com/">Demon Slayer - Kimetsu No Yaiba</a>
+
+7 Deadly Sins
+<a href="https://ww5.read7deadlysins.com/manga/nanatsu-no-taizai">7 Deadly Sins</a>
+
+Mokushiroku no Yonkishi - Four Horsemen of the Apocalypse
+
+<a href="https://ww5.read7deadlysins.com/manga/four-horsemen-of-the-apocalypse/">Mokushiroku no Yonkishi - Four Horsemen of the Apocalypse
+</a>
+
+Black Clover
+<a href="http://readblackclover.com">Black Clover</a>
+
+Fairy Tail
+<a href="https://ww3.readfairytail.com/manga/fairy-tail/">Fairy Tail</a>
+
+
+One Punch Man
+<a href="http://readopm.com">One Punch Man</a>
+
+Naruto
+<a href="https://ww4.readnaruto.com/manga/naruto/">Naruto</a>
+
+Boruto
+<a href="https://ww9.readnaruto.com/manga/boruto-naruto-next-generations/">Boruto</a>
+
+Boruto - Two Blue Vortex
+<a href="http://readnaruto.com">Boruto - Two Blue Vortex</a>
+
+Solo Leveling
+<a href="https://readsololeveling.org">Solo Leveling</a>
+
+Bleach
+<a href=" https://mangabolt.com/manga/bleach/">Bleach</a>
+
+Hunter x Hunter
+<a href=" https://mangabolt.com/manga/hunter-x-hunter/">Hunter x Hunter</a>
+
+Shingeki no Kyojin
+<a href="http://readsnk.com">Shingeki no Kyojin</a>
+
+Berserk
+<a href="https://readberserk.com">Berserk</a>
+
+MangaPill
+<a href="http://mangapill.com">MangaPill.com</a>
+
+Dr. Stone
+<a href="https://mangabolt.com/manga/dr-stone/">Dr. Stone</a>
+
+Dragon Ball Super
+<a href="https://mangabolt.com/manga/dragon-ball-super/">Dragon Ball Super</a>
+
+Mob Psycho 100
+<a href="https://ww3.readopm.com/manga/mob-psycho-100/">Mob Psycho 100</a>
+
+Fire Punch
+<a href="https://readchainsawman.com/manga/fire-punch/">Fire Punch</a>
+
+Kagurabachi
+<a href="https://readkagurabachimanga.com/">Kagurabachi</a>
+
+Blue Lock
+<a href="http://bluelockread.com/">Blue Lock</a>
+
+JoJo's Bizarre Adventure
+<a href="https://readjojos.com/">JoJo's Bizarre Adventure</a>
+
+Oshi no Ko
+<a href="https://mangabolt.com/manga/oshi-no-ko">Oshi no Ko</a>
+
+Choujin X
+<a href="https://ww9.tokyoghoulre.com/manga/choujin-x/">Choujin X</a></div> </aside><!-- #secondary -->
+</div>
+</div>
+</div><!-- #content -->
+</main><!-- #main-content -->
+</div><!-- #page -->
+<script type="speculationrules">
+{"prefetch":[{"source":"document","where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/wp-*.php","/wp-admin/*","/wp-content/uploads/*","/wp-content/*","/wp-content/plugins/*","/wp-content/themes/Manga/*","/*\\?(.+)"]}},{"not":{"selector_matches":"a[rel~=\"nofollow\"]"}},{"not":{"selector_matches":".no-prefetch, .no-prefetch a"}}]},"eagerness":"conservative"}]}
+</script>
+<div class="dracula-toggle-wrap floating position-right" data-style="1"></div><center><p class="has-text-color has-background has-medium-font-size has-very-light-gray-color has-very-dark-gray-background-color"><strong><a href="https://mangabolt.com">Read Manga</a> - <a href="https://readopm.com/read-manga/">More Manga</a> - <a href="https://readsakadays.com/">Sakamoto Days
+</a>
+	
+	- <a href="https://readkagurabachimanga.com/">Kagurabachi</a>
+		- <a href="https://mangapill.com/">Manga Pill</a>
+
+	- <a href="https://readsololeveling.org">Solo Leveling 2</a>
+</strong></p></center><center>
+<br/><br/>
+<script async="" data-category="sport" data-cfasync="false" data-id="dl-banner-300x250" data-size="300x250" data-zone="11758617" src="//aqle3.com/btag.min.js"></script>
+</center><script id="wp-hooks-js" src="https://readberserk.com/wp-includes/js/dist/hooks.min.js?ver=f0f188028580e8dc1255" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<script id="wp-i18n-js" src="https://readberserk.com/wp-includes/js/dist/i18n.min.js?ver=1dfe7db3940c23ea9216" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<script id="wp-i18n-js-after" type="5336d8eb3e05bf641a2a0a26-text/javascript">
+wp.i18n.setLocaleData( { 'text direction\u0004ltr': [ 'ltr' ] } );
+//# sourceURL=wp-i18n-js-after
+</script>
+<script id="underscore-js" src="https://readberserk.com/wp-includes/js/underscore.min.js?ver=1.13.8" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<script id="wp-util-js-extra" type="5336d8eb3e05bf641a2a0a26-text/javascript">
+var _wpUtilSettings = {"ajax":{"url":"/wp-admin/admin-ajax.php"}};
+//# sourceURL=wp-util-js-extra
+</script>
+<script id="wp-util-js" src="https://readberserk.com/wp-includes/js/wp-util.min.js?ver=7.1.4" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<script id="dracula-frontend-js-extra" type="5336d8eb3e05bf641a2a0a26-text/javascript">
+var dracula = {"homeUrl":"https://readberserk.com","adminUrl":"https://readberserk.com/wp-admin/","ajaxUrl":"https://readberserk.com/wp-admin/admin-ajax.php","pluginUrl":"https://readberserk.com/wp-content/plugins/dracula-dark-mode","settings":{"excludes":[""],"lowBrightnessImages":false,"darkenBackgroundImages":false},"isPro":"","nonce":"617516bdd5","switches":{"1":"\u003Cdiv class=\"toggle-icon-wrap dracula-ignore\"\u003E \u003Cdiv class=\"toggle-icon __dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"toggle-icon __light\"\u003E\u003C/div\u003E \u003C/div\u003E","2":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"dracula-toggle-label\"\u003E \u003Cspan class=\"--light\"\u003ELight\u003C/span\u003E \u003Cspan class=\"--dark\"\u003EDark\u003C/span\u003E \u003C/div\u003E","3":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","4":"\u003Cdiv class=\"prefix-icon\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"suffix-icon\"\u003E\u003C/div\u003E","5":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E","6":"\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E \u003C/div\u003E","7":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","8":"\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","9":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","10":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","11":"\u003Cdiv class=\"toggle-prefix\"\u003ELight\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-suffix\"\u003EDark\u003C/div\u003E","12":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","13":"\u003Cspan class=\"toggle-prefix-icon\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-prefix-text\"\u003EDark Mode\u003C/span\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","14":"\u003Cspan class=\"dracula-toggle-icon\"\u003E\u003C/span\u003E \u003Cdiv class=\"toggle-modal dracula-ignore\"\u003E \u003Cdiv class=\"toggle-modal-content\"\u003E \u003Cdiv class=\"toggle-option light\"\u003E \u003Cspan class=\"toggle-option-icon --light\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-option-label\"\u003ELight Mode\u003C/span\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-option dark\"\u003E \u003Cspan class=\"toggle-option-icon --dark\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-option-label\"\u003EDark Mode\u003C/span\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-option auto\"\u003E \u003Cspan class=\"toggle-option-icon --auto\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-option-label\"\u003ESystem Mode\u003C/span\u003E \u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-modal-arrow\"\u003E\u003C/div\u003E \u003C/div\u003E","15":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\u003C/div\u003E","16":"\u003Cspan class=\"toggle-prefix-icon\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-prefix-text dracula-toggle-text\"\u003ELight Mode\u003C/span\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","17":"\u003Cbutton class=\"dracula-toggle-icon --typography\"\u003E\u003C/button\u003E \u003Cbutton class=\"dracula-toggle-icon --light\"\u003E\u003C/button\u003E","18":"\u003Cbutton type=\"button\" class=\"dracula-toggle-icon --light\"\u003E\u003C/button\u003E \u003Cbutton type=\"button\" class=\"dracula-toggle-icon --typography\"\u003E\u003C/button\u003E"},"customSwitches":{"1":"\u003Cdiv class=\"toggle-icon-wrap\"\u003E\n\t\t\t\t\u003Cspan class=\"toggle-icon __dark\"\u003E\u003C/span\u003E\n\t\t\t\t\u003Cspan class=\"toggle-icon __light\"\u003E\u003C/span\u003E\n\t\t\t\u003C/div\u003E","2":"\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon position-before\"\u003E\u003C/div\u003E\n\t\t\t\u003Cdiv class=\"dracula-toggle-label\"\u003E\n                \u003Cspan class=\"--light\"\u003E\u003C/span\u003E\n                \u003Cspan class=\"--dark\"\u003E\u003C/span\u003E\n            \u003C/div\u003E\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon position-after\"\u003E\u003C/div\u003E\n\t\t","3":"\n\t\t\t\u003Cdiv class=\"toggle-prefix\"\u003E\u003C/div\u003E\n            \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\n                \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E\n            \u003C/div\u003E\n            \u003Cdiv class=\"toggle-suffix\"\u003E\u003C/div\u003E\n\t\t","4":"\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\n                \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E\n            \u003C/div\u003E\n\n            \u003Cdiv class=\"dracula-toggle-label\"\u003E\n                \u003Cspan class=\"--light\"\u003E\u003C/span\u003E\n                \u003Cspan class=\"--dark\"\u003E\u003C/span\u003E\n            \u003C/div\u003E\n\t\t","5":"\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\n                \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E\n            \u003C/div\u003E\n\n            \u003Cspan class=\"dracula-toggle-label --light\"\u003E\u003C/span\u003E\n            \u003Cspan class=\"dracula-toggle-label --dark\"\u003E\u003C/span\u003E\n\t\t"},"presets":[{"key":"default","label":"Default","colors":{"bg":"#181a1b","text":"#e8e6e3","secondary_bg":"#202324","link":"#6ea5d9","link_hover":"#88b9e3","btn_bg":"#3b6f99","btn_text":"#dcdcdc","btn_text_hover":"#f0f0f0","btn_hover_bg":"#325d80","input_text":"#e8e6e3","input_bg":"#1f2223","input_placeholder":"#8c8c8c","border":"#2d2d2d"}},{"key":"dracula","label":"Dracula","colors":{"bg":"#282b36","text":"#e8e6e3","secondary_bg":"#343746","link":"#9a87cc","link_hover":"#b79ce2","btn_bg":"#5a6288","btn_text":"#dedede","btn_text_hover":"#f0f0f0","btn_hover_bg":"#4b5274","input_text":"#e8e6e3","input_bg":"#3a3c4e","input_placeholder":"#8b8b9c","border":"#45475a"}},{"key":"catppuccin","label":"Catppuccin","isPro":true,"colors":{"bg":"#161320","text":"#d9e0ee","secondary_bg":"#1e1a2e","link":"#b69ad8","link_hover":"#c5b0e1","btn_bg":"#8a74b8","btn_text":"#d9e0ee","btn_text_hover":"#ffffff","btn_hover_bg":"#7a66a3","input_text":"#d9e0ee","input_bg":"#1e1a2e","input_placeholder":"#8e89a3","border":"#2a2438"}},{"key":"gruvbox","label":"Gruvbox","isPro":true,"colors":{"bg":"#282828","text":"#ebdbb2","secondary_bg":"#32302f","link":"#d4a73c","link_hover":"#e0b252","btn_bg":"#a97e2c","btn_text":"#ebdbb2","btn_text_hover":"#ffffff","btn_hover_bg":"#8f6a25","input_text":"#ebdbb2","input_bg":"#32302f","input_placeholder":"#a89984","border":"#504945"}},{"key":"nord","label":"Nord","isPro":true,"colors":{"bg":"#2e3440","text":"#eceff4","secondary_bg":"#3b4252","link":"#88c0d0","link_hover":"#a3d1dc","btn_bg":"#5e81ac","btn_text":"#eceff4","btn_text_hover":"#ffffff","btn_hover_bg":"#4c6a92","input_text":"#eceff4","input_bg":"#434c5e","input_placeholder":"#9aa0a6","border":"#4c566a"}},{"key":"rosePine","label":"Rose Pine","isPro":true,"colors":{"bg":"#191724","text":"#e0def4","secondary_bg":"#1f1d2e","link":"#d2879d","link_hover":"#e2a3b7","btn_bg":"#6d879c","btn_text":"#e0def4","btn_text_hover":"#ffffff","btn_hover_bg":"#5a6f81","input_text":"#e0def4","input_bg":"#26233a","input_placeholder":"#908caa","border":"#524f67"}},{"key":"solarized","label":"Solarized","isPro":true,"colors":{"bg":"#002b36","text":"#93a1a1","secondary_bg":"#073642","link":"#6aa6a6","link_hover":"#82bcbc","btn_bg":"#2f5f66","btn_text":"#cfe3e3","btn_text_hover":"#e6f0f0","btn_hover_bg":"#2a5359","input_text":"#a7b6b6","input_bg":"#0d3944","input_placeholder":"#6f8383","border":"#0f3a44"}},{"key":"tokyoNight","label":"Tokyo Night","colors":{"bg":"#1a1b26","text":"#a9b1d6","secondary_bg":"#1f2230","link":"#7aa2f7","link_hover":"#8fb5ff","btn_bg":"#3b4a7a","btn_text":"#cfd6f2","btn_text_hover":"#ffffff","btn_hover_bg":"#323f68","input_text":"#b7bfe1","input_bg":"#212335","input_placeholder":"#7c85a9","border":"#2a2e42"}},{"key":"monokai","label":"Monokai","colors":{"bg":"#272822","text":"#f8f8f2","secondary_bg":"#2f302a","link":"#8fc66a","link_hover":"#a1d57a","btn_bg":"#5b6e4a","btn_text":"#e6f1dd","btn_text_hover":"#ffffff","btn_hover_bg":"#4d5e3f","input_text":"#efeede","input_bg":"#303126","input_placeholder":"#9aa08f","border":"#3a3b33"}},{"key":"ayuMirage","label":"Ayu Mirage","colors":{"bg":"#1f2430","text":"#cbccc6","secondary_bg":"#252b39","link":"#9ccfd8","link_hover":"#b7e0e6","btn_bg":"#5f7890","btn_text":"#dfe2e0","btn_text_hover":"#ffffff","btn_hover_bg":"#50677d","input_text":"#d5d6d0","input_bg":"#262d3b","input_placeholder":"#8d94a1","border":"#2c3443"}},{"key":"ayuDark","label":"Ayu Dark","colors":{"bg":"#0a0e14","text":"#b3b1ad","secondary_bg":"#121721","link":"#5aa7c8","link_hover":"#72b8d5","btn_bg":"#3a6075","btn_text":"#cfd6da","btn_text_hover":"#e7eef2","btn_hover_bg":"#314f61","input_text":"#c2c0bc","input_bg":"#121722","input_placeholder":"#808693","border":"#1b2230"}},{"key":"material","label":"Material","colors":{"bg":"#263238","text":"#eceff1","secondary_bg":"#2e3b41","link":"#82b1ff","link_hover":"#9bbfff","btn_bg":"#546e7a","btn_text":"#e6eff3","btn_text_hover":"#ffffff","btn_hover_bg":"#465c65","input_text":"#e4eaee","input_bg":"#2b3940","input_placeholder":"#9aaab1","border":"#31434a"}},{"key":"oneDark","label":"One Dark","colors":{"bg":"#282c34","text":"#abb2bf","secondary_bg":"#2f3440","link":"#6fb4f0","link_hover":"#89c2f4","btn_bg":"#3d5872","btn_text":"#cfd6e2","btn_text_hover":"#eaf1fb","btn_hover_bg":"#334a60","input_text":"#b9c0cd","input_bg":"#2c303a","input_placeholder":"#8a909c","border":"#3a3f4a"}},{"key":"oceanicNext","label":"Oceanic Next","colors":{"bg":"#1B2B34","text":"#CDD3DE","secondary_bg":"#203340","link":"#5fb3b3","link_hover":"#77c4c4","btn_bg":"#3f6d6d","btn_text":"#d8e4e4","btn_text_hover":"#f0f7f7","btn_hover_bg":"#355c5c","input_text":"#d2d8e1","input_bg":"#223746","input_placeholder":"#8ca1ad","border":"#2a4050"}},{"key":"cityLights","label":"City Lights","colors":{"bg":"#1d252c","text":"#b6bfc4","secondary_bg":"#232c34","link":"#76a8d9","link_hover":"#8bb9e3","btn_bg":"#3e5f7a","btn_text":"#d4dde2","btn_text_hover":"#f0f6fb","btn_hover_bg":"#344f66","input_text":"#c2cbd0","input_bg":"#232c34","input_placeholder":"#8b97a0","border":"#2a343e"}},{"key":"nightOwl","label":"Night Owl","colors":{"bg":"#011627","text":"#d6deeb","secondary_bg":"#071d33","link":"#82aaff","link_hover":"#9bb6ff","btn_bg":"#425b8a","btn_text":"#e4ecfa","btn_text_hover":"#ffffff","btn_hover_bg":"#394f78","input_text":"#dbe3f0","input_bg":"#0a1f36","input_placeholder":"#8aa0be","border":"#0f2740"}},{"key":"youtube","label":"YouTube","colors":{"bg":"#181818","text":"#ffffff","secondary_bg":"#202020","link":"#e05a5a","link_hover":"#ff6b6b","btn_bg":"#8a2b2b","btn_text":"#f2f2f2","btn_text_hover":"#ffffff","btn_hover_bg":"#722424","input_text":"#f0f0f0","input_bg":"#222222","input_placeholder":"#9a9a9a","border":"#2a2a2a"}},{"key":"twitter","label":"Twitter","colors":{"bg":"#15202b","text":"#ffffff","secondary_bg":"#1b2733","link":"#69b3ff","link_hover":"#8cc6ff","btn_bg":"#3a6fa1","btn_text":"#e8f3ff","btn_text_hover":"#ffffff","btn_hover_bg":"#325f8a","input_text":"#eef6ff","input_bg":"#1e2a36","input_placeholder":"#8ea5bd","border":"#263544"}},{"key":"reddit","label":"Reddit (Night mode)","colors":{"bg":"#1a1a1b","text":"#d7dadc","secondary_bg":"#202021","link":"#ff9566","link_hover":"#ffb187","btn_bg":"#7a4a2e","btn_text":"#efd9cf","btn_text_hover":"#ffffff","btn_hover_bg":"#693f27","input_text":"#e3e6e8","input_bg":"#222223","input_placeholder":"#9aa0a3","border":"#2a2a2b"}},{"key":"discord","label":"Discord","colors":{"bg":"#36393f","text":"#dcddde","secondary_bg":"#3c4047","link":"#8ea1e1","link_hover":"#a5b3ea","btn_bg":"#4957d6","btn_text":"#e7e9ff","btn_text_hover":"#ffffff","btn_hover_bg":"#3f4bc0","input_text":"#e3e4e6","input_bg":"#40444b","input_placeholder":"#9aa1ae","border":"#454a52"}},{"key":"slack","label":"Slack","colors":{"bg":"#1d1c1d","text":"#e7e7e7","secondary_bg":"#232223","link":"#cf8fb6","link_hover":"#dda6c5","btn_bg":"#6b5a6e","btn_text":"#efe3ef","btn_text_hover":"#ffffff","btn_hover_bg":"#5b4d5d","input_text":"#ededed","input_bg":"#242324","input_placeholder":"#9a969b","border":"#2a292a"}},{"key":"whatsapp","label":"WhatsApp","colors":{"bg":"#121212","text":"#e6e5e4","secondary_bg":"#161616","link":"#67b97a","link_hover":"#7acc8d","btn_bg":"#2f6b3e","btn_text":"#d8f0df","btn_text_hover":"#f2fff6","btn_hover_bg":"#285b35","input_text":"#ecebe9","input_bg":"#1a1a1a","input_placeholder":"#8d8d8d","border":"#222222"}},{"key":"github","label":"GitHub","colors":{"bg":"#0d1117","text":"#c9d1d9","secondary_bg":"#11161e","link":"#6aa6ff","link_hover":"#8abaff","btn_bg":"#2f3a4a","btn_text":"#d8e2ec","btn_text_hover":"#ffffff","btn_hover_bg":"#26303d","input_text":"#d3dbe2","input_bg":"#0f1420","input_placeholder":"#8894a1","border":"#1a2230"}},{"key":"stackoverflow","label":"StackOverflow","colors":{"bg":"#2d2d2d","text":"#f2f2f2","secondary_bg":"#333333","link":"#ffa654","link_hover":"#ffbb7a","btn_bg":"#7a4e1f","btn_text":"#fdeedd","btn_text_hover":"#ffffff","btn_hover_bg":"#683f18","input_text":"#f0f0f0","input_bg":"#353535","input_placeholder":"#9a9a9a","border":"#3c3c3c"}}]};
+var dracula = {"homeUrl":"https://readberserk.com","adminUrl":"https://readberserk.com/wp-admin/","ajaxUrl":"https://readberserk.com/wp-admin/admin-ajax.php","pluginUrl":"https://readberserk.com/wp-content/plugins/dracula-dark-mode","settings":{"excludes":[""],"lowBrightnessImages":false,"darkenBackgroundImages":false},"isPro":"","nonce":"617516bdd5","switches":{"1":"\u003Cdiv class=\"toggle-icon-wrap dracula-ignore\"\u003E \u003Cdiv class=\"toggle-icon __dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"toggle-icon __light\"\u003E\u003C/div\u003E \u003C/div\u003E","2":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"dracula-toggle-label\"\u003E \u003Cspan class=\"--light\"\u003ELight\u003C/span\u003E \u003Cspan class=\"--dark\"\u003EDark\u003C/span\u003E \u003C/div\u003E","3":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","4":"\u003Cdiv class=\"prefix-icon\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"suffix-icon\"\u003E\u003C/div\u003E","5":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E","6":"\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E \u003C/div\u003E","7":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","8":"\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","9":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","10":"\u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","11":"\u003Cdiv class=\"toggle-prefix\"\u003ELight\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon \"\u003E\u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-suffix\"\u003EDark\u003C/div\u003E","12":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap \"\u003E\u003C/div\u003E","13":"\u003Cspan class=\"toggle-prefix-icon\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-prefix-text\"\u003EDark Mode\u003C/span\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","14":"\u003Cspan class=\"dracula-toggle-icon\"\u003E\u003C/span\u003E \u003Cdiv class=\"toggle-modal dracula-ignore\"\u003E \u003Cdiv class=\"toggle-modal-content\"\u003E \u003Cdiv class=\"toggle-option light\"\u003E \u003Cspan class=\"toggle-option-icon --light\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-option-label\"\u003ELight Mode\u003C/span\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-option dark\"\u003E \u003Cspan class=\"toggle-option-icon --dark\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-option-label\"\u003EDark Mode\u003C/span\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-option auto\"\u003E \u003Cspan class=\"toggle-option-icon --auto\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-option-label\"\u003ESystem Mode\u003C/span\u003E \u003C/div\u003E \u003C/div\u003E \u003Cdiv class=\"toggle-modal-arrow\"\u003E\u003C/div\u003E \u003C/div\u003E","15":"\u003Cdiv class=\"dracula-toggle-icon --light\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon --dark\"\u003E\u003C/div\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\u003C/div\u003E","16":"\u003Cspan class=\"toggle-prefix-icon\"\u003E\u003C/span\u003E \u003Cspan class=\"toggle-prefix-text dracula-toggle-text\"\u003ELight Mode\u003C/span\u003E \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E \u003C/div\u003E","17":"\u003Cbutton class=\"dracula-toggle-icon --typography\"\u003E\u003C/button\u003E \u003Cbutton class=\"dracula-toggle-icon --light\"\u003E\u003C/button\u003E","18":"\u003Cbutton type=\"button\" class=\"dracula-toggle-icon --light\"\u003E\u003C/button\u003E \u003Cbutton type=\"button\" class=\"dracula-toggle-icon --typography\"\u003E\u003C/button\u003E"},"customSwitches":{"1":"\u003Cdiv class=\"toggle-icon-wrap\"\u003E\n\t\t\t\t\u003Cspan class=\"toggle-icon __dark\"\u003E\u003C/span\u003E\n\t\t\t\t\u003Cspan class=\"toggle-icon __light\"\u003E\u003C/span\u003E\n\t\t\t\u003C/div\u003E","2":"\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon position-before\"\u003E\u003C/div\u003E\n\t\t\t\u003Cdiv class=\"dracula-toggle-label\"\u003E\n                \u003Cspan class=\"--light\"\u003E\u003C/span\u003E\n                \u003Cspan class=\"--dark\"\u003E\u003C/span\u003E\n            \u003C/div\u003E\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon position-after\"\u003E\u003C/div\u003E\n\t\t","3":"\n\t\t\t\u003Cdiv class=\"toggle-prefix\"\u003E\u003C/div\u003E\n            \u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\n                \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E\n            \u003C/div\u003E\n            \u003Cdiv class=\"toggle-suffix\"\u003E\u003C/div\u003E\n\t\t","4":"\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\n                \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E\n            \u003C/div\u003E\n\n            \u003Cdiv class=\"dracula-toggle-label\"\u003E\n                \u003Cspan class=\"--light\"\u003E\u003C/span\u003E\n                \u003Cspan class=\"--dark\"\u003E\u003C/span\u003E\n            \u003C/div\u003E\n\t\t","5":"\n\t\t\t\u003Cdiv class=\"dracula-toggle-icon-wrap\"\u003E\n                \u003Cdiv class=\"dracula-toggle-icon\"\u003E\u003C/div\u003E\n            \u003C/div\u003E\n\n            \u003Cspan class=\"dracula-toggle-label --light\"\u003E\u003C/span\u003E\n            \u003Cspan class=\"dracula-toggle-label --dark\"\u003E\u003C/span\u003E\n\t\t"},"presets":[{"key":"default","label":"Default","colors":{"bg":"#181a1b","text":"#e8e6e3","secondary_bg":"#202324","link":"#6ea5d9","link_hover":"#88b9e3","btn_bg":"#3b6f99","btn_text":"#dcdcdc","btn_text_hover":"#f0f0f0","btn_hover_bg":"#325d80","input_text":"#e8e6e3","input_bg":"#1f2223","input_placeholder":"#8c8c8c","border":"#2d2d2d"}},{"key":"dracula","label":"Dracula","colors":{"bg":"#282b36","text":"#e8e6e3","secondary_bg":"#343746","link":"#9a87cc","link_hover":"#b79ce2","btn_bg":"#5a6288","btn_text":"#dedede","btn_text_hover":"#f0f0f0","btn_hover_bg":"#4b5274","input_text":"#e8e6e3","input_bg":"#3a3c4e","input_placeholder":"#8b8b9c","border":"#45475a"}},{"key":"catppuccin","label":"Catppuccin","isPro":true,"colors":{"bg":"#161320","text":"#d9e0ee","secondary_bg":"#1e1a2e","link":"#b69ad8","link_hover":"#c5b0e1","btn_bg":"#8a74b8","btn_text":"#d9e0ee","btn_text_hover":"#ffffff","btn_hover_bg":"#7a66a3","input_text":"#d9e0ee","input_bg":"#1e1a2e","input_placeholder":"#8e89a3","border":"#2a2438"}},{"key":"gruvbox","label":"Gruvbox","isPro":true,"colors":{"bg":"#282828","text":"#ebdbb2","secondary_bg":"#32302f","link":"#d4a73c","link_hover":"#e0b252","btn_bg":"#a97e2c","btn_text":"#ebdbb2","btn_text_hover":"#ffffff","btn_hover_bg":"#8f6a25","input_text":"#ebdbb2","input_bg":"#32302f","input_placeholder":"#a89984","border":"#504945"}},{"key":"nord","label":"Nord","isPro":true,"colors":{"bg":"#2e3440","text":"#eceff4","secondary_bg":"#3b4252","link":"#88c0d0","link_hover":"#a3d1dc","btn_bg":"#5e81ac","btn_text":"#eceff4","btn_text_hover":"#ffffff","btn_hover_bg":"#4c6a92","input_text":"#eceff4","input_bg":"#434c5e","input_placeholder":"#9aa0a6","border":"#4c566a"}},{"key":"rosePine","label":"Rose Pine","isPro":true,"colors":{"bg":"#191724","text":"#e0def4","secondary_bg":"#1f1d2e","link":"#d2879d","link_hover":"#e2a3b7","btn_bg":"#6d879c","btn_text":"#e0def4","btn_text_hover":"#ffffff","btn_hover_bg":"#5a6f81","input_text":"#e0def4","input_bg":"#26233a","input_placeholder":"#908caa","border":"#524f67"}},{"key":"solarized","label":"Solarized","isPro":true,"colors":{"bg":"#002b36","text":"#93a1a1","secondary_bg":"#073642","link":"#6aa6a6","link_hover":"#82bcbc","btn_bg":"#2f5f66","btn_text":"#cfe3e3","btn_text_hover":"#e6f0f0","btn_hover_bg":"#2a5359","input_text":"#a7b6b6","input_bg":"#0d3944","input_placeholder":"#6f8383","border":"#0f3a44"}},{"key":"tokyoNight","label":"Tokyo Night","colors":{"bg":"#1a1b26","text":"#a9b1d6","secondary_bg":"#1f2230","link":"#7aa2f7","link_hover":"#8fb5ff","btn_bg":"#3b4a7a","btn_text":"#cfd6f2","btn_text_hover":"#ffffff","btn_hover_bg":"#323f68","input_text":"#b7bfe1","input_bg":"#212335","input_placeholder":"#7c85a9","border":"#2a2e42"}},{"key":"monokai","label":"Monokai","colors":{"bg":"#272822","text":"#f8f8f2","secondary_bg":"#2f302a","link":"#8fc66a","link_hover":"#a1d57a","btn_bg":"#5b6e4a","btn_text":"#e6f1dd","btn_text_hover":"#ffffff","btn_hover_bg":"#4d5e3f","input_text":"#efeede","input_bg":"#303126","input_placeholder":"#9aa08f","border":"#3a3b33"}},{"key":"ayuMirage","label":"Ayu Mirage","colors":{"bg":"#1f2430","text":"#cbccc6","secondary_bg":"#252b39","link":"#9ccfd8","link_hover":"#b7e0e6","btn_bg":"#5f7890","btn_text":"#dfe2e0","btn_text_hover":"#ffffff","btn_hover_bg":"#50677d","input_text":"#d5d6d0","input_bg":"#262d3b","input_placeholder":"#8d94a1","border":"#2c3443"}},{"key":"ayuDark","label":"Ayu Dark","colors":{"bg":"#0a0e14","text":"#b3b1ad","secondary_bg":"#121721","link":"#5aa7c8","link_hover":"#72b8d5","btn_bg":"#3a6075","btn_text":"#cfd6da","btn_text_hover":"#e7eef2","btn_hover_bg":"#314f61","input_text":"#c2c0bc","input_bg":"#121722","input_placeholder":"#808693","border":"#1b2230"}},{"key":"material","label":"Material","colors":{"bg":"#263238","text":"#eceff1","secondary_bg":"#2e3b41","link":"#82b1ff","link_hover":"#9bbfff","btn_bg":"#546e7a","btn_text":"#e6eff3","btn_text_hover":"#ffffff","btn_hover_bg":"#465c65","input_text":"#e4eaee","input_bg":"#2b3940","input_placeholder":"#9aaab1","border":"#31434a"}},{"key":"oneDark","label":"One Dark","colors":{"bg":"#282c34","text":"#abb2bf","secondary_bg":"#2f3440","link":"#6fb4f0","link_hover":"#89c2f4","btn_bg":"#3d5872","btn_text":"#cfd6e2","btn_text_hover":"#eaf1fb","btn_hover_bg":"#334a60","input_text":"#b9c0cd","input_bg":"#2c303a","input_placeholder":"#8a909c","border":"#3a3f4a"}},{"key":"oceanicNext","label":"Oceanic Next","colors":{"bg":"#1B2B34","text":"#CDD3DE","secondary_bg":"#203340","link":"#5fb3b3","link_hover":"#77c4c4","btn_bg":"#3f6d6d","btn_text":"#d8e4e4","btn_text_hover":"#f0f7f7","btn_hover_bg":"#355c5c","input_text":"#d2d8e1","input_bg":"#223746","input_placeholder":"#8ca1ad","border":"#2a4050"}},{"key":"cityLights","label":"City Lights","colors":{"bg":"#1d252c","text":"#b6bfc4","secondary_bg":"#232c34","link":"#76a8d9","link_hover":"#8bb9e3","btn_bg":"#3e5f7a","btn_text":"#d4dde2","btn_text_hover":"#f0f6fb","btn_hover_bg":"#344f66","input_text":"#c2cbd0","input_bg":"#232c34","input_placeholder":"#8b97a0","border":"#2a343e"}},{"key":"nightOwl","label":"Night Owl","colors":{"bg":"#011627","text":"#d6deeb","secondary_bg":"#071d33","link":"#82aaff","link_hover":"#9bb6ff","btn_bg":"#425b8a","btn_text":"#e4ecfa","btn_text_hover":"#ffffff","btn_hover_bg":"#394f78","input_text":"#dbe3f0","input_bg":"#0a1f36","input_placeholder":"#8aa0be","border":"#0f2740"}},{"key":"youtube","label":"YouTube","colors":{"bg":"#181818","text":"#ffffff","secondary_bg":"#202020","link":"#e05a5a","link_hover":"#ff6b6b","btn_bg":"#8a2b2b","btn_text":"#f2f2f2","btn_text_hover":"#ffffff","btn_hover_bg":"#722424","input_text":"#f0f0f0","input_bg":"#222222","input_placeholder":"#9a9a9a","border":"#2a2a2a"}},{"key":"twitter","label":"Twitter","colors":{"bg":"#15202b","text":"#ffffff","secondary_bg":"#1b2733","link":"#69b3ff","link_hover":"#8cc6ff","btn_bg":"#3a6fa1","btn_text":"#e8f3ff","btn_text_hover":"#ffffff","btn_hover_bg":"#325f8a","input_text":"#eef6ff","input_bg":"#1e2a36","input_placeholder":"#8ea5bd","border":"#263544"}},{"key":"reddit","label":"Reddit (Night mode)","colors":{"bg":"#1a1a1b","text":"#d7dadc","secondary_bg":"#202021","link":"#ff9566","link_hover":"#ffb187","btn_bg":"#7a4a2e","btn_text":"#efd9cf","btn_text_hover":"#ffffff","btn_hover_bg":"#693f27","input_text":"#e3e6e8","input_bg":"#222223","input_placeholder":"#9aa0a3","border":"#2a2a2b"}},{"key":"discord","label":"Discord","colors":{"bg":"#36393f","text":"#dcddde","secondary_bg":"#3c4047","link":"#8ea1e1","link_hover":"#a5b3ea","btn_bg":"#4957d6","btn_text":"#e7e9ff","btn_text_hover":"#ffffff","btn_hover_bg":"#3f4bc0","input_text":"#e3e4e6","input_bg":"#40444b","input_placeholder":"#9aa1ae","border":"#454a52"}},{"key":"slack","label":"Slack","colors":{"bg":"#1d1c1d","text":"#e7e7e7","secondary_bg":"#232223","link":"#cf8fb6","link_hover":"#dda6c5","btn_bg":"#6b5a6e","btn_text":"#efe3ef","btn_text_hover":"#ffffff","btn_hover_bg":"#5b4d5d","input_text":"#ededed","input_bg":"#242324","input_placeholder":"#9a969b","border":"#2a292a"}},{"key":"whatsapp","label":"WhatsApp","colors":{"bg":"#121212","text":"#e6e5e4","secondary_bg":"#161616","link":"#67b97a","link_hover":"#7acc8d","btn_bg":"#2f6b3e","btn_text":"#d8f0df","btn_text_hover":"#f2fff6","btn_hover_bg":"#285b35","input_text":"#ecebe9","input_bg":"#1a1a1a","input_placeholder":"#8d8d8d","border":"#222222"}},{"key":"github","label":"GitHub","colors":{"bg":"#0d1117","text":"#c9d1d9","secondary_bg":"#11161e","link":"#6aa6ff","link_hover":"#8abaff","btn_bg":"#2f3a4a","btn_text":"#d8e2ec","btn_text_hover":"#ffffff","btn_hover_bg":"#26303d","input_text":"#d3dbe2","input_bg":"#0f1420","input_placeholder":"#8894a1","border":"#1a2230"}},{"key":"stackoverflow","label":"StackOverflow","colors":{"bg":"#2d2d2d","text":"#f2f2f2","secondary_bg":"#333333","link":"#ffa654","link_hover":"#ffbb7a","btn_bg":"#7a4e1f","btn_text":"#fdeedd","btn_text_hover":"#ffffff","btn_hover_bg":"#683f18","input_text":"#f0f0f0","input_bg":"#353535","input_placeholder":"#9a9a9a","border":"#3c3c3c"}}]};
+//# sourceURL=dracula-frontend-js-extra
+</script>
+<script id="dracula-frontend-js" src="https://readberserk.com/wp-content/plugins/dracula-dark-mode/assets/js/frontend.js?ver=1.3.4" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<script id="mangapill-navigation-js" src="https://readberserk.com/wp-content/themes/Manga/js/navigation.js?ver=20151215" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<script id="mangapill-skip-link-focus-fix-js" src="https://readberserk.com/wp-content/themes/Manga/js/skip-link-focus-fix.js?ver=20151215" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<script id="mangapill-ads-js" src="https://readberserk.com/wp-content/themes/Manga/js/showads.js?ver=2" type="5336d8eb3e05bf641a2a0a26-text/javascript"></script>
+<script id="wp-emoji-settings" type="application/json">
+{"baseUrl":"https://s.w.org/images/core/emoji/17.0.2/72x72/","ext":".png","svgUrl":"https://s.w.org/images/core/emoji/17.0.2/svg/","svgExt":".svg","source":{"concatemoji":"https://readberserk.com/wp-includes/js/wp-emoji-release.min.js?ver=7.1.4"}}
+</script>
+<script type="5336d8eb3e05bf641a2a0a26-module">
+/*! This file is auto-generated */
+var e="script#wp-emoji-settings",t=document.querySelector(e);if(!(t instanceof HTMLScriptElement))throw new Error("Element missing: "+e);const r=JSON.parse(t.text),s=(window._wpemojiSettings=r,"wpEmojiSettingsSupports"),o=["flag","emoji"];function i(e){try{var t={supportTests:e,timestamp:(new Date).valueOf()};sessionStorage.setItem(s,JSON.stringify(t))}catch(e){}}function c(e,t,n){e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(t,0,0);t=new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data);e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(n,0,0);const r=new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data);return t.every((e,t)=>e===r[t])}function p(e,t){e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(t,0,0);var n=e.getImageData(16,16,1,1);for(let e=0;e<n.data.length;e++)if(0!==n.data[e])return!1;return!0}function u(e,t,n,r){switch(t){case"flag":return n(e,"\ud83c\udff3\ufe0f\u200d\u26a7\ufe0f","\ud83c\udff3\ufe0f\u200b\u26a7\ufe0f")?!1:!n(e,"\ud83c\udde8\ud83c\uddf6","\ud83c\udde8\u200b\ud83c\uddf6")&&!n(e,"\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f","\ud83c\udff4\u200b\udb40\udc67\u200b\udb40\udc62\u200b\udb40\udc65\u200b\udb40\udc6e\u200b\udb40\udc67\u200b\udb40\udc7f");case"emoji":return!r(e,"\ud83e\u1fac8")}return!1}function f(e,t,n,r){let a;const s=(a="undefined"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope?new OffscreenCanvas(300,150):document.createElement("canvas")).getContext("2d",{willReadFrequently:!0}),o=(s.textBaseline="top",s.font="600 32px Arial",{});return e.forEach(e=>{o[e]=t(s,e,n,r)}),o}function a(e){var t=document.createElement("script");t.src=e,t.defer=!0,document.head.appendChild(t)}r.supports={everything:!0,everythingExceptFlag:!0},new Promise(t=>{let n=function(){try{var e=JSON.parse(sessionStorage.getItem(s));if("object"==typeof e&&"number"==typeof e.timestamp&&(new Date).valueOf()<e.timestamp+604800&&"object"==typeof e.supportTests)return e.supportTests}catch(e){}return null}();if(!n){if("undefined"!=typeof Worker&&"undefined"!=typeof OffscreenCanvas&&"undefined"!=typeof URL&&URL.createObjectURL&&"undefined"!=typeof Blob)try{var e="postMessage("+f.toString()+"("+[JSON.stringify(o),u.toString(),c.toString(),p.toString()].join(",")+"));",r=new Blob([e],{type:"text/javascript"});const a=new Worker(URL.createObjectURL(r),{name:"wpTestEmojiSupports"});return void(a.onmessage=e=>{i(n=e.data),a.terminate(),t(n)})}catch(e){}i(n=f(o,u,c,p))}t(n)}).then(e=>{for(const n in e)r.supports[n]=e[n],r.supports.everything=r.supports.everything&&r.supports[n],"flag"!==n&&(r.supports.everythingExceptFlag=r.supports.everythingExceptFlag&&r.supports[n]);var t;r.supports.everythingExceptFlag=r.supports.everythingExceptFlag&&!r.supports.flag,r.supports.everything||((t=r.source||{}).concatemoji?a(t.concatemoji):t.wpemoji&&t.twemoji&&(a(t.twemoji),a(t.wpemoji)))});
+//# sourceURL=https://readberserk.com/wp-includes/js/wp-emoji-loader.min.js
+</script>
+<script type="5336d8eb3e05bf641a2a0a26-text/javascript">
+    jQuery(document).ready(function($) {
+        $(".pages__img").on('load', function() {
+            var img = $(this);
+            img.attr('data-width', this.naturalWidth);
+
+            if(this.naturalWidth > 1300) {
+                img.before('<div><span class="btn btn-sm btn-warning zoom__image" data-zoom="+">+ Larger Image</span></div>');
+            }
+        }).each(function() {
+            if(this.complete || $(this).height() > 0) {
+                $(this).load();
+            }
+        });
+
+        $('.img_container').on('click', '.zoom__image', function() {
+            var btn = $(this);
+            var container = btn.closest('.img_container'); // Find the specific container
+            var img = btn.parent().next();
+            var bodyElement = $('body');
+
+            if(btn.attr('data-zoom') == '+') {
+                btn.html('- Smaller Image').attr('data-zoom', '-');
+
+                var originalSize = img.attr('data-width');
+                img.attr('width',  originalSize + 'px');
+                img.css('max-width', 'none');
+
+                container.addClass('is-active-zoom');
+                bodyElement.addClass('is-zooming');
+
+            } else {
+                btn.html('+ Larger Image').attr('data-zoom', '+');
+
+                img.attr('width', 'none');
+                img.css('max-width', '100%');
+
+                container.removeClass('is-active-zoom');
+
+                if ($('.is-active-zoom').length === 0) {
+                    bodyElement.removeClass('is-zooming');
+                }
+            }
+        });
+
+        if( window.canRunAds === undefined ) {
+            $(".pages__ad").each(function(div) {
+                $(this).html('<img src="https://i.imgur.com/XWnLr5m.jpg" style="width: 100%"/>');
+            });
+        }
+    });
+</script>
+<style>
+    .manga-merch-box {
+        width: 100%;
+        max-width: 500px;
+        background-color: #1a1a1a;
+        border-radius: 12px;
+        padding: 15px;
+        margin: 20px auto;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        gap: 12px;
+        box-sizing: border-box;
+        border: 1px solid #333;
+    }
+    .manga-merch-header {
+        flex-basis: 100%;
+        color: white;
+        text-align: center;
+        margin-bottom: 10px;
+        font-family: sans-serif;
+    }
+    .manga-merch-header b { font-size: 1rem; display: block; }
+    .manga-merch-header span { font-size: 0.75rem; color: #9ca3af; }
+    .manga-merch-item { width: 45%; }
+    .manga-merch-item img {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+        border-radius: 8px;
+        display: block;
+    }
+</style>
+<script type="5336d8eb3e05bf641a2a0a26-text/javascript">
+(function() {
+    const CONFIG = {
+        title: "Support by Shopping",
+        subtitle: "Verified Amazon Merchandise",
+        itemsPerBox: 2,
+        selector: ".manga-ad-spot"
+    };
+
+    const path = window.location.pathname;
+    const match = path.match(/\/chapter\/(.*?)-chapter-/);
+    const slug = match ? match[1] : 'default';
+
+    fetch(`/fetch-ads.php?series=${slug}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data || data.length === 0) return;
+
+            const targetSlots = document.querySelectorAll(CONFIG.selector);
+            let pointer = 0;
+
+            targetSlots.forEach(slot => {
+                const slice = data.slice(pointer, pointer + CONFIG.itemsPerBox);
+                if (slice.length < CONFIG.itemsPerBox) return;
+
+                let html = `
+                    <div class="manga-merch-box">
+                        <div class="manga-merch-header">
+                            <b>${CONFIG.title}</b>
+                            <span>${CONFIG.subtitle}</span>
+                        </div>`;
+
+                slice.forEach(item => {
+                    const itemTitle = item.title ? item.title.replace(/"/g, '&quot;') : 'Manga Merchandise';
+                    html += `
+                        <div class="manga-merch-item">
+                            <a href="${item.link}" target="_blank" rel="noopener nofollow" aria-label="${itemTitle}">
+                                <img src="${item.image}" alt="${itemTitle}" width="200" height="200" loading="lazy">
+                            </a>
+                        </div>`;
+                });
+
+                html += `</div>`;
+                slot.innerHTML = html;
+                pointer += CONFIG.itemsPerBox;
+            });
+        })
+        .catch(() => {});
+})();
+</script>
+</body>
+</html>
+<!-- Dynamic page generated in 0.184 seconds. -->
+<!-- Cached page generated by WP-Super-Cache on 2026-10-30 16:32:00 -->
+<!-- Compression = gzip -->

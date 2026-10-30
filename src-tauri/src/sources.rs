@@ -639,9 +639,20 @@ pub fn generic_detail(html: &str, mut manga: Manga, s: &Source) -> Result<Detail
         };
         let url = provider::resolve(&manga.url, href)?;
         if seen.insert(url.clone()) {
+            let mut label = text(a);
+            if label.trim().is_empty()
+                || label.eq_ignore_ascii_case("read")
+                || label.eq_ignore_ascii_case("leggi")
+                || label.eq_ignore_ascii_case("view")
+            {
+                let derived = derive_chapter_title(&url);
+                if !derived.is_empty() {
+                    label = derived;
+                }
+            }
             chapters.push(Chapter {
                 page_count: None,
-                title: text(a),
+                title: label,
                 url,
             });
         }
@@ -680,6 +691,32 @@ fn number(s: &str) -> f64 {
         .find(|p| p.chars().any(|c| c.is_ascii_digit()))
         .unwrap_or("0");
     n.parse().unwrap_or(0.0)
+}
+
+fn derive_chapter_title(url_str: &str) -> String {
+    if let Ok(parsed) = url::Url::parse(url_str) {
+        if let Some(segments) = parsed.path_segments() {
+            let filtered: Vec<&str> = segments.filter(|s| !s.is_empty()).collect();
+            if let Some(last) = filtered.last() {
+                let parts: Vec<String> = last
+                    .replace('_', "-")
+                    .split('-')
+                    .filter(|p| !p.is_empty())
+                    .map(|w| {
+                        let mut c = w.chars();
+                        match c.next() {
+                            None => String::new(),
+                            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                        }
+                    })
+                    .collect();
+                if !parts.is_empty() {
+                    return parts.join(" ");
+                }
+            }
+        }
+    }
+    String::new()
 }
 pub async fn pages(
     engine: &Engine,
@@ -1337,6 +1374,40 @@ mod tests {
         .unwrap();
         assert_eq!(pages.len(), 46);
         assert!(pages[0].ends_with("/2.jpeg"));
+    }
+    #[test]
+    fn readberserk_html() {
+        let source: Source =
+            serde_json::from_str(include_str!("../../connectors/readberserk.json")).unwrap();
+        let manga = Manga {
+            title: "Berserk".into(),
+            url: "https://readberserk.com".into(),
+            cover: "".into(),
+            source_id: "readberserk".into(),
+            source_name: "ReadBerserk".into(),
+            language: "en".into(),
+            authors: vec![],
+        };
+        let detail = generic_detail(
+            include_str!("../../tests/fixtures/readberserk-detail.html"),
+            manga,
+            &source,
+        )
+        .unwrap();
+        assert_eq!(detail.volumes[0].chapters.len(), 10);
+        assert_eq!(detail.volumes[0].chapters[0].title, "Berserk Chapter 377");
+        assert_eq!(detail.volumes[0].chapters[9].title, "Berserk Chapter 386");
+        assert!(detail.volumes[0].chapters[9].url.contains("berserk-chapter-386"));
+
+        let pages = generic_pages(
+            include_str!("../../tests/fixtures/readberserk-reader.html"),
+            &source.base_url,
+            &source,
+        )
+        .unwrap();
+        assert_eq!(pages.len(), 24);
+        assert!(pages[0].ends_with("/1.jpeg"));
+        assert!(pages[23].ends_with("/24.jpeg"));
     }
     #[test]
     fn comics_collections_and_complete_page_payload() {
