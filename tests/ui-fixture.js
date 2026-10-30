@@ -58,7 +58,16 @@ window.__TAURI_INTERNALS__ = {
   }
   if(cmd === 'lab_download') { document.querySelector('#test-output').textContent=JSON.stringify(args.request);return {output:'/tmp/mwr-ui-test/campione.pdf',pages:2,bytes:1024}; }
   if(cmd === 'plugin:dialog|open') return '/tmp/mwr-ui-test';
-  if(cmd === 'lab_cancel' || cmd === 'lab_open_output') return;
+  if(cmd === 'lab_cancel' || cmd === 'lab_open_output' || cmd === 'lab_open_browser' || cmd === 'lab_close_browser' || cmd === 'lab_firefox_close' || cmd === 'lab_firefox_inject_picker' || cmd === 'clear_logs' || cmd === 'sources_export_file') return;
+  if(cmd === 'lab_firefox_launch') return true;
+  if(cmd === 'lab_firefox_status') return { installed: true, running: false, ublock_installed: true };
+  if(cmd === 'lab_firefox_get_url' || cmd === 'lab_get_browser_url' || cmd === 'lab_embed_url') return 'https://www.mangaread.org';
+  if(cmd === 'lab_firefox_get_picked') return null;
+  if(cmd === 'lab_detect_chapters') return { found: true, selector: 'a.chapter-link', count: 3, sample_titles: ['Capitolo 1', 'Capitolo 2', 'Capitolo 3'] };
+  if(cmd === 'get_log_path') return '/tmp/pokko.log';
+  if(cmd === 'read_recent_logs') return ['[INFO] Pokko avviato'];
+  if(cmd === 'sources_import_file') return structuredClone(sources[0]);
+  if(cmd === 'sources_import_folder' || cmd === 'sources_import_github') return structuredClone(sources);
   throw new Error(`Comando non previsto nella fixture: ${cmd}`);
  }
 };

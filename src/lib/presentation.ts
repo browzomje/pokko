@@ -1,6 +1,10 @@
 import type { Job } from "../types";
-export const flag = (language: string) =>
-  language === "en" ? "🇬🇧" : language === "both" ? "🇮🇹 🇬🇧" : "🇮🇹";
+import { getLanguageFlag } from "./languages";
+
+export const flag = (language: string) => {
+  if (language === "both") return "🇮🇹 🇬🇧";
+  return getLanguageFlag(language) || (language === "en" ? "🇬🇧" : "🇮🇹");
+};
 export const formats = [
   { value: "images", label: "Foto singole" },
   { value: "cbz", label: "Archivio CBZ (ZIP)" },

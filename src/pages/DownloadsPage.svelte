@@ -1,11 +1,12 @@
 <script lang="ts">
   import JobCard from "../components/JobCard.svelte";
-  import { Search, Check, ArrowDownToLine, Trash2 } from "lucide-svelte";
+  import { ArrowDownToLine, Trash2 } from "lucide-svelte";
+  import { t } from "../lib/i18n";
 
   import type { Job } from "../types";
   let {
     jobs,
-    onSearch: goSearch,
+    onSearch: _goSearch,
     removeAll,
     removeJob,
     openFolder,
@@ -20,6 +21,7 @@
     control: (job: Job, action: string) => void;
     onArchive: () => void;
   } = $props();
+
   let queueFilter = $state("active");
   let showArchived = $state(false);
   let pending = $derived(jobs.filter((j) => j.status !== "completed").length);
@@ -40,64 +42,60 @@
 
 <div class="page-heading">
   <div>
-    <div class="eyebrow">ATTIVITÀ</div>
-    <h1>Downloads</h1>
-    <p>Metti in pausa un download per lasciare proseguire il successivo.</p>
+    <h1>{t("downloads.title")}</h1>
   </div>
-  <button
-    class="danger"
-    disabled={!jobs.some((j) => j.status !== "completed")}
-    onclick={removeAll}
-    ><Trash2 size={17} /> Svuota download non completati</button
-  >
-  <span class="pill"
-    >{completed} completati{#if archived}
-      · {archived} archiviati{/if} · {pending} in coda</span
-  >
-</div>
-{#if !jobs.length}<div class="empty">
-    <div class="empty-icon"><ArrowDownToLine size={34} /></div>
-    <h2>La coda è pronta</h2>
-    <p>Apri un manga e aggiungi i volumi che vuoi conservare.</p>
-    <button class="primary" onclick={goSearch}
-      ><Search size={16} /> Cerca un manga</button
+  <div class="page-heading-actions">
+    <span class="pill">
+      {completed} {t("downloads.completed")}{#if archived} · {archived} {t("downloads.archived")}{/if} · {pending} {t("downloads.queued")}
+    </span>
+    <button
+      class="danger"
+      disabled={!jobs.some((j) => j.status !== "completed")}
+      onclick={removeAll}
     >
-  </div>{/if}
-{#if jobs.length}<div class="queue-filters" aria-label="Filtra download">
-    {#each [{ value: "active", label: "Coda", count: pending }, { value: "completed", label: "Cronologia", count: completed }] as filter}
+      <Trash2 size={16} /> {t("downloads.clearIncomplete")}
+    </button>
+  </div>
+</div>
+
+{#if !jobs.length}
+  <div class="empty">
+    <div class="empty-icon"><ArrowDownToLine size={34} /></div>
+    <h2>{t("downloads.emptyTitle")}</h2>
+    <p>{t("downloads.emptyDesc")}</p>
+  </div>
+{:else}
+  <div class="downloads-filter-bar">
+    <div class="lab-tabs">
       <button
-        class:chosen={queueFilter === filter.value}
-        aria-pressed={queueFilter === filter.value}
-        onclick={() => (queueFilter = filter.value)}
-        >{filter.label}<span class="count">{filter.count}</span></button
+        class:chosen={queueFilter === "active"}
+        onclick={() => (queueFilter = "active")}
       >
+        In corso ({pending})
+      </button>
+      <button
+        class:chosen={queueFilter === "completed"}
+        onclick={() => (queueFilter = "completed")}
+      >
+        Completati ({completed})
+      </button>
+    </div>
+
+    {#if queueFilter === "completed" && completed > 0}
+      <button class="action-btn" onclick={onArchive}>
+        {t("downloads.clearCompleted")}
+      </button>
+    {/if}
+  </div>
+
+  <div class="queue-list">
+    {#each visibleJobs as job (job.id)}
+      <JobCard
+        {job}
+        {control}
+        {removeJob}
+        {openFolder}
+      />
     {/each}
   </div>
-  {#if !visibleJobs.length}<div class="empty">
-      <Check size={28} />
-      <h2>Nessun download in questa sezione</h2>
-      <button
-        onclick={() => {
-          queueFilter = "completed";
-          showArchived = true;
-        }}>Mostra cronologia completa</button
-      >
-    </div>{/if}{/if}
-{#if queueFilter === "completed"}<div class="lab-controls">
-    <button disabled={!completed} onclick={onArchive}
-      ><Trash2 size={16} /> Pulisci cronologia</button
-    ><label class="checkbox"
-      ><input type="checkbox" bind:checked={showArchived} /> Mostra archiviati</label
-    ><small
-      >I completati passano qui automaticamente. Pulire archivia le voci e
-      conserva i file e le verifiche.</small
-    >
-  </div>{/if}
-<div class="queue-list">
-  {#each visibleJobs as job (job.id)}<JobCard
-      {job}
-      {openFolder}
-      {control}
-      {removeJob}
-    />{/each}
-</div>
+{/if}

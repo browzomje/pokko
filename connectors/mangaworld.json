@@ -1,0 +1,18 @@
+{
+  "id": "mw",
+  "name": "MangaWorld",
+  "version": "1.0.0",
+  "base_url": "https://www.mangaworld.mx",
+  "category": "manga",
+  "language": "it",
+  "adapter": "mangaworld",
+  "min_delay_ms": 1000,
+  "note": "Catalogo manga italiano con gruppi volumi e capitoli",
+  "search_path": "/search?keyword={query}&page={page}",
+  "result_selector": ".manga-title, .post-title a, .manga-name a, h3 a",
+  "chapter_selector": "a.chap, a.chapter-link, .wp-manga-chapter a, .chapter-list a",
+  "image_selector": "img.page-image, .reading-content img, .chapter-content img, #readerarea img",
+  "description_selector": "#noidungm, .description-summary, .summary__content",
+  "next_selector": "a[rel=next], .pagination .next a, a.next",
+  "enabled": true
+}

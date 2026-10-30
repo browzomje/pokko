@@ -1,0 +1,18 @@
+{
+  "id": "mf",
+  "name": "MangaFreak",
+  "version": "1.0.0",
+  "base_url": "https://ww3.mangafreak.me",
+  "category": "manga",
+  "language": "en",
+  "adapter": "generic",
+  "min_delay_ms": 1000,
+  "note": "HTML verificato con capitoli in lingua inglese",
+  "search_path": "/Find/{query}",
+  "result_selector": ".manga_search_item h3 a",
+  "chapter_selector": "a.chapter-link",
+  "image_selector": "img#gohere",
+  "description_selector": "#noidungm, .description-summary, .summary__content",
+  "next_selector": "a[rel=next], .pagination .next a",
+  "enabled": true
+}

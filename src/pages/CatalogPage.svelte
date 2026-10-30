@@ -7,8 +7,8 @@
     LoaderCircle,
   } from "lucide-svelte";
   import Cover from "../Cover.svelte";
-
   import { flag } from "../lib/presentation";
+  import { t } from "../lib/i18n";
   import type { Manga, Source, SourceReport } from "../types";
   let {
     query = $bindable(""),
@@ -46,7 +46,7 @@
 </script>
 
 <div class="catalog-switch" aria-label="Tipo di catalogo">
-  {#each [{ value: "all", label: "Tutti" }, { value: "manga", label: "Manga" }, { value: "comics", label: "Comics" }] as kind}
+  {#each [{ value: "all", label: t("catalog.all") }, { value: "manga", label: t("catalog.manga") }, { value: "comics", label: t("catalog.comics") }] as kind}
     <button
       class:chosen={catalogKind === kind.value}
       aria-pressed={catalogKind === kind.value}
@@ -65,12 +65,12 @@
   <Search size={20} /><input
     bind:this={searchInput}
     bind:value={query}
-    placeholder="Cerca per titolo o autore…"
-    aria-label="Cerca manga"
+    placeholder={t("catalog.searchPlaceholder")}
+    aria-label={t("catalog.search")}
   /><kbd>Ctrl K</kbd><button
     class="primary"
     disabled={searching || !catalogSources.length}
-    >{#if searching}<LoaderCircle size={16} class="spin" /> Ricerca…{:else}Cerca
+    >{#if searching}<LoaderCircle size={16} class="spin" /> {t("catalog.searching")}{:else}{t("catalog.search")}
       <ChevronRight size={16} />{/if}</button
   >
 </form>

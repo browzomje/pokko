@@ -1,0 +1,18 @@
+{
+  "id": "readcomics",
+  "name": "ReadComicsOnline",
+  "version": "1.0.0",
+  "base_url": "https://readcomicsonline.lol",
+  "category": "comics",
+  "language": "en",
+  "adapter": "readcomics",
+  "min_delay_ms": 500,
+  "note": "Comics occidentali, serie regolari e volumi TPB completi",
+  "search_path": "/search?q={query}&page={page}",
+  "result_selector": "a[data-smartlink][href^=\"/comic/\"]",
+  "chapter_selector": "",
+  "image_selector": "",
+  "description_selector": "",
+  "next_selector": "",
+  "enabled": true
+}

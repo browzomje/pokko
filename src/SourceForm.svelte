@@ -16,7 +16,9 @@
     UserRound,
   } from "lucide-svelte";
   import Select from "./Select.svelte";
+  import LanguageSelect from "./lib/components/LanguageSelect.svelte";
   import FieldLabel from "./components/FieldLabel.svelte";
+  import { t } from "./lib/i18n";
   import type { Source } from "./types";
   import { stageFields } from "./lib/source-config";
   import type { SelectorField } from "./lib/source-config";
@@ -121,40 +123,25 @@
         text="Lingua"
         icon={Languages}
         help="Lingua delle scan offerte da questa fonte. Per HTML generico è un’etichetta: non traduce né filtra automaticamente le pagine."
-      /><Select
+      /><LanguageSelect
         label="Lingua della fonte"
         bind:value={source.language}
-        options={[
-          { value: "it", label: "🇮🇹 Italiano" },
-          { value: "en", label: "🇬🇧 Inglese" },
-          ...(source.adapter === "mangadex"
-            ? [{ value: "both", label: "🇮🇹 🇬🇧 Entrambe" }]
-            : []),
-        ]}
+        includeBoth={source.adapter === "mangadex"}
       />
     </div>
-    <div class="source-field">
-      <FieldLabel
-        text="Adattatore"
-        icon={Plug}
-        help="Per un nuovo sito scegli HTML generico e registra i selettori. Gli altri adattatori sono parser già programmati per un sito specifico; MangaDex usa un’API."
-      /><Select
-        label="Adattatore della fonte"
-        bind:value={source.adapter}
-        options={[
-          { value: "generic", label: "HTML generico" },
-          { value: "mangaworld", label: "MangaWorld" },
-          { value: "readcomics", label: "ReadComicsOnline" },
-          { value: "mangadex", label: "MangaDex API" },
-        ]}
-        onchange={(value) => {
-          if (value === "mangadex") source.base_url = "https://mangadex.org";
-          if (value === "readcomics") source.category = "comics";
-          if (value !== "mangadex" && source.language === "both")
-            source.language = "en";
-        }}
-      />
-    </div>
+    {#if source.adapter !== "generic"}
+      <div class="source-field">
+        <FieldLabel
+          text="Adattatore"
+          icon={Plug}
+          help="Connettore integrato nell’applicazione: usa un parser dedicato."
+        /><input
+          type="text"
+          readonly
+          value="Integrato"
+        />
+      </div>
+    {/if}
     <label
       ><FieldLabel
         text="Intervallo minimo (ms)"

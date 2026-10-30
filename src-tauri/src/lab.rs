@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    fs,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -175,8 +176,9 @@ pub async fn lab_capture(
         .await?;
     let url = response.url().to_string();
     provider::site(&url)?;
-    let html = String::from_utf8(limited(response, MAX_HTML).await?)
+    let raw_html = String::from_utf8(limited(response, MAX_HTML).await?)
         .map_err(|_| "HTML non UTF-8: importa una copia convertita in UTF-8")?;
+    let html = sanitize_html_adblock(&raw_html);
     let mut sample = Sample {
         id: id(),
         source: source.clone(),
@@ -602,6 +604,365 @@ pub fn lab_open_output(path: String) -> Result<(), String> {
         return Err("File di prova non valido".into());
     }
     open::that_detached(path).map_err(|e| e.to_string())
+}
+
+static FIREFOX_PROCESS: std::sync::Mutex<Option<std::process::Child>> = std::sync::Mutex::new(None);
+
+pub fn is_firefox_installed() -> bool {
+    std::process::Command::new("firefox")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+pub async fn ensure_firefox_profile_with_ublock() -> Result<PathBuf, String> {
+    let profile_dir = std::env::temp_dir().join("pokko-firefox-profile");
+    let ext_dir = profile_dir.join("extensions");
+    fs::create_dir_all(&ext_dir).map_err(|e| e.to_string())?;
+
+    // Download official uBlock Origin XPI if missing
+    let xpi_path = ext_dir.join("uBlock0@raymondhill.net.xpi");
+    if !xpi_path.exists() || fs::metadata(&xpi_path).map(|m| m.len()).unwrap_or(0) < 1000 {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(|e| e.to_string())?;
+        let res = client
+            .get("https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi")
+            .header(reqwest::header::USER_AGENT, "Mozilla/5.0")
+            .send()
+            .await
+            .map_err(|e| format!("Impossibile scaricare uBlock Origin: {e}"))?;
+        if res.status().is_success() {
+            let bytes = res.bytes().await.map_err(|e| e.to_string())?;
+            fs::write(&xpi_path, bytes).map_err(|e| e.to_string())?;
+            crate::logger::info("lab", "uBlock Origin scaricato e installato nel profilo Firefox");
+        }
+    }
+
+    // Write user.js preferences
+    let user_js = profile_dir.join("user.js");
+    let prefs = r#"
+user_pref("marionette.port", 2828);
+user_pref("marionette.enabled", true);
+user_pref("extensions.autoDisableScopes", 0);
+user_pref("extensions.enabledScopes", 15);
+user_pref("xpinstall.signatures.required", true);
+user_pref("browser.startup.homepage_override.mstone", "ignore");
+user_pref("startup.homepage_welcome_url", "");
+user_pref("startup.homepage_welcome_url.additional", "");
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("toolkit.telemetry.enabled", false);
+user_pref("browser.rights.3.shown", true);
+user_pref("extensions.pocket.enabled", false);
+user_pref("browser.newtabpage.enabled", false);
+user_pref("app.update.auto", false);
+user_pref("app.update.enabled", false);
+"#;
+    let _ = fs::write(user_js, prefs);
+
+    Ok(profile_dir)
+}
+
+fn marionette_connect() -> Result<std::net::TcpStream, String> {
+    for _ in 0..20 {
+        if let Ok(stream) = std::net::TcpStream::connect_timeout(
+            &"127.0.0.1:2828".parse().unwrap(),
+            std::time::Duration::from_millis(300),
+        ) {
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
+            let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(5)));
+            return Ok(stream);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
+    Err("Connessione a Marionette non riuscita (porta 2828)".into())
+}
+
+fn marionette_read_packet(stream: &mut std::net::TcpStream) -> Result<Value, String> {
+    use std::io::Read;
+    let mut header = Vec::new();
+    let mut byte = [0u8; 1];
+    loop {
+        stream.read_exact(&mut byte).map_err(|e| e.to_string())?;
+        if byte[0] == b':' {
+            break;
+        }
+        header.push(byte[0]);
+    }
+    let length: usize = String::from_utf8(header)
+        .map_err(|e| e.to_string())?
+        .parse()
+        .map_err(|e: std::num::ParseIntError| e.to_string())?;
+
+    let mut body = vec![0u8; length];
+    stream.read_exact(&mut body).map_err(|e| e.to_string())?;
+    serde_json::from_slice(&body).map_err(|e| e.to_string())
+}
+
+fn marionette_send_cmd(stream: &mut std::net::TcpStream, id: u64, name: &str, params: Value) -> Result<Value, String> {
+    use std::io::Write;
+    let payload = json!([0, id, name, params]).to_string();
+    let wire = format!("{}:{}", payload.len(), payload);
+    stream.write_all(wire.as_bytes()).map_err(|e| e.to_string())?;
+    marionette_read_packet(stream)
+}
+
+pub fn marionette_exec(name: &str, params: Value) -> Result<Value, String> {
+    let mut stream = marionette_connect()?;
+    // Read init handshake
+    let _ = marionette_read_packet(&mut stream)?;
+    // Start session
+    let _ = marionette_send_cmd(&mut stream, 1, "WebDriver:NewSession", json!({}))?;
+    // Execute command
+    let resp = marionette_send_cmd(&mut stream, 2, name, params)?;
+    if let Some(arr) = resp.as_array() {
+        if arr.len() > 3 {
+            return Ok(arr[3].clone());
+        }
+    }
+    Ok(resp)
+}
+
+#[tauri::command]
+pub async fn lab_firefox_launch(url: String) -> Result<bool, String> {
+    provider::site(&url)?;
+    if !is_firefox_installed() {
+        return Ok(false);
+    }
+
+    // If Firefox is already running, try navigating via Marionette
+    if let Ok(mut guard) = FIREFOX_PROCESS.lock() {
+        if let Some(ref mut child) = *guard {
+            if child.try_wait().ok().flatten().is_none() {
+                // Process is still running, navigate active tab
+                if marionette_exec("WebDriver:ExecuteScript", json!({"script": format!("window.location.href = '{}';", url), "args": []})).is_ok() {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+
+    let profile_dir = ensure_firefox_profile_with_ublock().await?;
+
+    // Spawn Firefox process
+    let child = std::process::Command::new("firefox")
+        .arg("--marionette")
+        .arg("--profile")
+        .arg(profile_dir)
+        .arg("--new-instance")
+        .arg(&url)
+        .spawn()
+        .map_err(|e| format!("Errore avvio Firefox: {e}"))?;
+
+    if let Ok(mut guard) = FIREFOX_PROCESS.lock() {
+        *guard = Some(child);
+    }
+
+    crate::logger::info("lab", &format!("Firefox avviato con uBlock Origin su URL: {url}"));
+    Ok(true)
+}
+
+#[tauri::command]
+pub fn lab_firefox_get_url() -> Result<String, String> {
+    let resp = marionette_exec("WebDriver:GetCurrentURL", json!({}))?;
+    if let Some(val) = resp["value"].as_str() {
+        return Ok(val.to_string());
+    }
+    Err("URL non disponibile".into())
+}
+
+#[tauri::command]
+pub fn lab_firefox_inject_picker() -> Result<(), String> {
+    let script = r#"
+(function() {
+  if (window.__pokko_picker_installed) return;
+  window.__pokko_picker_installed = true;
+  window.__pokko_picked = null;
+
+  function cssPath(el) {
+    if (el.id) return '#' + CSS.escape(el.id);
+    var parts = [];
+    while (el && el.tagName !== 'HTML' && el.tagName !== 'BODY') {
+      var tag = el.tagName.toLowerCase();
+      if (el.id) { parts.unshift('#' + CSS.escape(el.id)); break; }
+      var siblings = el.parentElement ? Array.from(el.parentElement.children).filter(function(s) { return s.tagName === el.tagName; }) : [el];
+      if (siblings.length > 1) {
+        parts.unshift(tag + ':nth-of-type(' + (siblings.indexOf(el) + 1) + ')');
+      } else {
+        parts.unshift(tag);
+      }
+      el = el.parentElement;
+    }
+    return parts.join(' > ');
+  }
+
+  function suggestSelector(el) {
+    var tag = el.tagName.toLowerCase();
+    if (el.id) return '#' + CSS.escape(el.id);
+    if (el.classList && el.classList.length > 0) {
+      return tag + '.' + Array.from(el.classList).map(function(c) { return CSS.escape(c); }).join('.');
+    }
+    if (tag === 'a' && el.getAttribute('href')) {
+      var href = el.getAttribute('href');
+      if (href.indexOf('/chapter') !== -1) return 'a[href*="/chapter"]';
+      if (href.indexOf('/read') !== -1) return 'a[href*="/read"]';
+    }
+    return cssPath(el);
+  }
+
+  var activeEl = null;
+  document.addEventListener('mouseover', function(e) {
+    if (activeEl) activeEl.style.outline = '';
+    activeEl = e.target;
+    if (activeEl) {
+      activeEl.style.outline = '3px solid #818cf8';
+      activeEl.style.cursor = 'pointer';
+    }
+  }, true);
+
+  document.addEventListener('mouseout', function(e) {
+    if (e.target) e.target.style.outline = '';
+  }, true);
+
+  document.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var sel = suggestSelector(e.target);
+    window.__pokko_picked = sel;
+    if (activeEl) activeEl.style.outline = '3px solid #4ade80';
+  }, true);
+})();
+"#;
+    marionette_exec("WebDriver:ExecuteScript", json!({"script": script, "args": []}))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn lab_firefox_get_picked() -> Result<Option<String>, String> {
+    let script = "var sel = window.__pokko_picked; window.__pokko_picked = null; return sel;";
+    let resp = marionette_exec("WebDriver:ExecuteScript", json!({"script": script, "args": []}))?;
+    if let Some(val) = resp["value"].as_str() {
+        return Ok(Some(val.to_string()));
+    }
+    Ok(None)
+}
+
+#[tauri::command]
+pub fn lab_firefox_close() -> Result<(), String> {
+    if let Ok(mut guard) = FIREFOX_PROCESS.lock() {
+        if let Some(mut child) = guard.take() {
+            let _ = child.kill();
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn lab_firefox_status() -> Result<serde_json::Value, String> {
+    let installed = is_firefox_installed();
+    let mut running = false;
+    if let Ok(mut guard) = FIREFOX_PROCESS.lock() {
+        if let Some(ref mut child) = *guard {
+            running = child.try_wait().ok().flatten().is_none();
+        }
+    }
+    let ublock = std::env::temp_dir()
+        .join("pokko-firefox-profile")
+        .join("extensions")
+        .join("uBlock0@raymondhill.net.xpi")
+        .exists();
+
+    Ok(json!({
+        "installed": installed,
+        "running": running,
+        "ublock_installed": ublock
+    }))
+}
+
+/// Heuristic chapter detection: automatically identifies chapter lists on a page
+#[tauri::command]
+pub fn lab_detect_chapters(html: String, _url: String) -> Result<serde_json::Value, String> {
+    let doc = scraper::Html::parse_document(&html);
+
+    let candidate_selectors = [
+        "a.chap",
+        "a.chapter-link",
+        ".wp-manga-chapter a",
+        ".chapter-list a",
+        "ul.chapters a",
+        "table.table tbody tr td a",
+        ".chapter-name a",
+        "a[href*=\"/chapter/\"]",
+        "a[href*=\"/read/\"]",
+        "a[href*=\"/ch-\"]",
+        "a[href*=\"-chapter-\"]",
+        "li.volume a",
+    ];
+
+    for sel_str in candidate_selectors {
+        if let Ok(sel) = scraper::Selector::parse(sel_str) {
+            let matches: Vec<_> = doc.select(&sel).collect();
+            if matches.len() >= 2 {
+                let sample_titles: Vec<String> = matches
+                    .iter()
+                    .take(5)
+                    .map(|el| el.text().collect::<Vec<_>>().join(" ").trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+
+                crate::logger::info("lab", &format!("Rilevati capitoli con selettore '{}': {} elementi", sel_str, matches.len()));
+
+                return Ok(json!({
+                    "found": true,
+                    "selector": sel_str,
+                    "count": matches.len(),
+                    "sample_titles": sample_titles
+                }));
+            }
+        }
+    }
+
+    // Broad fallback heuristic: look for any <a> with chapter keywords in href or text
+    let a_sel = scraper::Selector::parse("a").unwrap();
+    let mut matching_hrefs = Vec::new();
+    for el in doc.select(&a_sel) {
+        if let Some(href) = el.value().attr("href") {
+            let lower = href.to_lowercase();
+            let text = el.text().collect::<Vec<_>>().join(" ").to_lowercase();
+            if lower.contains("/chapter") || lower.contains("/read/") || lower.contains("ch-") || text.contains("chapter") || text.contains("capitolo") {
+                matching_hrefs.push(el.text().collect::<Vec<_>>().join(" ").trim().to_string());
+            }
+        }
+    }
+
+    if matching_hrefs.len() >= 2 {
+        return Ok(json!({
+            "found": true,
+            "selector": "a[href*=\"/chapter/\"], a[href*=\"/read/\"]",
+            "count": matching_hrefs.len(),
+            "sample_titles": matching_hrefs.iter().take(5).cloned().collect::<Vec<_>>()
+        }));
+    }
+
+    Ok(json!({
+        "found": false,
+        "selector": "",
+        "count": 0,
+        "sample_titles": []
+    }))
+}
+
+/// Clean HTML adblock sanitizer for acquired pages
+pub fn sanitize_html_adblock(raw: &str) -> String {
+    // Strip scripts, iframes, objects, embeds, and intrusive ad tags
+    let without_scripts = regex::Regex::new(r"(?is)<script\b[^>]*>.*?</script>").unwrap().replace_all(raw, "");
+    let without_iframes = regex::Regex::new(r"(?is)<iframe\b[^>]*>.*?</iframe>").unwrap().replace_all(&without_scripts, "");
+    let without_embeds = regex::Regex::new(r"(?is)<(?:object|embed)\b[^>]*>.*?</(?:object|embed)>").unwrap().replace_all(&without_iframes, "");
+    let without_popups = regex::Regex::new(r#"(?i)on\w+\s*=\s*["'][^"']*window\.open[^"']*["']"#).unwrap().replace_all(&without_embeds, "");
+    without_popups.to_string()
 }
 
 #[cfg(test)]

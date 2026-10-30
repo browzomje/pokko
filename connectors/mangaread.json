@@ -1,0 +1,18 @@
+{
+  "id": "mangaread",
+  "name": "MangaRead",
+  "version": "1.0.0",
+  "base_url": "https://www.mangaread.org",
+  "category": "manga",
+  "language": "en",
+  "adapter": "generic",
+  "min_delay_ms": 1500,
+  "note": "HTML verificato WordPress Madara con capitoli in inglese",
+  "search_path": "/?s={query}&post_type=wp-manga&paged={page}",
+  "result_selector": ".post-title a",
+  "chapter_selector": ".wp-manga-chapter a",
+  "image_selector": ".reading-content img",
+  "description_selector": ".description-summary",
+  "next_selector": "a.next.page-numbers",
+  "enabled": true
+}

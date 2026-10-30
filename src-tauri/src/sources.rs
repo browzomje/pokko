@@ -52,7 +52,9 @@ pub fn validate(s: &Source) -> Result<(), String> {
     if s.id.trim().is_empty() || s.name.trim().is_empty() {
         return Err("Nome e identificatore fonte obbligatori".into());
     }
-    if !["it", "en", "both"].contains(&s.language.as_str())
+    if s.language.trim().is_empty()
+        || s.language.len() > 10
+        || !s.language.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
         || !["generic", "mangaworld", "mangadex", "readcomics"].contains(&s.adapter.as_str())
     {
         return Err("Lingua o adattatore non valido".into());
@@ -62,18 +64,24 @@ pub fn validate(s: &Source) -> Result<(), String> {
     }
     if s.adapter == "generic" {
         if s.language == "both" {
-            return Err("Per HTML generico scegli una lingua precisa: italiano o inglese".into());
+            return Err("Per HTML generico scegli una lingua precisa".into());
         }
-        if (s.enabled || !s.search_path.is_empty()) && !s.search_path.contains("{query}") {
+        if !s.search_path.is_empty() && !s.search_path.contains("{query}") {
             return Err("Il percorso ricerca deve contenere {query}".into());
         }
         if s.enabled
-            && [&s.result_selector, &s.chapter_selector, &s.image_selector]
+            && [&s.chapter_selector, &s.image_selector]
                 .iter()
                 .any(|field| field.trim().is_empty())
         {
             return Err(
-                "Completa i selettori di ricerca, capitoli e immagini prima di abilitare la fonte"
+                "Completa i selettori di capitoli e immagini prima di abilitare la fonte"
+                    .into(),
+            );
+        }
+        if s.enabled && !s.search_path.is_empty() && s.result_selector.trim().is_empty() {
+            return Err(
+                "Completa il selettore dei risultati di ricerca o disabilita il percorso di ricerca"
                     .into(),
             );
         }
@@ -459,6 +467,36 @@ pub fn comics_pages(html: &str) -> Result<Vec<String>, String> {
 }
 pub fn generic_search(html: &str, base: &str, s: &Source) -> Result<SearchResult, String> {
     let doc = Html::parse_document(html);
+    if s.search_path.trim().is_empty() && s.result_selector.trim().is_empty() {
+        let title = doc
+            .select(&css("h1")?)
+            .next()
+            .map(text)
+            .filter(|t| !t.is_empty())
+            .or_else(|| {
+                doc.select(&css("title").ok()?)
+                    .next()
+                    .map(text)
+                    .filter(|t| !t.is_empty())
+            })
+            .unwrap_or_else(|| s.name.clone());
+        let cover = doc
+            .select(&css("meta[property='og:image']")?)
+            .next()
+            .and_then(|m| m.value().attr("content"))
+            .and_then(|v| provider::resolve(base, v).ok())
+            .unwrap_or_default();
+        return Ok(SearchResult {
+            items: vec![Manga {
+                title,
+                url: base.to_string(),
+                cover,
+                authors: structured_authors(html),
+                ..Manga::default()
+            }],
+            has_next: false,
+        });
+    }
     let mut seen = HashSet::new();
     let mut items = Vec::new();
     for a in doc.select(&css(&s.result_selector)?) {
@@ -1013,6 +1051,173 @@ fn md_pages(v: &Value) -> Result<Vec<String>, String> {
         Ok(pages)
     }
 }
+
+pub const REJECTED_ARCHIVE_EXTS: &[&str] = &[
+    "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "cbz", "cbr", "tgz",
+];
+
+pub fn check_not_archive(path_str: &str) -> Result<(), String> {
+    let lower = path_str.to_lowercase();
+    for ext in REJECTED_ARCHIVE_EXTS {
+        if lower.ends_with(&format!(".{ext}")) {
+            return Err("I file archivio (ZIP, RAR, TAR, CBZ) non sono consentiti per motivi di sicurezza. Importa solo file connettore .json.".into());
+        }
+    }
+    Ok(())
+}
+
+pub fn validate_connector_json(content: &str) -> Result<Source, String> {
+    let lower = content.to_lowercase();
+    if lower.contains("<script") || lower.contains("javascript:") || lower.contains("data:text/html") {
+        return Err("Il connettore contiene codice non sicuro o script non consentiti".into());
+    }
+
+    let mut source: Source = serde_json::from_str(content)
+        .map_err(|e| format!("Formato JSON connettore non valido: {e}"))?;
+
+    if !source.base_url.starts_with("https://") {
+        return Err("L'indirizzo della fonte deve utilizzare il protocollo sicuro HTTPS".into());
+    }
+
+    if source.id.trim().is_empty() {
+        source.id = format!(
+            "custom-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+    }
+
+    // Validate CSS selector syntax if provided
+    for (name, sel) in [
+        ("risultati", &source.result_selector),
+        ("capitoli", &source.chapter_selector),
+        ("immagini", &source.image_selector),
+    ] {
+        if !sel.trim().is_empty() && scraper::Selector::parse(sel).is_err() {
+            return Err(format!("Sintassi selettore CSS non valida per {name}: {sel}"));
+        }
+    }
+
+    validate(&source)?;
+    Ok(source)
+}
+
+pub fn import_connector_file(path_str: &str) -> Result<Source, String> {
+    check_not_archive(path_str)?;
+    let path = std::path::Path::new(path_str);
+    if !path.is_file() {
+        return Err("File connettore non trovato".into());
+    }
+    if path.extension().and_then(|e| e.to_str()) != Some("json") {
+        return Err("È possibile importare solo file con estensione .json".into());
+    }
+    let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    validate_connector_json(&content)
+}
+
+pub fn import_connectors_from_folder(dir_str: &str) -> Result<Vec<Source>, String> {
+    check_not_archive(dir_str)?;
+    let dir = std::path::Path::new(dir_str);
+    if !dir.is_dir() {
+        return Err("Cartella connettori non trovata".into());
+    }
+    let mut imported = Vec::new();
+    let entries = std::fs::read_dir(dir).map_err(|e| e.to_string())?;
+    for entry in entries.filter_map(|e| e.ok()) {
+        let p = entry.path();
+        if p.is_file() && p.extension().and_then(|e| e.to_str()) == Some("json") {
+            if let Ok(content) = std::fs::read_to_string(&p) {
+                if let Ok(source) = validate_connector_json(&content) {
+                    imported.push(source);
+                }
+            }
+        }
+    }
+    if imported.is_empty() {
+        return Err("Nessun connettore .json valido trovato nella cartella".into());
+    }
+    Ok(imported)
+}
+
+pub async fn import_connectors_from_github(
+    repo_or_url: &str,
+    client: &reqwest::Client,
+) -> Result<Vec<Source>, String> {
+    check_not_archive(repo_or_url)?;
+    let clean = repo_or_url
+        .trim()
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_start_matches("github.com/")
+        .trim_end_matches(".git")
+        .trim_end_matches('/');
+
+    let parts: Vec<&str> = clean.split('/').collect();
+    if parts.len() < 2 {
+        return Err("Formato repository non valido. Usa 'proprietario/repository' o l'URL GitHub.".into());
+    }
+    let owner = parts[0];
+    let repo = parts[1];
+
+    // Try fetching from connectors/ folder via GitHub API
+    let api_url = format!("https://api.github.com/repos/{owner}/{repo}/contents/connectors");
+    let resp = client
+        .get(&api_url)
+        .header(reqwest::header::USER_AGENT, "Pokko-App")
+        .header(reqwest::header::ACCEPT, "application/vnd.github.v3+json")
+        .send()
+        .await;
+
+    let mut imported = Vec::new();
+
+    if let Ok(r) = resp {
+        if r.status().is_success() {
+            if let Ok(text) = r.text().await {
+                if let Ok(files) = serde_json::from_str::<Vec<serde_json::Value>>(&text) {
+                    for item in files {
+                    if item["type"] == "file" && item["name"].as_str().is_some_and(|n| n.ends_with(".json")) {
+                        if let Some(download_url) = item["download_url"].as_str() {
+                            if let Ok(res) = client.get(download_url).header(reqwest::header::USER_AGENT, "Pokko-App").send().await {
+                                if let Ok(content) = res.text().await {
+                                    if let Ok(source) = validate_connector_json(&content) {
+                                        imported.push(source);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    }
+
+    // Fallback: check resources/sources.json
+    if imported.is_empty() {
+        let raw_url = format!("https://raw.githubusercontent.com/{owner}/{repo}/main/resources/sources.json");
+        if let Ok(res) = client.get(&raw_url).header(reqwest::header::USER_AGENT, "Pokko-App").send().await {
+            if res.status().is_success() {
+                if let Ok(text) = res.text().await {
+                    if let Ok(list) = serde_json::from_str::<Vec<Source>>(&text) {
+                        for s in list {
+                            if validate(&s).is_ok() {
+                                imported.push(s);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if imported.is_empty() {
+        return Err(format!("Nessun connettore trovato nel repository {owner}/{repo}. Verifica che contenga la cartella 'connectors/' con file .json."));
+    }
+
+    Ok(imported)
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1190,5 +1395,45 @@ mod tests {
             md_pages(&v).unwrap()[0],
             "https://uploads.test/data/abc/1.jpg"
         );
+    }
+    #[test]
+    fn connector_archive_rejection_and_json_validation() {
+        assert!(check_not_archive("malicious.zip").is_err());
+        assert!(check_not_archive("package.cbz").is_err());
+        assert!(check_not_archive("source.tar.gz").is_err());
+        assert!(check_not_archive("valid.json").is_ok());
+
+        let valid_json = r#"{
+            "id": "test",
+            "name": "Test Source",
+            "base_url": "https://example.com",
+            "category": "manga",
+            "language": "en",
+            "adapter": "generic",
+            "min_delay_ms": 1000
+        }"#;
+        assert!(validate_connector_json(valid_json).is_ok());
+
+        let unsafe_json = r#"{
+            "id": "test",
+            "name": "<script>alert(1)</script>",
+            "base_url": "https://example.com",
+            "category": "manga",
+            "language": "en",
+            "adapter": "generic",
+            "min_delay_ms": 1000
+        }"#;
+        assert!(validate_connector_json(unsafe_json).is_err());
+
+        let insecure_http = r#"{
+            "id": "test",
+            "name": "HTTP Source",
+            "base_url": "http://example.com",
+            "category": "manga",
+            "language": "en",
+            "adapter": "generic",
+            "min_delay_ms": 1000
+        }"#;
+        assert!(validate_connector_json(insecure_http).is_err());
     }
 }

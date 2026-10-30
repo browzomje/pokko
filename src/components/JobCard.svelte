@@ -14,6 +14,7 @@
     jobLabels as labels,
     jobProgress as progress,
   } from "../lib/presentation";
+  import { t } from "../lib/i18n";
   import type { Job } from "../types";
   let {
     job,
@@ -47,25 +48,25 @@
         {job.volume.chapters.length === 1 ? "capitolo" : "capitoli"}</span
       >
     </div>
-    <span class={`status ${job.status}`}>{labels[job.status]}</span>
+    <span class={`status ${job.status}`}>{t(`downloads.status.${job.status}`) || labels[job.status]}</span>
     <div class="job-actions">
       <button
         class="icon"
-        title="Apri cartella dei file"
+        title={t("downloads.openFolder")}
         disabled={!job.output}
         onclick={() => openFolder(job)}><FolderOpen size={18} /></button
       >
       {#if ["running", "queued"].includes(job.status)}<button
           class="icon"
-          title="Pausa"
+          title={t("downloads.pause")}
           onclick={() => control(job, "pause")}><Pause size={17} /></button
         >{:else if ["paused", "error"].includes(job.status)}<button
           class="icon"
-          title="Riprendi / riprova"
+          title={t("downloads.resume")}
           onclick={() => control(job, "resume")}><Play size={17} /></button
         >{/if}<button
         class="icon danger"
-        title="Elimina dalla coda"
+        title={t("downloads.cancel")}
         aria-label={`Elimina ${job.manga.title} ${job.volume.title} dalla coda`}
         onclick={() => removeJob(job)}><Trash2 size={19} /></button
       >

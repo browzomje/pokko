@@ -27,6 +27,7 @@ export interface Settings {
   delay_ms: number;
   cbz: boolean;
   export_format: string;
+  user_agent?: string;
   sources: Source[];
 }
 export interface Job {

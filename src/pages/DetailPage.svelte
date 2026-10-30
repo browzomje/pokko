@@ -12,6 +12,7 @@
   import Cover from "../Cover.svelte";
   import Select from "../Select.svelte";
   import { flag } from "../lib/presentation";
+  import { t } from "../lib/i18n";
   import type { Manga, MangaPage, Volume, Settings } from "../types";
   import { unknownVolume, planDownload } from "../download-plan";
   let {
@@ -73,7 +74,7 @@
 </script>
 
 <button class="back-link detail-back" onclick={returnToResults}
-  ><ChevronLeft size={16} /> Torna ai risultati</button
+  ><ChevronLeft size={16} /> {t("detail.backToResults")}</button
 >
 {#if current.loading}<div class="empty">
     <LoaderCircle size={32} class="spin" />
@@ -211,12 +212,12 @@
             visibleVolumes.filter((v) => current!.selected.includes(v.title)),
           )}
         ><Download size={16} />
-        {queueing ? "Aggiunta…" : "Scarica selezionati"} ({current.selected
+        {queueing ? "…" : t("detail.downloadSelected")} ({current.selected
           .length})</button
       ><button
         disabled={queueing || !visibleVolumes.length}
         onclick={() => enqueue(visibleVolumes)}
-        ><Download size={16} /> Scarica tutti</button
+        ><Download size={16} /> {t("detail.downloadAll")}</button
       >
     </div>
   </div>

@@ -10,18 +10,21 @@
     Settings,
     X,
   } from "lucide-svelte";
+  import { t } from "../lib/i18n";
+
   let { onClose }: { onClose: () => void } = $props();
-  const shortcuts = [
-    { icon: Search, label: "Esplora / cerca", key: "Ctrl K" },
-    { icon: ChevronLeft, label: "Torna ai risultati", key: "Ctrl ← / Esc" },
-    { icon: Download, label: "Downloads", key: "Ctrl J" },
-    { icon: Globe, label: "Fonti del catalogo", key: "Ctrl Shift F" },
-    { icon: FlaskConical, label: "Laboratorio fonti", key: "Ctrl Shift L" },
-    { icon: Sun, label: "Cambia tema", key: "Ctrl Shift T" },
-    { icon: Keyboard, label: "Scorciatoie", key: "Ctrl Shift H" },
-    { icon: Settings, label: "Impostazioni", key: "Ctrl ," },
-    { icon: X, label: "Chiudi finestra o messaggi", key: "Esc" },
-  ];
+
+  let shortcuts = $derived([
+    { icon: Search, label: t("shortcuts.explore"), key: "Ctrl K" },
+    { icon: ChevronLeft, label: t("shortcuts.back"), key: "Ctrl ← / Esc" },
+    { icon: Download, label: t("shortcuts.downloads"), key: "Ctrl J" },
+    { icon: Globe, label: t("shortcuts.sources"), key: "Ctrl Shift F" },
+    { icon: FlaskConical, label: t("shortcuts.lab"), key: "Ctrl Shift L" },
+    { icon: Sun, label: t("shortcuts.theme"), key: "Ctrl Shift T" },
+    { icon: Keyboard, label: t("shortcuts.help"), key: "Ctrl Shift H" },
+    { icon: Settings, label: t("shortcuts.settings"), key: "Ctrl ," },
+    { icon: X, label: t("shortcuts.close"), key: "Esc" },
+  ]);
 </script>
 
 <div
@@ -35,19 +38,22 @@
     class="modal"
     role="dialog"
     aria-modal="true"
-    aria-label="Scorciatoie da tastiera"
+    aria-label={t("shortcuts.title")}
     tabindex="-1"
   >
     <div class="modal-heading">
-      <h2><Keyboard size={19} /> Scorciatoie da tastiera</h2>
-      <button class="icon" aria-label="Chiudi scorciatoie" onclick={onClose}
-        ><X size={18} /></button
-      >
+      <h2><Keyboard size={19} /> {t("shortcuts.title")}</h2>
+      <button class="icon" aria-label={t("shortcuts.close")} onclick={onClose}>
+        <X size={18} />
+      </button>
     </div>
-    {#each shortcuts as shortcut}<div class="shortcut-row">
-        <span class="shortcut-label"
-          ><shortcut.icon size={14} />{shortcut.label}</span
-        ><kbd>{shortcut.key}</kbd>
-      </div>{/each}
+    {#each shortcuts as shortcut}
+      <div class="shortcut-row">
+        <span class="shortcut-label">
+          <shortcut.icon size={14} />{shortcut.label}
+        </span>
+        <kbd>{shortcut.key}</kbd>
+      </div>
+    {/each}
   </div>
 </div>

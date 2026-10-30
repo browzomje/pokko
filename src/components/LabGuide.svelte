@@ -1,53 +1,84 @@
 <script lang="ts">
   import { Search, BookOpen, Images, Globe, Check } from "lucide-svelte";
-  let { kind, onStep }: { kind: string; onStep: (kind: string) => void } =
-    $props();
+
+  let {
+    kind,
+    onStep,
+    completedStages = [],
+  }: {
+    kind: string;
+    onStep: (kind: string) => void;
+    completedStages?: string[];
+  } = $props();
+
+  const stepOrder = ["setup", "search", "detail", "reader", "review"];
+
   const steps = [
-    {
-      value: "setup",
-      label: "1. Sito",
-      icon: Globe,
-      text: "Inserisci il sito che hai trovato, scegli nome, catalogo e lingua. Per un sito nuovo usa HTML generico. Il dominio identifica il sito; il percorso della ricerca verrà imparato nel prossimo passo.",
-    },
-    {
-      value: "search",
-      label: "2. Ricerca",
-      icon: Search,
-      text: "Esegui una ricerca sul sito. Incolla qui l’URL dei risultati e il titolo cercato. Registra il link di una copertina: diventa il selettore risultati.",
-    },
-    {
-      value: "detail",
-      label: "3. Serie",
-      icon: BookOpen,
-      text: "Questa pagina contiene l’elenco dei capitoli o degli albi. Registra un link del capitolo: diventa il selettore capitoli.",
-    },
-    {
-      value: "reader",
-      label: "4. Pagine",
-      icon: Images,
-      text: "Apri il lettore di un capitolo. Registra una scansione: diventa il selettore immagini. Prova l’estrazione, controlla tutte le immagini e scarica un PDF di prova.",
-    },
-    {
-      value: "review",
-      label: "5. Verifica e salva",
-      icon: Check,
-      text: "Controlla che ricerca, capitoli e immagini siano stati estratti. Puoi salvare una bozza disabilitata in qualsiasi momento; abilita la fonte dopo aver verificato tutti e tre i passi.",
-    },
+    { value: "setup", label: "1. Sito", icon: Globe },
+    { value: "search", label: "2. Ricerca", icon: Search },
+    { value: "detail", label: "3. Serie", icon: BookOpen },
+    { value: "reader", label: "4. Pagine", icon: Images },
+    { value: "review", label: "5. Verifica", icon: Check },
   ];
+
+  let currentIdx = $derived(stepOrder.indexOf(kind));
 </script>
 
 <div class="lab-guide">
-  <div class="lab-tabs">
-    {#each steps as step}<button
-        class:chosen={kind === step.value}
-        onclick={() => onStep(step.value)}
-        ><step.icon size={15} />{step.label}</button
-      >{/each}
+  <div class="lab-tabs progress-indicator" role="navigation" aria-label="Progresso registrazione connettore">
+    {#each steps as step, index}
+      {@const isCompleted = index < currentIdx || completedStages.includes(step.value)}
+      {@const isCurrent = kind === step.value}
+      {@const isAccessible = index <= currentIdx || isCompleted}
+      <button
+        type="button"
+        class:chosen={isCurrent}
+        class:completed={isCompleted && !isCurrent}
+        disabled={!isAccessible}
+        onclick={() => {
+          if (isAccessible) onStep(step.value);
+        }}
+      >
+        {#if isCompleted && !isCurrent}
+          <Check size={14} class="progress-check" />
+        {:else}
+          <step.icon size={14} />
+        {/if}
+        {step.label}
+      </button>
+    {/each}
   </div>
-  <p>{steps.find((s) => s.value === kind)?.text}</p>
-  <small
-    ><Globe size={13} /> Le frecce “pagina successiva” sono due campi distinti: risultati
-    di ricerca e pagine dello stesso capitolo. Non usare il link al capitolo seguente
-    come pagina del lettore.</small
-  >
 </div>
+
+<style>
+  .progress-indicator {
+    display: flex;
+    gap: 8px;
+    margin: 14px 0 16px;
+    flex-wrap: wrap;
+  }
+
+  .progress-indicator button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 8px;
+    transition: all 0.15s ease;
+  }
+
+  .progress-indicator button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .progress-indicator button.completed {
+    border-color: rgba(34, 197, 94, 0.4);
+    color: #4ade80;
+  }
+
+  :global(.progress-check) {
+    color: #4ade80;
+  }
+</style>

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=pokko
+Comment=Ricerca manga e download organizzati per volume
+Exec=pokko
+Icon=pokko
+Type=Application
+Categories=Utility;
+Keywords=manga;comics;downloader;
+StartupNotify=true
+Terminal=false
+StartupWMClass=pokko

@@ -1,0 +1,18 @@
+{
+  "id": "readberserk",
+  "name": "ReadBerserk",
+  "version": "1.0.0",
+  "base_url": "https://readberserk.com",
+  "category": "manga",
+  "language": "en",
+  "adapter": "generic",
+  "min_delay_ms": 1000,
+  "note": "Connettore dedicato per la lettura completa di Berserk",
+  "search_path": "",
+  "result_selector": "",
+  "chapter_selector": "table tbody tr td a, ul.chapter-list a, a[href*=\"/chapter/\"]",
+  "image_selector": "img[alt*=\"Berserk\"], .reading-content img, img.page-image, img.pages__img",
+  "description_selector": ".manga-description, .entry-content p",
+  "next_selector": "",
+  "enabled": true
+}

@@ -2,6 +2,7 @@ mod catalog;
 mod export;
 mod integrity;
 mod lab;
+pub mod logger;
 mod provider;
 mod rar;
 mod sources;
@@ -26,9 +27,14 @@ struct Settings {
     cbz: bool,
     #[serde(default)]
     export_format: String,
+    #[serde(default)]
+    user_agent: Option<String>,
     #[serde(default = "sources::defaults")]
     sources: Vec<sources::Source>,
 }
+
+pub const DEFAULT_USER_AGENT: &str =
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 #[derive(Clone, Default, Serialize, Deserialize)]
 struct Verification {
     state: String,
@@ -85,6 +91,9 @@ struct Engine {
     saved: Mutex<Saved>,
     controls: Arc<Mutex<HashMap<String, String>>>,
     network: Mutex<HashMap<String, Arc<Mutex<tokio::time::Instant>>>>,
+    concurrency: Mutex<HashMap<String, Arc<tokio::sync::Semaphore>>>,
+    #[allow(dead_code)]
+    cookie_jar: Arc<reqwest::cookie::Jar>,
     active: Mutex<Option<String>>,
     preview_pages: Mutex<HashMap<String, Vec<String>>>,
     creator_cache: Mutex<HashMap<String, Vec<String>>>,
@@ -217,6 +226,16 @@ impl Engine {
             .host_str()
             .ok_or("Dominio mancante")?
             .to_string();
+
+        let semaphore = self
+            .concurrency
+            .lock()
+            .await
+            .entry(host.clone())
+            .or_insert_with(|| Arc::new(tokio::sync::Semaphore::new(2)))
+            .clone();
+        let _permit = semaphore.acquire().await.map_err(|e| e.to_string())?;
+
         let limiter = self
             .network
             .lock()
@@ -228,12 +247,17 @@ impl Engine {
                 ))
             })
             .clone();
+
+        let base_delay = delay.max(if cdn_image { 500 } else { 1000 });
+        let jitter = 0.70 + rand::random::<f64>() * 0.60;
+        let actual_delay = (base_delay as f64 * jitter) as u64;
+
         let mut gate = loop {
             if let Some(id) = id {
                 self.checkpoint(id).await?;
             }
             let gate = limiter.lock().await;
-            let wait = (*gate + Duration::from_millis(delay.max(500)))
+            let wait = (*gate + Duration::from_millis(actual_delay.max(500)))
                 .saturating_duration_since(tokio::time::Instant::now());
             if wait.is_zero() {
                 break gate;
@@ -243,40 +267,114 @@ impl Engine {
         };
         *gate = tokio::time::Instant::now();
         drop(gate);
-        let send = self.client.get(url).header("Referer", referer).send();
-        let response = if let Some(id) = id {
-            tokio::select! {
-                response=send => response.map_err(|e|network_error(&e)),
-                _=self.cancelled(id) => { self.checkpoint(id).await?; return Err("In pausa".into()); },
-            }
+
+        let user_agent = self
+            .saved
+            .lock()
+            .await
+            .settings
+            .as_ref()
+            .and_then(|s| s.user_agent.as_ref())
+            .filter(|ua| !ua.trim().is_empty())
+            .cloned()
+            .unwrap_or_else(|| DEFAULT_USER_AGENT.to_string());
+
+        let accept_header = if cdn_image || url.split('?').next().is_some_and(|p| {
+            [".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]
+                .iter()
+                .any(|e| p.to_lowercase().ends_with(e))
+        }) {
+            "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
         } else {
-            send.await.map_err(|e| network_error(&e))
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         };
-        let r = response?;
-        if r.status() == reqwest::StatusCode::FORBIDDEN
-            || r.status() == reqwest::StatusCode::TOO_MANY_REQUESTS
-        {
-            let retry = r
-                .headers()
-                .get("retry-after")
-                .and_then(|h| h.to_str().ok())
-                .unwrap_or("non indicato");
-            let cooldown = retry
-                .parse::<u64>()
-                .ok()
-                .or_else(|| {
-                    httpdate::parse_http_date(retry)
-                        .ok()
-                        .and_then(|date| date.duration_since(std::time::SystemTime::now()).ok())
-                        .map(|d| d.as_secs())
-                })
-                .unwrap_or(60)
-                .min(86400);
-            *limiter.lock().await = tokio::time::Instant::now() + Duration::from_secs(cooldown);
-            return Err(format!("Blocco HTTP {}. Coda sospesa; Retry-After: {retry}. Riprova più tardi aumentando l'intervallo.",r.status()));
+
+        let effective_referer = if !referer.trim().is_empty() {
+            referer.to_string()
+        } else if let Ok(parsed) = url::Url::parse(url) {
+            parsed.join("/").map(|u| u.to_string()).unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        let mut attempt = 0;
+        let max_retries = 2;
+        loop {
+            let mut req = self
+                .client
+                .get(url)
+                .header(reqwest::header::USER_AGENT, &user_agent)
+                .header(reqwest::header::ACCEPT, accept_header)
+                .header(
+                    reqwest::header::ACCEPT_LANGUAGE,
+                    "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+                )
+                .header(
+                    "Sec-Ch-Ua",
+                    "\"Not A(Brand\";v=\"8\", \"Chromium\";v=\"133\", \"Google Chrome\";v=\"133\"",
+                )
+                .header("Sec-Ch-Ua-Mobile", "?0")
+                .header("Sec-Ch-Ua-Platform", "\"Linux\"")
+                .header(
+                    "Sec-Fetch-Dest",
+                    if accept_header.starts_with("image") {
+                        "image"
+                    } else {
+                        "document"
+                    },
+                )
+                .header("Sec-Fetch-Mode", "navigate")
+                .header("Sec-Fetch-Site", "cross-site");
+
+            if !effective_referer.is_empty() {
+                req = req.header(reqwest::header::REFERER, &effective_referer);
+            }
+
+            let send = req.send();
+            let response = if let Some(id) = id {
+                tokio::select! {
+                    response=send => response.map_err(|e|network_error(&e)),
+                    _=self.cancelled(id) => { self.checkpoint(id).await?; return Err("In pausa".into()); },
+                }
+            } else {
+                send.await.map_err(|e| network_error(&e))
+            };
+            let r = response?;
+
+            if r.status() == reqwest::StatusCode::SERVICE_UNAVAILABLE && attempt < max_retries {
+                attempt += 1;
+                let backoff = Duration::from_millis(1000 * attempt as u64);
+                if let Some(id) = id {
+                    self.checkpoint(id).await?;
+                }
+                tokio::time::sleep(backoff).await;
+                continue;
+            }
+
+            if r.status() == reqwest::StatusCode::FORBIDDEN
+                || r.status() == reqwest::StatusCode::TOO_MANY_REQUESTS
+            {
+                let retry = r
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .unwrap_or("non indicato");
+                let cooldown = retry
+                    .parse::<u64>()
+                    .ok()
+                    .or_else(|| {
+                        httpdate::parse_http_date(retry)
+                            .ok()
+                            .and_then(|date| date.duration_since(std::time::SystemTime::now()).ok())
+                            .map(|d| d.as_secs())
+                    })
+                    .unwrap_or(60)
+                    .min(86400);
+                *limiter.lock().await = tokio::time::Instant::now() + Duration::from_secs(cooldown);
+                return Err(format!("Blocco HTTP {}. Coda sospesa; Retry-After: {retry}. Riprova più tardi aumentando l'intervallo.",r.status()));
+            }
+            return r.error_for_status().map_err(|e| format!("Risposta del sito: {e}"));
         }
-        r.error_for_status()
-            .map_err(|e| format!("Risposta del sito: {e}"))
     }
 }
 #[tauri::command]
@@ -1297,10 +1395,41 @@ fn verify_saved_job(job: &Job) -> Result<usize, String> {
     }
     Ok(count)
 }
+#[tauri::command]
+fn sources_import_file(path: String) -> Result<sources::Source, String> {
+    sources::import_connector_file(&path)
+}
+
+#[tauri::command]
+fn sources_import_folder(path: String) -> Result<Vec<sources::Source>, String> {
+    sources::import_connectors_from_folder(&path)
+}
+
+#[tauri::command]
+async fn sources_import_github(
+    repo: String,
+    engine: State<'_, Arc<Engine>>,
+) -> Result<Vec<sources::Source>, String> {
+    sources::import_connectors_from_github(&repo, &engine.client).await
+}
+
+#[tauri::command]
+fn sources_export_file(source: sources::Source, path: String) -> Result<(), String> {
+    sources::check_not_archive(&path)?;
+    let p = Path::new(&path);
+    if p.extension().and_then(|e| e.to_str()) != Some("json") {
+        return Err("È possibile esportare solo con estensione .json".into());
+    }
+    let data = serde_json::to_string_pretty(&source).map_err(|e| e.to_string())?;
+    std::fs::write(p, data).map_err(|e| e.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            logger::init(&app.handle());
+            logger::info("app", "Pokko avviato");
             let path = app.path().app_data_dir()?;
             std::fs::create_dir_all(&path)?;
             let file = path.join("queue.json");
@@ -1339,6 +1468,7 @@ fn main() {
                     delay_ms: 500,
                     cbz: false,
                     export_format: "pdf".into(),
+                    user_agent: None,
                     sources: sources::defaults(),
                 });
             }
@@ -1420,14 +1550,19 @@ fn main() {
                     job.message = "Sessione ripristinata. Premi Riprendi per continuare".into();
                 }
             }
+            let cookie_jar = Arc::new(reqwest::cookie::Jar::default());
             let engine = Arc::new(Engine {
                 client: reqwest::Client::builder()
-                    .user_agent(concat!("pokko/", env!("CARGO_PKG_VERSION")))
+                    .cookie_provider(cookie_jar.clone())
+                    .gzip(true)
+                    .brotli(true)
                     .timeout(Duration::from_secs(45))
                     .build()?,
                 saved: Mutex::new(saved),
                 controls: Arc::new(Mutex::new(HashMap::new())),
                 network: Mutex::new(HashMap::new()),
+                concurrency: Mutex::new(HashMap::new()),
+                cookie_jar,
                 active: Mutex::new(None),
                 preview_pages: Mutex::new(HashMap::new()),
                 creator_cache: Mutex::new(HashMap::new()),
@@ -1554,7 +1689,21 @@ fn main() {
             lab::lab_extract,
             lab::lab_download,
             lab::lab_cancel,
-            lab::lab_open_output
+            lab::lab_open_output,
+            lab::lab_firefox_launch,
+            lab::lab_firefox_get_url,
+            lab::lab_firefox_inject_picker,
+            lab::lab_firefox_get_picked,
+            lab::lab_firefox_close,
+            lab::lab_firefox_status,
+            lab::lab_detect_chapters,
+            logger::get_log_path,
+            logger::read_recent_logs,
+            logger::clear_logs,
+            sources_import_file,
+            sources_import_folder,
+            sources_import_github,
+            sources_export_file
         ])
         .run(tauri::generate_context!())
         .expect("Errore avvio applicazione");
@@ -1568,15 +1717,20 @@ mod tests {
         assert_eq!(image_extension(b"\xff\xd8\xffabc").unwrap(), "jpg");
     }
     pub(super) fn test_engine(output: &Path) -> Engine {
+        let cookie_jar = Arc::new(reqwest::cookie::Jar::default());
         Engine {
             client: reqwest::Client::builder()
-                .user_agent(concat!("pokko/", env!("CARGO_PKG_VERSION")))
+                .cookie_provider(cookie_jar.clone())
+                .gzip(true)
+                .brotli(true)
                 .timeout(Duration::from_secs(45))
                 .build()
                 .unwrap(),
             saved: Mutex::new(Saved::default()),
             controls: Arc::new(Mutex::new(HashMap::new())),
             network: Mutex::new(HashMap::new()),
+            concurrency: Mutex::new(HashMap::new()),
+            cookie_jar,
             active: Mutex::new(None),
             preview_pages: Mutex::new(HashMap::new()),
             creator_cache: Mutex::new(HashMap::new()),
@@ -1826,6 +1980,7 @@ mod tests {
             delay_ms: 3000,
             cbz: true,
             export_format: "cbz".into(),
+            user_agent: None,
             sources: sources::defaults(),
         });
         engine.persist().await.unwrap();
@@ -1891,6 +2046,7 @@ mod tests {
                 delay_ms: 1500,
                 cbz: true,
                 export_format: "cbz".into(),
+                user_agent: None,
                 sources: sources::defaults(),
             },
         };
@@ -1938,6 +2094,7 @@ mod tests {
                 delay_ms: 1000,
                 cbz: true,
                 export_format: "cbz".into(),
+                user_agent: None,
                 sources: sources::defaults(),
             },
         };
