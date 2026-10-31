@@ -1,4 +1,4 @@
-"""Translations for lab section (part 1) across 13 languages."""
+"""Translations for lab part 1 across 13 languages."""
 
 DATA: dict[str, dict[str, str]] = {
     "es": {
@@ -94,6 +94,8 @@ DATA: dict[str, dict[str, str]] = {
         "lab.url": "URL principal del sitio",
         "lab.urlHelp": "Dirección HTTPS principal del sitio.",
         "lab.waiting": "Esperando…",
+        "lab.firefoxMissingBanner": "Firefox no fue detectado en el sistema. Descarga e instala Mozilla Firefox para usar el Laboratorio guiado con uBlock Origin integrado.",
+        "lab.downloadFirefoxBtn": "Descargar Mozilla Firefox"
     },
     "fr": {
         "lab.adapter": "Adaptateur",
@@ -188,6 +190,8 @@ DATA: dict[str, dict[str, str]] = {
         "lab.url": "URL principale du site",
         "lab.urlHelp": "Adresse HTTPS principale du site.",
         "lab.waiting": "En attente…",
+        "lab.firefoxMissingBanner": "Firefox n'a pas été détecté sur le système. Téléchargez et installez Mozilla Firefox pour utiliser le Laboratoire guidé avec uBlock Origin intégré.",
+        "lab.downloadFirefoxBtn": "Télécharger Mozilla Firefox"
     },
     "de": {
         "lab.adapter": "Adapter",
@@ -282,5 +286,7 @@ DATA: dict[str, dict[str, str]] = {
         "lab.url": "Haupt-URL der Website",
         "lab.urlHelp": "Haupt-HTTPS-Adresse der Website.",
         "lab.waiting": "Warten…",
-    },
+        "lab.firefoxMissingBanner": "Firefox wurde auf dem System nicht gefunden. Lade Mozilla Firefox herunter und installiere es, um das geführte Quellen-Labor mit integriertem uBlock Origin zu nutzen.",
+        "lab.downloadFirefoxBtn": "Mozilla Firefox herunterladen"
+    }
 }

@@ -1,5 +1,15 @@
 <script lang="ts">
-  import { Plus, Trash2, Download, Upload, Github, FolderOpen, FileCode, X } from "lucide-svelte";
+  import {
+    Trash2,
+    Download,
+    Upload,
+    Github,
+    FolderOpen,
+    FileCode,
+    X,
+    Pencil,
+    FlaskConical,
+  } from "lucide-svelte";
   import { open, save } from "@tauri-apps/plugin-dialog";
   import { api, message as msg } from "../lib/api";
   import { flag, formatSourceNote } from "../lib/presentation";
@@ -11,7 +21,7 @@
     saveError,
     saveStatus: _saveStatus,
     restoreSources,
-    addSource,
+    addSource: _addSource,
     editSource,
     openLab,
     removeSource,
@@ -20,7 +30,7 @@
     saveError: string;
     saveStatus: string;
     restoreSources: () => void;
-    addSource: () => void;
+    addSource?: () => void;
     editSource: (source: Source) => void;
     openLab: (source: Source) => void;
     removeSource: (id: string) => void;
@@ -47,10 +57,13 @@
       });
       if (typeof selected !== "string") return;
       if (checkArchiveExt(selected)) {
-        actionError = "I file archivio (ZIP, RAR, TAR, CBZ) non sono consentiti per motivi di sicurezza. Importa solo file connettore .json.";
+        actionError =
+          "I file archivio (ZIP, RAR, TAR, CBZ) non sono consentiti per motivi di sicurezza. Importa solo file connettore .json.";
         return;
       }
-      const imported = await api<Source>("sources_import_file", { path: selected });
+      const imported = await api<Source>("sources_import_file", {
+        path: selected,
+      });
       const index = sortedSources.findIndex((s) => s.id === imported.id);
       if (index >= 0) sortedSources[index] = imported;
       else sortedSources.push(imported);
@@ -70,7 +83,9 @@
         title: "Seleziona cartella con file connettori .json",
       });
       if (typeof selected !== "string") return;
-      const importedList = await api<Source[]>("sources_import_folder", { path: selected });
+      const importedList = await api<Source[]>("sources_import_folder", {
+        path: selected,
+      });
       for (const imported of importedList) {
         const index = sortedSources.findIndex((s) => s.id === imported.id);
         if (index >= 0) sortedSources[index] = imported;
@@ -86,16 +101,20 @@
   async function importFromGithub() {
     actionError = "";
     if (!githubRepoInput.trim()) {
-      actionError = "Inserisci l'URL o il percorso repository (es. 'owner/repo').";
+      actionError =
+        "Inserisci l'URL o il percorso repository (es. 'owner/repo').";
       return;
     }
     if (checkArchiveExt(githubRepoInput)) {
-      actionError = "I file archivio non sono consentiti per motivi di sicurezza.";
+      actionError =
+        "I file archivio non sono consentiti per motivi di sicurezza.";
       return;
     }
     try {
       actionStatus = "Connessione a GitHub in corso…";
-      const importedList = await api<Source[]>("sources_import_github", { repo: githubRepoInput.trim() });
+      const importedList = await api<Source[]>("sources_import_github", {
+        repo: githubRepoInput.trim(),
+      });
       for (const imported of importedList) {
         const index = sortedSources.findIndex((s) => s.id === imported.id);
         if (index >= 0) sortedSources[index] = imported;
@@ -144,57 +163,60 @@
     {/if}
   </div>
   <div class="page-heading-actions">
-    <button onclick={() => (importModalOpen = true)}>
-      <Upload size={15} /> Importa connettori
+    <button class="primary" onclick={() => (importModalOpen = true)}>
+      <Upload size={15} /> {t("sources.import")}
     </button>
-    <button onclick={restoreSources}>{t("sources.restore")}</button>
-    <button class="primary" onclick={addSource}>
-      <Plus size={16} /> {t("sources.add")}
-    </button>
+    <button class="danger" onclick={restoreSources}>{t("sources.restore")}</button>
   </div>
 </div>
 
 {#if importModalOpen}
-  <div class="modal-backdrop" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) importModalOpen = false; }}>
+  <div
+    class="modal-backdrop"
+    role="presentation"
+    onclick={(e) => {
+      if (e.target === e.currentTarget) importModalOpen = false;
+    }}
+  >
     <div class="modal-dialog" role="dialog" aria-modal="true" tabindex="-1">
       <div class="modal-header">
-        <h3>Importa connettori</h3>
-        <button class="icon" onclick={() => (importModalOpen = false)}><X size={18} /></button>
+        <h3>{t("sources.importDialogTitle")}</h3>
+        <button class="icon" onclick={() => (importModalOpen = false)}
+          ><X size={18} /></button
+        >
       </div>
 
       <div class="modal-body">
-        <p class="import-help">
-          Importa connettori configurati per nuovi siti. Sono consentiti solo file <code>.json</code> con URL sicuri (HTTPS). Gli archivi ZIP/RAR/CBZ sono bloccati per sicurezza.
-        </p>
-
         <div class="import-options">
           <button class="import-option-btn" onclick={importSingleFile}>
             <FileCode size={20} />
             <div>
-              <strong>File singolo .json</strong>
-              <small>Carica un connettore salvato in locale</small>
+              <strong>{t("sources.singleFile")}</strong>
+              <small>{t("sources.singleFileDesc")}</small>
             </div>
           </button>
 
           <button class="import-option-btn" onclick={importFolder}>
             <FolderOpen size={20} />
             <div>
-              <strong>Cartella locale</strong>
-              <small>Scansiona una cartella con più file .json</small>
+              <strong>{t("sources.folder")}</strong>
+              <small>{t("sources.folderDesc")}</small>
             </div>
           </button>
         </div>
 
         <div class="github-import-box">
           <label>
-            <span><Github size={15} /> Importa da repository GitHub</span>
+            <span><Github size={15} /> {t("sources.githubImport")}</span>
             <div class="input-row">
               <input
                 bind:value={githubRepoInput}
-                placeholder="es. browzomje/pokko o URL completo"
+                placeholder={t("sources.githubPlaceholder")}
                 spellcheck="false"
               />
-              <button class="primary" onclick={importFromGithub}>Scarica</button>
+              <button class="primary" onclick={importFromGithub}
+                >{t("sources.download")}</button
+              >
             </div>
           </label>
         </div>
@@ -223,12 +245,19 @@
           <Trash2 size={18} />
         </button>
       </div>
-      <p class="source-note">{formatSourceNote(source.note)}</p>
+      <p class="source-note">{formatSourceNote(source.note, source.id)}</p>
       <div class="source-actions">
-        <button onclick={() => editSource(source)}>{t("sources.edit")}</button>
-        <button onclick={() => openLab(source)}>{t("sources.openLab")}</button>
-        <button onclick={() => exportSource(source)} title="Esporta file .json">
-          <Download size={14} /> Esporta
+        <button onclick={() => editSource(source)}>
+          <Pencil size={14} /> {t("sources.edit")}
+        </button>
+        <button onclick={() => openLab(source)}>
+          <FlaskConical size={14} /> {t("sources.openLab")}
+        </button>
+        <button
+          onclick={() => exportSource(source)}
+          title={t("sources.export")}
+        >
+          <Download size={14} /> {t("sources.export")}
         </button>
       </div>
     </article>
@@ -275,12 +304,6 @@
     flex-direction: column;
     gap: 16px;
   }
-  .import-help {
-    font-size: 12px;
-    color: var(--muted, #94a3b8);
-    line-height: 1.5;
-    margin: 0;
-  }
   .import-options {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -296,15 +319,19 @@
     background: rgba(255, 255, 255, 0.03);
     text-align: left;
     cursor: pointer;
+    white-space: normal;
   }
   .import-option-btn div {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    white-space: normal;
   }
   .import-option-btn small {
     color: var(--muted, #94a3b8);
     font-size: 11px;
+    white-space: normal;
+    line-height: 1.35;
   }
   .github-import-box {
     padding-top: 10px;

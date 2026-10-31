@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { ChevronDown, Check } from "lucide-svelte";
-  type Option = { value: string; label: string; disabled?: boolean };
+  type Option = { value: string; label: string; icon?: any; disabled?: boolean };
   let {
     value = $bindable(""),
     options,
@@ -119,19 +119,26 @@
     {disabled}
     onclick={toggle}
     onkeydown={(event) => key(event)}
-    ><span>{selected?.label || "Scegli…"}</span><ChevronDown
-      size={15}
-      class={expanded ? "rotated" : ""}
-    /></button
   >
-  {#if expanded}<div
+    <span class="select-label">
+      {#if selected?.icon}
+        {@const Icon = selected.icon}
+        <Icon size={15} class="select-icon" />
+      {/if}
+      <span>{selected?.label || "Scegli…"}</span>
+    </span>
+    <ChevronDown size={15} class={expanded ? "rotated" : ""} />
+  </button>
+  {#if expanded}
+    <div
       class="select-options"
       id={uid}
       role="listbox"
       aria-label={label}
       style={`left:${position.left}px;top:${position.top}px;width:${position.width}px;max-height:${position.maxHeight}px`}
     >
-      {#each options as option, index}<button
+      {#each options as option, index}
+        <button
           type="button"
           role="option"
           data-option-index={index}
@@ -139,9 +146,36 @@
           disabled={option.disabled}
           onclick={() => choose(option)}
           onkeydown={(event) => key(event, index)}
-          ><span>{option.label}</span>{#if value === option.value}<Check
-              size={15}
-            />{/if}</button
-        >{/each}
-    </div>{/if}
+        >
+          <span class="select-option-content">
+            {#if option.icon}
+              {@const Icon = option.icon}
+              <Icon size={15} class="select-icon" />
+            {/if}
+            <span>{option.label}</span>
+          </span>
+          {#if value === option.value}
+            <Check size={15} />
+          {/if}
+        </button>
+      {/each}
+    </div>
+  {/if}
 </div>
+
+<style>
+  .select-label,
+  .select-option-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  :global(.select-icon) {
+    flex-shrink: 0;
+    opacity: 0.85;
+  }
+</style>

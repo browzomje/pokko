@@ -693,6 +693,25 @@ pub fn lab_open_output(path: String) -> Result<(), String> {
 static FIREFOX_PROCESS: std::sync::Mutex<Option<std::process::Child>> = std::sync::Mutex::new(None);
 static MARIONETTE_PORT: std::sync::Mutex<u16> = std::sync::Mutex::new(2828);
 
+fn firefox_profile_dir() -> PathBuf {
+    std::env::temp_dir().join("pokko-firefox-profile")
+}
+
+fn clean_profile_locks(profile_dir: &Path) {
+    for lock in [
+        ".parentlock",
+        "parent.lock",
+        "lock",
+        "places.sqlite-wal",
+        "places.sqlite-shm",
+    ] {
+        let p = profile_dir.join(lock);
+        if p.exists() {
+            let _ = fs::remove_file(p);
+        }
+    }
+}
+
 pub fn is_firefox_installed() -> bool {
     std::process::Command::new("firefox")
         .arg("--version")
@@ -713,17 +732,11 @@ fn get_available_port() -> u16 {
 }
 
 pub async fn ensure_firefox_profile_with_ublock(port: u16) -> Result<PathBuf, String> {
-    let profile_dir = std::env::temp_dir().join("pokko-firefox-profile");
+    let profile_dir = firefox_profile_dir();
     let ext_dir = profile_dir.join("extensions");
     fs::create_dir_all(&ext_dir).map_err(|e| e.to_string())?;
 
-    // Clean stale lock files
-    for lock in [".parentlock", "parent.lock", "lock"] {
-        let p = profile_dir.join(lock);
-        if p.exists() {
-            let _ = fs::remove_file(p);
-        }
-    }
+    clean_profile_locks(&profile_dir);
 
     // Download official uBlock Origin XPI if missing
     let xpi_path = ext_dir.join("uBlock0@raymondhill.net.xpi");
@@ -758,7 +771,7 @@ pub async fn ensure_firefox_profile_with_ublock(port: u16) -> Result<PathBuf, St
     let user_js = profile_dir.join("user.js");
     let prefs = format!(
         r#"
-user_pref("marionette.port", {});
+user_pref("marionette.port", {port});
 user_pref("marionette.enabled", true);
 user_pref("extensions.autoDisableScopes", 0);
 user_pref("extensions.enabledScopes", 15);
@@ -774,8 +787,20 @@ user_pref("extensions.pocket.enabled", false);
 user_pref("browser.newtabpage.enabled", false);
 user_pref("app.update.auto", false);
 user_pref("app.update.enabled", false);
-"#,
-        port
+
+// Strict popup & redirect blocking
+user_pref("dom.disable_open_during_load", true);
+user_pref("dom.popup_maximum", 0);
+user_pref("dom.popup_allowed_events", "");
+user_pref("privacy.popups.showBrowserMessage", false);
+
+// Disable history & bookmarks to avoid places.sqlite conflict banner while keeping WebExtensions active
+user_pref("places.history.enabled", false);
+user_pref("browser.formfill.enable", false);
+user_pref("signon.rememberSignons", false);
+user_pref("network.cookie.lifetimePolicy", 2);
+user_pref("browser.sessionstore.resume_from_crash", false);
+"#
     );
     let _ = fs::write(user_js, prefs);
 
@@ -864,26 +889,41 @@ pub async fn lab_firefox_launch(url: String) -> Result<bool, String> {
         return Err("Firefox non è installato sul sistema. Puoi comunque incollare l'URL manualmente per continuare nel laboratorio.".into());
     }
 
+    let profile_dir = firefox_profile_dir();
+
+    // Check if an existing Firefox instance is running
+    if let Ok(mut guard) = FIREFOX_PROCESS.lock() {
+        if let Some(ref mut child) = *guard {
+            if child.try_wait().ok().flatten().is_none() {
+                // If it is responding to Marionette, navigate cleanly!
+                if marionette_exec("WebDriver:Navigate", json!({"url": &url})).is_ok() {
+                    let _ = lab_firefox_inject_picker();
+                    return Ok(true);
+                }
+            }
+        }
+        // If not running or not responding via Marionette, kill the old process
+        if let Some(mut child) = guard.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+
+    // Try Marionette:Quit in case of lingering background daemon/zombie, wait, and clean locks
+    let _ = marionette_exec("Marionette:Quit", json!({}));
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    clean_profile_locks(&profile_dir);
+
     let port = get_available_port();
     if let Ok(mut p) = MARIONETTE_PORT.lock() {
         *p = port;
     }
 
-    // If Firefox is already running, try navigating via Marionette
-    if let Ok(mut guard) = FIREFOX_PROCESS.lock() {
-        if let Some(ref mut child) = *guard {
-            if child.try_wait().ok().flatten().is_none() {
-                if marionette_exec("WebDriver:Navigate", json!({"url": url})).is_ok() {
-                    return Ok(true);
-                }
-            }
-        }
-    }
-
     let profile_dir = ensure_firefox_profile_with_ublock(port).await?;
 
-    // Spawn Firefox process starting on about:blank
+    // Spawn Firefox process starting on about:blank with --no-remote for complete profile isolation
     let child = std::process::Command::new("firefox")
+        .arg("--no-remote")
         .arg("--marionette")
         .arg("--profile")
         .arg(&profile_dir)
@@ -896,29 +936,55 @@ pub async fn lab_firefox_launch(url: String) -> Result<bool, String> {
         *guard = Some(child);
     }
 
-    // Connect Marionette, install uBlock Origin XPI if present, and navigate to target URL
+    // Connect Marionette, install uBlock Origin XPI, wait ~1800ms for filter lists, and navigate
+    let url_clone = url.clone();
+    let profile_dir_clone = profile_dir.clone();
     tokio::task::spawn_blocking(move || {
         let mut stream = marionette_connect_with_retry(35, 150)?;
         let _ = marionette_read_packet(&mut stream)?;
         let _ = marionette_send_cmd(&mut stream, 1, "WebDriver:NewSession", json!({}))?;
         drop(stream);
 
-        let xpi_path = profile_dir
+        let xpi_path = profile_dir_clone
             .join("extensions")
             .join("uBlock0@raymondhill.net.xpi");
+        let mut ublock_installed = false;
         if xpi_path.exists() {
-            let _ = marionette_exec(
+            if marionette_exec(
                 "Addon:Install",
                 json!({"path": xpi_path.display().to_string(), "temporary": false}),
-            );
+            )
+            .is_ok()
+            {
+                ublock_installed = true;
+            }
         }
-        let _ = marionette_exec("WebDriver:Navigate", json!({"url": url}));
+
+        // Wait ~1800ms so uBlock Origin compiles its built-in filter lists (assets.json, EasyList, etc.)
+        if ublock_installed {
+            std::thread::sleep(std::time::Duration::from_millis(1800));
+        }
+
+        let _ = marionette_exec("WebDriver:Navigate", json!({"url": url_clone}));
+
+        // On initial launch with uBlock, refresh after 800ms so all initial requests pass through 100% compiled filters
+        if ublock_installed {
+            std::thread::sleep(std::time::Duration::from_millis(800));
+            let _ = marionette_exec("WebDriver:Refresh", json!({}));
+        }
+
         Ok::<(), String>(())
     })
     .await
     .map_err(|e| e.to_string())??;
 
-    crate::logger::info("lab", "Firefox avviato con uBlock Origin attivo");
+    // Inject picker & cosmetic/popup shield immediately
+    let _ = lab_firefox_inject_picker();
+
+    crate::logger::info(
+        "lab",
+        "Firefox avviato con uBlock Origin attivo e shield DOM iniettato",
+    );
     Ok(true)
 }
 
@@ -929,7 +995,9 @@ pub async fn lab_firefox_navigate(url: String) -> Result<bool, String> {
         marionette_exec("WebDriver:Navigate", json!({"url": url})).map(|_| true)
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())??;
+    let _ = lab_firefox_inject_picker();
+    Ok(true)
 }
 
 #[tauri::command]
@@ -945,6 +1013,77 @@ pub fn lab_firefox_get_url() -> Result<String, String> {
 pub fn lab_firefox_inject_picker() -> Result<(), String> {
     let script = r#"
 (function() {
+  // 1. Popup & Window Shield
+  try {
+    window.open = function() { return null; };
+    Object.defineProperty(window, 'open', {
+      value: function() { return null; },
+      writable: false,
+      configurable: false
+    });
+  } catch(e) {
+    try { window.open = function() { return null; }; } catch(e2) {}
+  }
+
+  // 2. Cosmetic Residual Ad & Overlay Shield
+  function cleanResidualAds() {
+    try {
+      var adSelectors = [
+        'iframe[src*="doubleclick"]',
+        'iframe[src*="adnxs"]',
+        'iframe[src*="popads"]',
+        'iframe[src*="trafficjunky"]',
+        'ins.adsbygoogle',
+        '[id*="ad-"]',
+        '[id*="ad_"]',
+        '[id*="ads_"]',
+        '[id*="banner-ad"]',
+        '[class~="ads"]',
+        '[class~="ad"]',
+        '[class*="ad-box"]',
+        '[class*="ad-banner"]',
+        '[class*="ad-container"]',
+        '[class*="ad-wrapper"]',
+        '[class*="ad-unit"]',
+        '[class*="ad-slot"]',
+        '[class*="advertisement"]',
+        '.sponsor',
+        '.sponsored',
+        '[id*="sponsored"]',
+        '.popunder',
+        '.popup-ad'
+      ];
+      var nodes = document.querySelectorAll(adSelectors.join(','));
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        if (el.tagName === 'BODY' || el.tagName === 'HTML' || el.id === '__pokko_picker') continue;
+        el.remove();
+      }
+
+      var fixedOverlays = document.querySelectorAll('div[style*="position: fixed"], div[style*="position:fixed"]');
+      for (var j = 0; j < fixedOverlays.length; j++) {
+        var overlay = fixedOverlays[j];
+        var style = window.getComputedStyle ? window.getComputedStyle(overlay) : null;
+        if (style && parseInt(style.zIndex, 10) >= 999) {
+          var text = (overlay.innerText || '').toLowerCase();
+          if (text.includes('close') || text.includes('chiudi') || text.includes('acquista') || text.includes('subscribe')) {
+            overlay.remove();
+          }
+        }
+      }
+    } catch(e) {}
+  }
+
+  cleanResidualAds();
+  try {
+    if (!window.__pokko_ad_observer) {
+      window.__pokko_ad_observer = new MutationObserver(function() {
+        cleanResidualAds();
+      });
+      window.__pokko_ad_observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    }
+  } catch(e) {}
+
   window.__pokko_picker_active = true;
   if (window.__pokko_picker_installed) return;
   window.__pokko_picker_installed = true;
@@ -1124,14 +1263,10 @@ pub fn lab_firefox_close() -> Result<(), String> {
             let _ = child.wait();
         }
     }
-    // Clean stale lock files
-    let profile_dir = std::env::temp_dir().join("pokko-firefox-profile");
-    for lock in [".parentlock", "parent.lock", "lock"] {
-        let p = profile_dir.join(lock);
-        if p.exists() {
-            let _ = fs::remove_file(p);
-        }
-    }
+    let _ = marionette_exec("Marionette:Quit", json!({}));
+    std::thread::sleep(std::time::Duration::from_millis(150));
+    let profile_dir = firefox_profile_dir();
+    clean_profile_locks(&profile_dir);
     crate::logger::info("lab", "Firefox chiuso e lock di profilo rimossi");
     Ok(())
 }
@@ -1145,8 +1280,7 @@ pub fn lab_firefox_status() -> Result<serde_json::Value, String> {
             running = child.try_wait().ok().flatten().is_none();
         }
     }
-    let ublock = std::env::temp_dir()
-        .join("pokko-firefox-profile")
+    let ublock = firefox_profile_dir()
         .join("extensions")
         .join("uBlock0@raymondhill.net.xpi")
         .exists();

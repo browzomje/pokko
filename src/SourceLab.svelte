@@ -27,6 +27,7 @@
     CheckCircle2,
     FolderOpen,
     Info,
+    AlertTriangle,
   } from "lucide-svelte";
   import SourceForm from "./SourceForm.svelte";
   import Select from "./Select.svelte";
@@ -83,7 +84,7 @@
     onNew?: () => void;
   } = $props();
 
-  const builtInIds = ["mw", "mf", "mangaread", "mangapill", "mangatown", "readberserk"];
+  const builtInIds = ["mw", "mf", "mangaread", "mangapill", "mangatown"];
 
   let url = $state("");
   let testQuery = $state("");
@@ -209,7 +210,7 @@
   // Template pre-compilation
   let templateOptions = $derived.by(() => {
     const builtIns = sources.filter((s) =>
-      ["mw", "mf", "mangaread", "mangapill", "mangatown", "readberserk"].includes(s.id),
+      builtInIds.includes(s.id),
     );
     const customs = sources.filter(
       (s) => s.adapter === "generic" && !builtInIds.includes(s.id) && s.id !== source.id,
@@ -301,28 +302,23 @@
     }
   }
 
+  let firefoxLiveUrl = $state("");
   function startFirefoxPolling() {
     if (pollInterval) clearInterval(pollInterval);
     pollInterval = setInterval(async () => {
       if (kind === "review" || kind === "setup") return;
       try {
-        // Poll current URL from Firefox
+        // Poll current URL from Firefox without automatic trigger
         const current = await api<string>("lab_firefox_get_url");
-        if (current && current.startsWith("http") && current !== url) {
-          url = current;
-          if (kind === "search" && (current.includes("/search") || current.includes("?q=") || current.includes("?s="))) {
-            void capture();
-          } else if (kind === "detail") {
-            void onHereSeries();
-          } else if (kind === "reader") {
-            void onHereReader();
-          }
+        if (current && current.startsWith("http")) {
+          firefoxLiveUrl = current;
+          if (!url) url = current;
         }
 
-        // Try injecting picker
+        // Try injecting anti-popup & picker helper
         void api("lab_firefox_inject_picker").catch(() => {});
 
-        // Check if an element was picked in Firefox
+        // Check if an element was picked in Firefox (only active if user clicked startFirefoxPicker)
         const picked = await api<string | null>("lab_firefox_get_picked");
         if (picked) {
           await applyPickedSelector(picked);
@@ -337,9 +333,8 @@
       source = { ...source, result_selector: selector };
       if (!sample) await capture();
       await extract();
-      markStageCompleted("search");
       status = t("lab.detectedResults", { count: extraction?.items.length || 1 });
-      setTimeout(() => step("detail"), 800);
+      // Keep user on search step, showing the confirmation box so they decide when to proceed!
     } else if (kind === "detail") {
       source = { ...source, chapter_selector: selector };
       if (!sample) await capture();
@@ -423,13 +418,35 @@
     }
   }
 
+  let lastOpenedBaseUrl = $state(source.base_url);
+
   // Step 1: Start recording
   async function startRecording() {
-    source.base_url = normalizeUrl(source.base_url);
+    const normalized = normalizeUrl(source.base_url);
+    source.base_url = normalized;
     if (!source.name.trim() || source.name.trim() === "Nuova fonte") {
       source.name = deriveNameFromUrl(source.base_url) || "Fonte";
     }
-    markStageCompleted("setup");
+
+    if (lastOpenedBaseUrl && lastOpenedBaseUrl !== normalized) {
+      completedStages = ["setup"];
+      stageSamples = {};
+      extraction = null;
+      sample = null;
+      sampleId = "";
+      url = normalized;
+      html = "";
+      chaptersConfirmed = false;
+      imagesConfirmed = false;
+      source.search_path = "";
+      source.result_selector = "";
+      source.chapter_selector = "";
+      source.image_selector = "";
+    } else {
+      markStageCompleted("setup");
+    }
+    lastOpenedBaseUrl = normalized;
+
     if (firefoxInstalled) {
       void launchFirefox(source.base_url);
     }
@@ -454,7 +471,6 @@
       await capture();
       selectorField = "result_selector";
       await extract();
-      void api("lab_firefox_start_picker").catch(() => {});
       status = t("lab.pageAcquiredClickManga");
     });
   }
@@ -489,7 +505,6 @@
         } catch {}
       }
 
-      void api("lab_firefox_start_picker").catch(() => {});
       status = t("lab.pageAcquiredClickChapter");
     });
   }
@@ -505,7 +520,6 @@
     chaptersConfirmed = false;
     source.chapter_selector = "";
     extraction = null;
-    void api("lab_firefox_start_picker").catch(() => {});
     status = t("lab.clickAnotherChapter");
   }
 
@@ -528,7 +542,6 @@
         if (detected) source = { ...source, image_selector: detected };
       }
       await extract();
-      void api("lab_firefox_start_picker").catch(() => {});
       status = t("lab.detectedPages", { count: extraction?.items.length || 0 });
     });
   }
@@ -1023,6 +1036,22 @@
               <Shield size={16} class="shield-green" />
               <span>{t("lab.firefoxShieldBanner")}</span>
             </div>
+          {:else}
+            <div class="firefox-warning-banner">
+              <AlertTriangle size={16} class="shield-amber" />
+              <div class="firefox-warning-content">
+                <span>{t("lab.firefoxMissingBanner")}</span>
+                <a
+                  href="https://www.mozilla.org/firefox/new/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="firefox-download-link"
+                >
+                  <Download size={14} />
+                  <span>{t("lab.downloadFirefoxBtn")}</span>
+                </a>
+              </div>
+            </div>
           {/if}
 
           <button
@@ -1477,7 +1506,7 @@
                 </div>
               {:else}
                 <div class="status-badge">
-                  <span>{t("explore.noResults")}</span>
+                  <span>{t("catalog.noResults")}</span>
                 </div>
               {/if}
             </div>
@@ -1791,6 +1820,45 @@
   :global(.shield-green) {
     color: #4ade80;
     flex-shrink: 0;
+  }
+
+  .firefox-warning-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: rgba(245, 158, 11, 0.09);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text, #f9fafb);
+  }
+
+  :global(.shield-amber) {
+    color: #fbbf24;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .firefox-warning-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .firefox-download-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #fbbf24;
+    font-weight: 600;
+    text-decoration: underline;
+    font-size: 12px;
+  }
+
+  .firefox-download-link:hover {
+    color: #fde68a;
   }
 
   .status-bar {

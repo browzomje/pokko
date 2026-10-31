@@ -11,7 +11,6 @@ Pokko connectors use a **100% declarative JSON** specification (`adapter: "gener
 | `mangatown` | MangaTown | English (`en`) | Catalog | Single-page paginated reader (`reader_next_selector`) |
 | `mf` | MangaFreak | English (`en`) | Catalog | Multi-page list-view reader |
 | `mangaread` | MangaRead | English (`en`) | Catalog | WP-Manga catalog structure |
-| `readberserk` | ReadBerserk | English (`en`) | Single Series | Direct chapter table index |
 
 > **Note**: Deprecated connectors (`mangadex`, `readcomicsonline`) have been removed in favor of generic declarative definitions.
 

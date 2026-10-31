@@ -2157,7 +2157,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(settings.output, "/existing/folder");
-        assert_eq!(settings.sources.iter().filter(|s| s.enabled).count(), 6);
+        assert_eq!(settings.sources.iter().filter(|s| s.enabled).count(), 5);
         assert!(settings.sources.iter().any(|s| s.id == "mw"));
         let manga: Manga = serde_json::from_str(
             r#"{"title":"Old","url":"https://www.mangaworld.mx/manga/1/old","cover":""}"#,

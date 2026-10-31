@@ -974,6 +974,7 @@ pub async fn import_connectors_from_github(
         .trim_end_matches(".git")
         .trim_end_matches('/');
 
+    // Parse owner, repo, and optional subpath (e.g. browzomje/pokko/connectors or browzomje/pokko/tree/main/connectors)
     let parts: Vec<&str> = clean.split('/').collect();
     if parts.len() < 2 {
         return Err(
@@ -983,25 +984,76 @@ pub async fn import_connectors_from_github(
     let owner = parts[0];
     let repo = parts[1];
 
-    let api_url = format!("https://api.github.com/repos/{owner}/{repo}/contents/connectors");
-    let resp = client
-        .get(&api_url)
-        .header(reqwest::header::USER_AGENT, "Pokko-App")
-        .header(reqwest::header::ACCEPT, "application/vnd.github.v3+json")
-        .send()
-        .await;
+    // Strip tree/main or tree/master if present in parts[2..]
+    let mut subpath_parts = Vec::new();
+    let mut skip_next = false;
+    let slice = if parts.len() > 2 { &parts[2..] } else { &[] };
+    for (_i, part) in slice.iter().enumerate() {
+        if skip_next {
+            skip_next = false;
+            continue;
+        }
+        if *part == "tree" || *part == "blob" {
+            // skip "tree" and the branch name (e.g. "main" or "master")
+            skip_next = true;
+            continue;
+        }
+        subpath_parts.push(*part);
+    }
+
+    let subpath = if subpath_parts.is_empty() {
+        "connectors".to_string()
+    } else {
+        subpath_parts.join("/")
+    };
 
     let mut imported = Vec::new();
 
-    if let Ok(r) = resp {
-        if r.status().is_success() {
-            if let Ok(text) = r.text().await {
-                if let Ok(files) = serde_json::from_str::<Vec<serde_json::Value>>(&text) {
-                    for item in files {
-                        if item["type"] == "file"
-                            && item["name"].as_str().is_some_and(|n| n.ends_with(".json"))
+    // Helper closure to fetch directory contents recursively or flat from GitHub Contents API
+    let fetch_from_api = async |target_path: &str| -> Result<Vec<Source>, String> {
+        let api_url = format!("https://api.github.com/repos/{owner}/{repo}/contents/{target_path}");
+        let resp = client
+            .get(&api_url)
+            .header(reqwest::header::USER_AGENT, "Pokko-App")
+            .header(reqwest::header::ACCEPT, "application/vnd.github.v3+json")
+            .send()
+            .await;
+
+        let mut list = Vec::new();
+        if let Ok(r) = resp {
+            if r.status().is_success() {
+                if let Ok(text) = r.text().await {
+                    // Could be an array of items or a single file object
+                    if let Ok(files) = serde_json::from_str::<Vec<serde_json::Value>>(&text) {
+                        for item in files {
+                            if item["type"] == "file"
+                                && item["name"].as_str().is_some_and(|n| n.ends_with(".json"))
+                            {
+                                if let Some(download_url) = item["download_url"].as_str() {
+                                    if let Ok(res) = client
+                                        .get(download_url)
+                                        .header(reqwest::header::USER_AGENT, "Pokko-App")
+                                        .send()
+                                        .await
+                                    {
+                                        if let Ok(content) = res.text().await {
+                                            if let Ok(source) = validate_connector_json(&content) {
+                                                list.push(source);
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if item["type"] == "dir" {
+                                // Optionally recurse into subdirectories if needed, or keep top-level
+                            }
+                        }
+                    } else if let Ok(single) = serde_json::from_str::<serde_json::Value>(&text) {
+                        if single["type"] == "file"
+                            && single["name"]
+                                .as_str()
+                                .is_some_and(|n| n.ends_with(".json"))
                         {
-                            if let Some(download_url) = item["download_url"].as_str() {
+                            if let Some(download_url) = single["download_url"].as_str() {
                                 if let Ok(res) = client
                                     .get(download_url)
                                     .header(reqwest::header::USER_AGENT, "Pokko-App")
@@ -1010,7 +1062,7 @@ pub async fn import_connectors_from_github(
                                 {
                                     if let Ok(content) = res.text().await {
                                         if let Ok(source) = validate_connector_json(&content) {
-                                            imported.push(source);
+                                            list.push(source);
                                         }
                                     }
                                 }
@@ -1020,8 +1072,22 @@ pub async fn import_connectors_from_github(
                 }
             }
         }
+        Ok(list)
+    };
+
+    // 1. Try specified subpath (default "connectors")
+    if let Ok(list) = fetch_from_api(&subpath).await {
+        imported.extend(list);
     }
 
+    // 2. If empty and subpath wasn't root, try root ("")
+    if imported.is_empty() && subpath != "" {
+        if let Ok(list) = fetch_from_api("").await {
+            imported.extend(list);
+        }
+    }
+
+    // 3. If still empty, try legacy raw sources.json
     if imported.is_empty() {
         let raw_url =
             format!("https://raw.githubusercontent.com/{owner}/{repo}/main/resources/sources.json");
@@ -1047,7 +1113,7 @@ pub async fn import_connectors_from_github(
 
     if imported.is_empty() {
         return Err(format!(
-            "Nessun connettore trovato nel repository {owner}/{repo}. Verifica che contenga la cartella 'connectors/' con file .json."
+            "Nessun connettore trovato nel repository {owner}/{repo} (percorso: {subpath}). Verifica che contenga file .json validi."
         ));
     }
 
@@ -1219,8 +1285,20 @@ mod tests {
 
     #[test]
     fn readberserk_html() {
-        let source: Source =
-            serde_json::from_str(include_str!("../../connectors/readberserk.json")).unwrap();
+        let source = Source {
+            id: "readberserk".into(),
+            name: "ReadBerserk".into(),
+            base_url: "https://readberserk.com".into(),
+            category: "manga".into(),
+            language: "en".into(),
+            adapter: "generic".into(),
+            enabled: true,
+            min_delay_ms: 1000,
+            chapter_selector: "table.table tbody tr td a".into(),
+            image_selector: "img.pages__img".into(),
+            description_selector: "p.text-muted".into(),
+            ..Default::default()
+        };
         let manga = Manga {
             title: "Berserk".into(),
             url: "https://readberserk.com".into(),
