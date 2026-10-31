@@ -1,3 +1,9 @@
+## [1.2.0](https://github.com/browzomje/pokko/compare/v1.1.1...v1.2.0) (2026-10-31)
+
+### ✨ Features
+
+* ✨ declarative generic connector engine, interactive Source Lab co-pilot, FMHY connectors, and 15-language i18n ([5efd690](https://github.com/browzomje/pokko/commit/5efd6906e816cd2860ac3180822688a746fbba8b))
+
 ## [1.1.1](https://github.com/browzomje/pokko/compare/v1.1.0...v1.1.1) (2026-10-31)
 
 ### 🐛 Fixes
