@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Search, BookOpen, Images, Globe, Check } from "lucide-svelte";
+  import { t } from "../lib/i18n";
 
   let {
     kind,
@@ -13,13 +14,13 @@
 
   const stepOrder = ["setup", "search", "detail", "reader", "review"];
 
-  const steps = [
-    { value: "setup", label: "1. Sito", icon: Globe },
-    { value: "search", label: "2. Ricerca", icon: Search },
-    { value: "detail", label: "3. Serie", icon: BookOpen },
-    { value: "reader", label: "4. Pagine", icon: Images },
-    { value: "review", label: "5. Verifica", icon: Check },
-  ];
+  let steps = $derived([
+    { value: "setup", label: t("guide.step1"), icon: Globe },
+    { value: "search", label: t("guide.step2"), icon: Search },
+    { value: "detail", label: t("guide.step3"), icon: BookOpen },
+    { value: "reader", label: t("guide.step4"), icon: Images },
+    { value: "review", label: t("guide.step5"), icon: Check },
+  ]);
 
   let currentIdx = $derived(stepOrder.indexOf(kind));
 </script>
@@ -54,7 +55,7 @@
   .progress-indicator {
     display: flex;
     gap: 8px;
-    margin: 14px 0 16px;
+    margin: 0;
     flex-wrap: wrap;
   }
 

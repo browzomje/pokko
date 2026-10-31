@@ -2,7 +2,7 @@
   import { Plus, Trash2, Download, Upload, Github, FolderOpen, FileCode, X } from "lucide-svelte";
   import { open, save } from "@tauri-apps/plugin-dialog";
   import { api, message as msg } from "../lib/api";
-  import { flag } from "../lib/presentation";
+  import { flag, formatSourceNote } from "../lib/presentation";
   import { t } from "../lib/i18n";
   import type { Source } from "../types";
 
@@ -219,7 +219,7 @@
               ? "Comics"
               : source.adapter === "mangaworld"
                 ? "MangaWorld"
-                : "HTML generico"}
+                : t("sources.genericHtml")}
         </span>
         <button
           class="icon danger"
@@ -229,7 +229,7 @@
           <Trash2 size={18} />
         </button>
       </div>
-      <p class="source-note">{source.note}</p>
+      <p class="source-note">{formatSourceNote(source.note)}</p>
       <div class="source-actions">
         {#if source.adapter === "generic" && !["mw", "md", "mf", "mangaread", "readcomics"].includes(source.id)}
           <button onclick={() => editSource(source)}>{t("sources.edit")}</button>

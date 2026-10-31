@@ -13,7 +13,8 @@
   import DownloadsPage from "./pages/DownloadsPage.svelte";
   import { api, message } from "./lib/api";
   import { newSource } from "./lib/source-config";
-  import { formats } from "./lib/presentation";
+  import { formats, getFormats } from "./lib/presentation";
+  import { t } from "./lib/i18n";
   import type { MangaPage } from "./types";
 
   import { mergeSourceResults } from "./lib/search-progress";
@@ -659,12 +660,12 @@
       <footer>
         <span
           ><span class="dot"></span>{running
-            ? `Download: ${running.volume.title}`
-            : "Pronto"}
+            ? `${t("downloads.footerDownloading")}: ${running.volume.title}`
+            : t("downloads.footerReady")}
         </span><span
-          >{pending} in coda <span class="footer-separator">|</span>
-          {formats.find((f) => f.value === settings.export_format)?.label ||
-            "File PDF"}
+          >{t("downloads.footerQueued", { count: pending })} <span class="footer-separator">|</span>
+          {getFormats().find((f) => f.value === settings.export_format)?.label ||
+            t("format.pdf")}
         </span>
       </footer>
     </div>

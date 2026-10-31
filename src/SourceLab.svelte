@@ -119,14 +119,59 @@
 
   const stepOrder = ["setup", "search", "detail", "reader", "review"];
 
-  let setupReady = $derived.by(() => {
+  let userEditedName = $state(false);
+
+  function normalizeUrl(raw: string): string {
+    let val = (raw || "").trim();
+    if (!val) return "";
+    if (!val.startsWith("http://") && !val.startsWith("https://")) {
+      val = "https://" + val;
+    }
+    return val;
+  }
+
+  function isValidSiteUrl(raw: string): boolean {
+    const norm = normalizeUrl(raw);
     try {
-      return (
-        !!source.name.trim() && new URL(source.base_url).protocol === "https:"
-      );
+      const u = new URL(norm);
+      return (u.protocol === "https:" || u.protocol === "http:") && u.hostname.includes(".");
     } catch {
       return false;
     }
+  }
+
+  function deriveNameFromUrl(raw: string): string {
+    try {
+      const u = new URL(normalizeUrl(raw));
+      let host = u.hostname.replace(/^www\./i, "");
+      const domainPart = host.split(".")[0];
+      if (domainPart) {
+        return domainPart.charAt(0).toUpperCase() + domainPart.slice(1);
+      }
+    } catch {}
+    return "";
+  }
+
+  function onUrlInput(e: Event) {
+    const val = (e.target as HTMLInputElement).value;
+    source.base_url = val;
+    if (!userEditedName) {
+      const derived = deriveNameFromUrl(val);
+      if (derived) {
+        source.name = derived;
+      }
+    }
+  }
+
+  function onNameInput(e: Event) {
+    userEditedName = true;
+    source.name = (e.target as HTMLInputElement).value;
+  }
+
+  let step1Ready = $derived(isValidSiteUrl(source.base_url));
+
+  let setupReady = $derived.by(() => {
+    return isValidSiteUrl(source.base_url);
   });
 
   let searchReady = $derived(
@@ -339,7 +384,10 @@
 
   // Step 1: Start recording
   async function startRecording() {
-    if (!setupReady) return;
+    source.base_url = normalizeUrl(source.base_url);
+    if (!source.name.trim() || source.name.trim() === "Nuova fonte") {
+      source.name = deriveNameFromUrl(source.base_url) || "Fonte";
+    }
     markStageCompleted("setup");
     if (firefoxInstalled) {
       void launchFirefox(source.base_url);
@@ -636,6 +684,10 @@
 
   async function saveSource() {
     await task("Salvataggio", async () => {
+      source.base_url = normalizeUrl(source.base_url);
+      if (!source.name.trim() || source.name.trim() === "Nuova fonte") {
+        throw new Error(t("lab.nameRequired") || "Inserisci un nome per la fonte prima di salvare.");
+      }
       await onSave($state.snapshot(source));
       status = "Fonte salvata con successo.";
     });
@@ -658,14 +710,12 @@
   });
 </script>
 
-<!-- Top Bar: Back button on the left, Template select + Save action on the right (NO duplicate title) -->
-<div class="lab-heading">
-  <div class="lab-heading-main">
-    <button class="back-link" disabled={!!busy} onclick={onBack} title={t("lab.back")}>
-      <ChevronLeft size={18} /> {t("lab.back")}
-    </button>
+<!-- Top Row: Left = 5 step tabs, Right = Template select + Save draft button (Zero wasted space above tabs) -->
+<div class="lab-topbar">
+  <div class="lab-topbar-tabs">
+    <LabGuide {kind} onStep={step} {completedStages} />
   </div>
-  <div class="lab-heading-actions">
+  <div class="lab-topbar-actions">
     <div class="template-selector-wrap">
       <Select
         label={t("lab.templatePlaceholder")}
@@ -681,71 +731,67 @@
   </div>
 </div>
 
-<!-- Read-only Progress Indicator -->
-<LabGuide {kind} onStep={step} {completedStages} />
-
 <!-- Strictly Horizontal Side-by-Side Layout (Left: Wizard 380px, Right: Interactive Preview flex:1) -->
 <div class="lab-layout" class:lab-review={kind === "review"}>
   <!-- Left Column: Single-Path Guided Step Wizard -->
   <section class="lab-config" aria-label="Passo guidato">
     {#if kind === "setup"}
       <div class="wizard-card step-card">
-        <div class="step-badge">PASSO 1 · SITO</div>
+        <div class="step-badge">{t("lab.step1Badge")}</div>
         <h2>{t("lab.step1Title")}</h2>
-        <p class="step-instruction">{t("lab.step1Desc")}</p>
 
         <div class="step-fields">
           <label>
-            <FieldLabel text={t("lab.name")} icon={Search} help="Nome mostrato nel catalogo." />
+            <FieldLabel text={t("lab.url")} icon={Globe} help={t("lab.urlHelp")} />
             <input
-              bind:value={source.name}
-              placeholder="Nome del sito (es. MangaStream)"
-              onfocus={() => {
-                if (source.name === "Nuova fonte") source.name = "";
-              }}
-              required
-            />
-          </label>
-
-          <label>
-            <FieldLabel text={t("lab.url")} icon={Globe} help="Indirizzo iniziale HTTPS del sito." />
-            <input
-              type="url"
-              bind:value={source.base_url}
+              type="text"
+              class="url-placeholder-input"
+              value={source.base_url}
+              oninput={onUrlInput}
               placeholder="https://example.com"
               required
             />
           </label>
 
+          <label>
+            <FieldLabel text={t("lab.name")} icon={Search} help={t("lab.nameHelp")} />
+            <input
+              value={source.name}
+              oninput={onNameInput}
+              placeholder={t("lab.namePlaceholder")}
+              required
+            />
+          </label>
+
           <div class="source-field">
-            <FieldLabel text={t("lab.catalog")} icon={Layers} help="Manga o Comics." />
+            <FieldLabel text={t("lab.catalog")} icon={Layers} help={t("lab.catalogHelp")} />
             <Select
               label={t("lab.catalog")}
               bind:value={source.category}
               options={[
-                { value: "manga", label: "Manga" },
-                { value: "comics", label: "Comics" },
+                { value: "manga", label: t("catalog.manga") },
+                { value: "comics", label: t("catalog.comics") },
               ]}
             />
           </div>
 
           <div class="source-field">
-            <FieldLabel text={t("lab.language")} icon={Globe} help="Scegli la lingua del catalogo." />
+            <FieldLabel text={t("lab.language")} icon={Globe} help={t("lab.languageHelp")} />
             <LanguageSelect bind:value={source.language} />
           </div>
 
           {#if firefoxInstalled}
             <div class="firefox-shield-banner">
               <Shield size={16} class="shield-green" />
-              <span>Firefox + uBlock Origin integrato pronto per bloccare le pubblicità</span>
+              <span>{t("lab.firefoxShieldBanner")}</span>
             </div>
           {/if}
 
           <button
             type="button"
             class="primary start-btn"
-            disabled={!setupReady || !!busy}
-            title={!setupReady ? "Inserisci un nome e un indirizzo HTTPS valido per iniziare" : ""}
+            disabled={!step1Ready || !!busy}
+            title={!step1Ready ? t("lab.step1DisabledTooltip") : ""}
             onclick={startRecording}
           >
             {t("lab.openSite")}
@@ -755,7 +801,7 @@
 
     {:else if kind === "search"}
       <div class="wizard-card step-card">
-        <div class="step-badge">PASSO 2 · RICERCA</div>
+        <div class="step-badge">{t("lab.step2Badge")}</div>
         <h2>{t("lab.step2Title")}</h2>
 
         <div class="animated-hint">
@@ -813,7 +859,7 @@
 
     {:else if kind === "detail"}
       <div class="wizard-card step-card">
-        <div class="step-badge">PASSO 3 · SERIE E CAPITOLI</div>
+        <div class="step-badge">{t("lab.step3Badge")}</div>
         <h2>{t("lab.step3Title")}</h2>
 
         <div class="animated-hint">
@@ -860,7 +906,7 @@
 
     {:else if kind === "reader"}
       <div class="wizard-card step-card">
-        <div class="step-badge">PASSO 4 · SCAN DEL CAPITOLO</div>
+        <div class="step-badge">{t("lab.step4Badge")}</div>
         <h2>{t("lab.step4Title")}</h2>
 
         <div class="animated-hint">
@@ -907,7 +953,7 @@
 
     {:else if kind === "review"}
       <div class="wizard-card step-card">
-        <div class="step-badge">PASSO 5 · VERIFICA E ATTIVAZIONE</div>
+        <div class="step-badge">{t("lab.step5Badge")}</div>
         <h2>{t("lab.step5Title")}</h2>
         <p class="step-instruction">{t("lab.step5Desc")}</p>
 
@@ -1005,24 +1051,12 @@
   <!-- Right Column: Interactive Sanitized Preview & Live Element Picker -->
   <section class="lab-panel" aria-label="Anteprima e ispezione">
     {#if kind !== "review"}
-      <!-- Live Status Line & Firefox Launch Shortcut -->
+      <!-- Live Status Line (Single status line, no duplicate Firefox buttons) -->
       <div class="status-bar" role="status">
         <span class="status-text">{status}</span>
-        <div class="status-actions">
-          {#if firefoxInstalled}
-            <button
-              type="button"
-              class="ff-btn"
-              onclick={() => launchFirefox(url || source.base_url)}
-              title="Apri o naviga in Firefox con uBlock Origin"
-            >
-              <ExternalLink size={13} /> {firefoxRunning ? "Firefox attivo" : "Apri Firefox (uBlock)"}
-            </button>
-          {/if}
-          {#if busy}
-            <span class="status-busy"><LoaderCircle size={14} class="spin" /> {busy}…</span>
-          {/if}
-        </div>
+        {#if busy}
+          <span class="status-busy"><LoaderCircle size={14} class="spin" /> {busy}…</span>
+        {/if}
       </div>
 
       <!-- Single Sanitized Interactive DOM Preview (NO double window/webview) -->
@@ -1138,25 +1172,30 @@
 </div>
 
 <style>
-  .lab-heading {
+  .lab-topbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 16px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     flex-wrap: wrap;
   }
 
-  .lab-heading-main {
+  .lab-topbar-tabs {
     display: flex;
     align-items: center;
   }
 
-  .lab-heading-actions {
+  .lab-topbar-actions {
     display: flex;
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
+  }
+
+  .url-placeholder-input::placeholder {
+    font-style: italic;
+    opacity: 0.55;
   }
 
   .template-selector-wrap {
@@ -1239,25 +1278,6 @@
   .status-text {
     color: var(--accent, #818cf8);
     font-weight: 500;
-  }
-
-  .status-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .ff-btn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    padding: 4px 8px;
-    border-radius: 6px;
-    background: rgba(129, 140, 248, 0.15);
-    border: 1px solid rgba(129, 140, 248, 0.3);
-    color: var(--text, #f9fafb);
-    cursor: pointer;
   }
 
   .preview-stage-container {

@@ -32,14 +32,19 @@
     }
     const rect = trigger!.getBoundingClientRect();
     const width = Math.min(Math.max(rect.width, 220), window.innerWidth - 16);
-    const below = window.innerHeight - rect.bottom - 12;
-    const height = Math.min(options.length * 40 + 12, 280);
+    const spaceBelow = window.innerHeight - rect.bottom - 12;
+    const spaceAbove = rect.top - 12;
+    const desiredHeight = Math.min(options.length * 40 + 12, 280);
+
+    const openUp = spaceBelow < desiredHeight && spaceAbove > spaceBelow;
+    const availableSpace = openUp ? spaceAbove : spaceBelow;
+    const maxHeight = Math.max(100, Math.min(desiredHeight, availableSpace));
+
     position = {
       left: Math.min(rect.left, window.innerWidth - width - 8),
-      top:
-        below >= height ? rect.bottom + 6 : Math.max(8, rect.top - height - 6),
+      top: openUp ? Math.max(8, rect.top - maxHeight - 6) : rect.bottom + 6,
       width,
-      maxHeight: Math.min(height, window.innerHeight - 16),
+      maxHeight,
     };
     expanded = true;
     await tick();

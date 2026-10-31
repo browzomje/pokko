@@ -10,13 +10,14 @@
     normalizeLanguageText,
     type Language,
   } from "../languages";
+  import { t } from "../i18n";
 
   let {
     value = $bindable("it"),
     onchange,
     includeBoth = false,
     disabled = false,
-    placeholder = "Cerca lingua…",
+    placeholder = "",
     label = "Lingua",
   }: {
     value?: string;
@@ -26,6 +27,8 @@
     placeholder?: string;
     label?: string;
   } = $props();
+
+  let searchPlaceholder = $derived(placeholder || t("languages.searchPlaceholder") || "Cerca lingua…");
 
   let expanded = $state(false);
   let searchQuery = $state("");
@@ -80,13 +83,19 @@
     if (disabled || expanded) return;
     const rect = trigger!.getBoundingClientRect();
     const width = Math.min(Math.max(rect.width, 280), window.innerWidth - 16);
-    const below = window.innerHeight - rect.bottom - 12;
-    const height = Math.min(340, window.innerHeight - 24);
+    const spaceBelow = window.innerHeight - rect.bottom - 12;
+    const spaceAbove = rect.top - 12;
+    const desiredHeight = 320;
+
+    const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+    const availableSpace = openUp ? spaceAbove : spaceBelow;
+    const maxHeight = Math.max(120, Math.min(desiredHeight, availableSpace));
+
     position = {
       left: Math.min(rect.left, window.innerWidth - width - 8),
-      top: below >= 240 ? rect.bottom + 6 : Math.max(8, rect.top - height - 6),
+      top: openUp ? Math.max(8, rect.top - maxHeight - 6) : rect.bottom + 6,
       width,
-      maxHeight: height,
+      maxHeight,
     };
     expanded = true;
     searchQuery = "";
@@ -203,7 +212,7 @@
           type="text"
           class="language-search-input"
           bind:value={searchQuery}
-          {placeholder}
+          placeholder={searchPlaceholder}
           onkeydown={handleSearchKey}
           autocomplete="off"
           spellcheck="false"
@@ -212,7 +221,7 @@
 
       <div class="language-list">
         {#if filteredLanguages.length === 0}
-          <div class="language-empty">Nessuna lingua trovata</div>
+          <div class="language-empty">{t("languages.noResults") || "Nessuna lingua trovata"}</div>
         {:else}
           {#each filteredLanguages as lang, index}
             <button
@@ -271,6 +280,8 @@
     flex-direction: column;
     padding: 6px;
     z-index: 2000;
+    overflow: hidden;
+    box-sizing: border-box;
   }
 
   .language-search-wrapper {
@@ -307,8 +318,9 @@
   }
 
   .language-list {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
-    max-height: 260px;
     display: flex;
     flex-direction: column;
     gap: 2px;

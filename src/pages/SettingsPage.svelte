@@ -3,7 +3,7 @@
   import { Pause, FolderOpen, Globe, Languages, FileText, Copy, Trash2, RotateCcw } from "lucide-svelte";
   import { api } from "../lib/api";
   import Select from "../Select.svelte";
-  import { formats } from "../lib/presentation";
+  import { formats, getFormats } from "../lib/presentation";
   import { t, currentLanguage, setLanguage, availableUILanguages, type UILang } from "../lib/i18n";
   import type { Settings } from "../types";
 
@@ -66,11 +66,10 @@
 </div>
 
 <div class="settings-grid">
-  <!-- Column 1: Destinazione & Lingua -->
+  <!-- Column 1: Destinazione, Lingua & Rete -->
   <div class="settings-column">
     <div class="settings-card">
       <h2><FolderOpen size={19} /> {t("settings.destination")}</h2>
-      <p>{t("settings.destinationDesc")}</p>
       
       <label for="output">{t("settings.downloadFolder")}</label>
       <div class="input-row">
@@ -87,7 +86,7 @@
         <Select
           label={t("settings.defaultFormat")}
           bind:value={settings.export_format}
-          options={formats}
+          options={getFormats()}
         />
       </div>
       <small>
@@ -97,7 +96,6 @@
 
     <div class="settings-card">
       <h2><Languages size={19} /> {t("settings.uiLanguage")}</h2>
-      <p>{t("settings.uiLanguageDesc")}</p>
 
       <div class="source-field">
         <Select
@@ -108,13 +106,29 @@
         />
       </div>
     </div>
+
+    <div class="settings-card">
+      <h2><Globe size={19} /> {t("settings.network")}</h2>
+      <label for="user-agent">{t("settings.userAgent")}</label>
+      <div class="input-row">
+        <input
+          id="user-agent"
+          bind:value={settings.user_agent}
+          placeholder="{t('settings.default')} (Desktop Chrome)"
+          spellcheck="false"
+        />
+        <button onclick={() => (settings.user_agent = "")} title="{t('settings.default')}">
+          {t("settings.default")}
+        </button>
+      </div>
+      <small>{t("settings.networkHint")}</small>
+    </div>
   </div>
 
-  <!-- Column 2: Ritmo delle richieste + Rete -->
+  <!-- Column 2: Ritmo delle richieste + Diagnostica -->
   <div class="settings-column">
     <div class="settings-card">
       <h2><Pause size={19} /> {t("settings.requestRate")}</h2>
-      <p>{t("settings.requestRateDesc")}</p>
       <label for="delay">
         {t("settings.interval", {
           sec: settings.delay_ms / 1000,
@@ -134,26 +148,7 @@
     </div>
 
     <div class="settings-card">
-      <h2><Globe size={19} /> {t("settings.network")}</h2>
-      <p>{t("settings.networkDesc")}</p>
-      <label for="user-agent">{t("settings.userAgent")}</label>
-      <div class="input-row">
-        <input
-          id="user-agent"
-          bind:value={settings.user_agent}
-          placeholder="{t('settings.default')} (Desktop Chrome)"
-          spellcheck="false"
-        />
-        <button onclick={() => (settings.user_agent = "")} title="{t('settings.default')}">
-          {t("settings.default")}
-        </button>
-      </div>
-      <small>{t("settings.networkHint")}</small>
-    </div>
-
-    <div class="settings-card">
       <h2><FileText size={19} /> Diagnostica e Log</h2>
-      <p>File di log strutturato JSONL per la diagnosi di connettori, rete ed errori.</p>
       
       <label for="log-path-input">Percorso file di log</label>
       <div class="input-row">

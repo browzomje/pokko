@@ -52,11 +52,14 @@
   <button class:chosen={active === "lab"} onclick={onLab}>
     <FlaskConical size={18} /> {t("nav.lab")} <kbd>Ctrl ⇧ L</kbd>
   </button>
-  <button class:chosen={active === "settings"} onclick={() => navigate("settings")}>
-    <Settings size={18} /> {t("nav.settings")} <kbd>Ctrl ,</kbd>
-  </button>
 
   <div class="sidebar-bottom">
+    <button class:chosen={active === "settings"} onclick={() => navigate("settings")}>
+      <Settings size={18} /> {t("nav.settings")} <kbd>Ctrl ,</kbd>
+    </button>
+
+    <div class="sidebar-divider"></div>
+
     <div class="section-label">{t("nav.quickActions")}</div>
     <div class="quick-actions-row">
       <button class="quick-action-btn" onclick={onShortcuts} title="{t('nav.shortcuts')} (Ctrl+Shift+H)">
@@ -81,6 +84,12 @@
     padding: 8px 12px 20px;
     font-size: 22px;
     letter-spacing: -0.5px;
+  }
+  .sidebar-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 12px 12px 14px;
+    opacity: 0.6;
   }
   .quick-actions-row {
     display: flex;

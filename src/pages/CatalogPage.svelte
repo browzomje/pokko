@@ -115,13 +115,12 @@
   >
 </div>
 {#if searching && visibleResults.length}<p class="search-progress">
-    <LoaderCircle size={14} class="spin" /> Altre fonti e metadati in arrivo… Puoi
-    già aprire un risultato.
+    <LoaderCircle size={14} class="spin" /> {t("catalog.moreMetadata")}
   </p>{/if}
 {#if searching && !visibleResults.length}<div class="empty">
     <LoaderCircle size={32} class="spin" />
-    <h2>Ricerca in corso</h2>
-    <p>Sto cercando nelle fonti attive…</p>
+    <h2>{t("catalog.searching")}</h2>
+    <p>{t("catalog.searchingSubtitle")}</p>
   </div>{:else if visibleResults.length}<div class="manga-grid">
     {#each visibleResults as manga (`${manga.source_id}:${manga.url}`)}<button
         class="manga-card"
@@ -144,22 +143,22 @@
 {:else}<div class="empty">
     <div class="empty-icon"><BookOpen size={34} /></div>
     <h2>
-      {searched ? "Nessun manga trovato" : "Cerca un titolo"}
+      {searched ? t("catalog.noResults") : t("catalog.searchPrompt")}
     </h2>
     <p>
       {searched
-        ? "Prova un titolo diverso o controlla le fonti attive."
-        : "Manga e comics dalle tue fonti attive."}
+        ? t("catalog.noResultsHint")
+        : t("catalog.activeSourcesSubtitle")}
     </p>
   </div>{/if}
 {#if searched && !searching}
   <div class="pagination">
     <button disabled={page === 1} onclick={() => search(page - 1)}
-      ><ChevronLeft size={16} /> Precedente</button
-    ><span>Pagina {page}</span><button
+      ><ChevronLeft size={16} /> {t("catalog.prev")}</button
+    ><span>{t("catalog.page", { current: page })}</span><button
       disabled={!hasNext}
       onclick={() => search(page + 1)}
-      >Successiva <ChevronRight size={16} /></button
+      >{t("catalog.next")} <ChevronRight size={16} /></button
     >
   </div>
 {/if}

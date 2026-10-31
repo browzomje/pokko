@@ -106,7 +106,7 @@
           "src-tauri/Cargo.lock",
           "src-tauri/tauri.conf.json"
         ],
-        "message": "chore(release): \ud83d\ude80 v${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+        "message": "chore(release): v${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
     ],
     [

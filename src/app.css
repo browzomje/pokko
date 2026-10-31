@@ -1838,9 +1838,14 @@ main {
 .wizard-navigation {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   border-top: 1px solid var(--border);
-  padding-top: 18px;
-  margin-top: 24px;
+  padding: 14px 0 6px;
+  margin-top: 16px;
+  position: sticky;
+  bottom: 0;
+  background: var(--bg);
+  z-index: 20;
 }
 .source-pick {
   padding: 6px 9px;

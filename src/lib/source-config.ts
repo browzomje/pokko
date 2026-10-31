@@ -2,7 +2,7 @@ import type { Source } from "../types";
 export function newSource(): Source {
   return {
     id: `custom-${crypto.randomUUID()}`,
-    name: "Nuova fonte",
+    name: "",
     base_url: "",
     category: "manga",
     language: "en",
