@@ -1,3 +1,9 @@
+## [1.2.1](https://github.com/browzomje/pokko/compare/v1.2.0...v1.2.1) (2026-10-31)
+
+### 🐛 Fixes
+
+* ✨ harden Firefox uBlock profile, prevent auto-step jumps, remove readberserk, and polish UI/i18n ([73722fd](https://github.com/browzomje/pokko/commit/73722fdcbe8b4e1879505c2dbe3b3f8bfe7c1783))
+
 ## [1.2.0](https://github.com/browzomje/pokko/compare/v1.1.1...v1.2.0) (2026-10-31)
 
 ### ✨ Features
