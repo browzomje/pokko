@@ -1835,13 +1835,23 @@ main {
   flex: 1;
   color: var(--muted);
 }
+main.lab-main {
+  display: flex;
+  flex-direction: column;
+}
+.lab-workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 100%;
+}
 .wizard-navigation {
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-top: 1px solid var(--border);
   padding: 14px 0 6px;
-  margin-top: 16px;
+  margin-top: auto;
   position: sticky;
   bottom: 0;
   background: var(--bg);
@@ -1855,13 +1865,6 @@ main {
 .query-model code {
   color: var(--accent);
   word-break: break-all;
-}
-
-.lab-layout.lab-review {
-  grid-template-columns: 1fr;
-}
-.lab-review .lab-config {
-  display: none;
 }
 
 .search-progress { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; }

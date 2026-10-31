@@ -46,6 +46,13 @@ Breaking changes trigger a **Major** release (`2.0.0`). Indicate a breaking chan
   BREAKING CHANGE: connectors now require https base_url and explicit adapter fields.
   ```
 
+## Connector Guidelines
+
+- Connectors reside in `connectors/<id>.json`.
+- All connectors must use `adapter: "generic"` (100% declarative JSON; site-specific Rust code is not accepted).
+- Connectors must be tested via the 5-step Source Lab (`Ctrl+L`) co-pilot, including the test PDF download, prior to submitting a PR.
+- Commit scope: `feat(connectors): add <name> connector`.
+
 ## Development and Verification
 
 Before submitting changes, ensure all checks pass:

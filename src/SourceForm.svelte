@@ -100,7 +100,6 @@
         help="La pagina iniziale del nuovo sito, per esempio https://example.org. Questo indirizzo identifica la fonte: non basta a conoscere come cerca i titoli. Nel passo Ricerca incollerai un URL dei risultati ottenuto realmente sul sito."
       /><input
         bind:value={source.base_url}
-        readonly={source.adapter === "mangadex"}
         placeholder="https://example.org"
       /></label
     >
@@ -126,22 +125,8 @@
       /><LanguageSelect
         label="Lingua della fonte"
         bind:value={source.language}
-        includeBoth={source.adapter === "mangadex"}
       />
     </div>
-    {#if source.adapter !== "generic"}
-      <div class="source-field">
-        <FieldLabel
-          text="Adattatore"
-          icon={Plug}
-          help="Connettore integrato nell’applicazione: usa un parser dedicato."
-        /><input
-          type="text"
-          readonly
-          value="Integrato"
-        />
-      </div>
-    {/if}
     <label
       ><FieldLabel
         text="Intervallo minimo (ms)"

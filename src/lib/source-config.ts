@@ -8,7 +8,7 @@ export function newSource(): Source {
     language: "en",
     adapter: "generic",
     enabled: false,
-    min_delay_ms: 1000,
+    min_delay_ms: 500,
     note: "",
     search_path: "",
     result_selector: "",
@@ -18,6 +18,10 @@ export function newSource(): Source {
     next_selector: "",
     reader_next_selector: "",
     author_selector: "",
+    chapter_url_suffix: "",
+    volume_selector: "",
+    volume_title_selector: "",
+    chapter_title_selector: "",
     workflow: [],
   };
 }
@@ -28,7 +32,11 @@ export type SelectorField =
   | "description_selector"
   | "next_selector"
   | "reader_next_selector"
-  | "author_selector";
+  | "author_selector"
+  | "chapter_url_suffix"
+  | "volume_selector"
+  | "volume_title_selector"
+  | "chapter_title_selector";
 export function fieldForStep(step: string): SelectorField {
   return step === "search"
     ? "result_selector"
@@ -76,8 +84,15 @@ export function inferSearchPath(address: string, query: string): string | null {
 
 export const stageFields: Record<string, SelectorField[]> = {
   search: ["result_selector", "next_selector"],
-  detail: ["chapter_selector", "description_selector", "author_selector"],
-  reader: ["image_selector", "reader_next_selector"],
+  detail: [
+    "chapter_selector",
+    "description_selector",
+    "author_selector",
+    "volume_selector",
+    "volume_title_selector",
+    "chapter_title_selector",
+  ],
+  reader: ["image_selector", "reader_next_selector", "chapter_url_suffix"],
 };
 export function stageSignature(
   source: Source,

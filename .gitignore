@@ -5,3 +5,4 @@ target/
 .directory
 *.part
 src-tauri/gen/
+__pycache__/

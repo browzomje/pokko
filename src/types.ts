@@ -70,6 +70,10 @@ export interface Source {
   next_selector: string;
   reader_next_selector?: string;
   author_selector?: string;
+  chapter_url_suffix?: string;
+  volume_selector?: string;
+  volume_title_selector?: string;
+  chapter_title_selector?: string;
   workflow?: { kind: string; url: string; selector: string }[];
 }
 export interface SourceReport {

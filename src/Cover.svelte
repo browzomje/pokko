@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { invoke, isTauri } from "@tauri-apps/api/core";
   import { BookOpen } from "lucide-svelte";
   let { url, title }: { url: string; title: string } = $props();
   let src = $state("");
@@ -9,18 +8,7 @@
     src = "";
     failed = false;
     let alive = true;
-    const load = async () => {
-      try {
-        const value =
-          target.includes("uploads.mangadex.org") && isTauri()
-            ? await invoke<string>("manga_cover", { url: target })
-            : target;
-        if (alive) src = value;
-      } catch {
-        if (alive) failed = true;
-      }
-    };
-    void load();
+    src = target;
     return () => {
       alive = false;
     };

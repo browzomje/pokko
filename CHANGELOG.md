@@ -19,12 +19,12 @@
 
 ### ✨ Features
 
-* **lab**: side-by-side Source Lab with automated Firefox + uBlock Origin Marionette profile and heuristic chapter detection
-* **connectors**: official `connectors/` directory and safe import/export from JSON files, folders, and GitHub repositories (blocking archive formats)
+* **connectors**: 100% declarative JSON architecture (`adapter: "generic"`), supporting `chapter_url_suffix`, `volume_selector`, `volume_title_selector`, `chapter_title_selector`, and `reader_next_selector`
+* **catalog**: verified official catalog (`mangaworld`, `mangapill`, `mangatown`, `mangafreak`, `mangaread`, `readberserk`); removed legacy site-specific `mangadex` and `readcomicsonline`
+* **lab**: 5-step Source Lab co-pilot with integrated Firefox + uBlock Origin Marionette profile, automatic structural detection, live click-picker, and end-to-end trial PDF download
+* **i18n**: 15 complete UI translations (Arabic, Chinese, Dutch, English, French, German, Hindi, Italian, Japanese, Korean, Polish, Portuguese, Russian, Spanish, Turkish)
+* **network**: fast 500ms default request interval, configurable desktop User-Agent, origin Referer headers, per-domain concurrency limits, jitter, and retry backoff
 * **logs**: structured JSONL file logger (`logs/pokko.log`) with rotation and live diagnostics viewer in Settings
-* **i18n**: full Italian and English UI localization plus searchable world-language selector
-* **network**: configurable desktop User-Agent, origin Referer headers, per-domain concurrency limit, jitter, and retry backoff
-* **ui**: streamlined headers, 2-column Settings layout, unified Workspace sidebar navigation, and Wayland desktop icon alignment
 
 ## 1.0.0 (2026-10-08)
 

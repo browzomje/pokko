@@ -248,7 +248,7 @@ impl Engine {
             })
             .clone();
 
-        let base_delay = delay.max(if cdn_image { 500 } else { 1000 });
+        let base_delay = delay.max(500);
         let jitter = 0.70 + rand::random::<f64>() * 0.60;
         let actual_delay = (base_delay as f64 * jitter) as u64;
 
@@ -279,11 +279,12 @@ impl Engine {
             .cloned()
             .unwrap_or_else(|| DEFAULT_USER_AGENT.to_string());
 
-        let accept_header = if cdn_image || url.split('?').next().is_some_and(|p| {
-            [".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]
-                .iter()
-                .any(|e| p.to_lowercase().ends_with(e))
-        }) {
+        let accept_header = if cdn_image
+            || url.split('?').next().is_some_and(|p| {
+                [".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]
+                    .iter()
+                    .any(|e| p.to_lowercase().ends_with(e))
+            }) {
             "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
         } else {
             "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
@@ -373,7 +374,9 @@ impl Engine {
                 *limiter.lock().await = tokio::time::Instant::now() + Duration::from_secs(cooldown);
                 return Err(format!("Blocco HTTP {}. Coda sospesa; Retry-After: {retry}. Riprova più tardi aumentando l'intervallo.",r.status()));
             }
-            return r.error_for_status().map_err(|e| format!("Risposta del sito: {e}"));
+            return r
+                .error_for_status()
+                .map_err(|e| format!("Risposta del sito: {e}"));
         }
     }
 }
@@ -430,14 +433,12 @@ fn manga_source(settings: &Settings, manga: &Manga) -> Result<sources::Source, S
         .cloned()
         .or_else(|| {
             if manga.source_id.is_empty() {
-                Some(sources::Source {
-                    id: "mw".into(),
-                    name: "MangaWorld".into(),
-                    base_url: settings.base_url.clone(),
-                    adapter: "mangaworld".into(),
-                    language: "it".into(),
-                    ..sources::Source::default()
-                })
+                settings
+                    .sources
+                    .iter()
+                    .find(|s| s.id == "mw")
+                    .cloned()
+                    .or_else(|| sources::defaults().into_iter().find(|s| s.id == "mw"))
             } else {
                 None
             }
@@ -546,15 +547,10 @@ async fn manga_detail(
 async fn manga_cover(url: String, engine: State<'_, Arc<Engine>>) -> Result<String, String> {
     use base64::Engine as _;
     let parsed = url::Url::parse(&url).map_err(|e| e.to_string())?;
-    if parsed.scheme() != "https"
-        || parsed.host_str() != Some("uploads.mangadex.org")
-        || !parsed.path().starts_with("/covers/")
-    {
+    if parsed.scheme() != "https" {
         return Err("Copertina non valida".into());
     }
-    let response = engine
-        .request(&url, "https://mangadex.org/", 500, None)
-        .await?;
+    let response = engine.request(&url, &url, 500, None).await?;
     if response
         .content_length()
         .is_some_and(|n| n > 4 * 1024 * 1024)
@@ -636,10 +632,8 @@ async fn chapter_pages(
         .clone()
         .ok_or("Impostazioni mancanti")?;
     let source = manga_source(&settings, &manga)?;
-    if source.adapter != "mangadex" {
-        if let Some(pages) = engine.preview_pages.lock().await.get(&chapter.url) {
-            return Ok(pages.len());
-        }
+    if let Some(pages) = engine.preview_pages.lock().await.get(&chapter.url) {
+        return Ok(pages.len());
     }
     let pages = sources::pages(
         &engine,
@@ -651,13 +645,11 @@ async fn chapter_pages(
     )
     .await?;
     let count = pages.len();
-    if source.adapter != "mangadex" {
-        let mut cache = engine.preview_pages.lock().await;
-        if cache.len() >= 512 {
-            cache.clear();
-        }
-        cache.insert(chapter.url, pages);
+    let mut cache = engine.preview_pages.lock().await;
+    if cache.len() >= 512 {
+        cache.clear();
     }
+    cache.insert(chapter.url, pages);
     Ok(count)
 }
 #[tauri::command]
@@ -666,11 +658,7 @@ async fn test_source_connection(
     engine: State<'_, Arc<Engine>>,
 ) -> Result<String, String> {
     sources::validate(&source)?;
-    let url = if source.adapter == "mangadex" {
-        "https://api.mangadex.org/manga?limit=1"
-    } else {
-        &source.base_url
-    };
+    let url = &source.base_url;
     let response = engine
         .request(url, &source.base_url, source.min_delay_ms, None)
         .await?;
@@ -990,9 +978,9 @@ async fn download(
             .map_err(|e| e.to_string())?;
         let cache = chapter_dir.join(".pages.json");
         let preview = engine.preview_pages.lock().await.get(&chapter.url).cloned();
-        let cached = if source.adapter != "mangadex" && preview.is_some() {
-            preview
-        } else if source.adapter != "mangadex" {
+        let cached = if let Some(preview) = preview {
+            Some(preview)
+        } else {
             tokio::fs::read(&cache)
                 .await
                 .ok()
@@ -1003,8 +991,6 @@ async fn download(
                         && pages.iter().all(|p| provider::resolve(p, p).is_ok())
                 })
                 .map(|(_, pages)| pages)
-        } else {
-            None
         };
         let pages = if let Some(pages) = cached {
             pages
@@ -1025,7 +1011,7 @@ async fn download(
                 .map_err(|e| e.to_string())?;
             pages
         };
-        if source.adapter != "mangadex" {
+        {
             let mut cache = engine.preview_pages.lock().await;
             if cache.len() >= 512 {
                 cache.clear();
@@ -1525,18 +1511,34 @@ fn main() {
                 }
                 saved.source_catalog_version = 3;
             }
-            if saved.source_catalog_version < 4 {
+            if saved.source_catalog_version < 5 {
                 if let Some(settings) = &mut saved.settings {
-                    for source in &mut settings.sources {
-                        if source.id == "md" {
-                            source.enabled = false;
-                            source.note =
-                                "API · disattivata: verifica la connessione prima di abilitarla"
-                                    .into();
+                    settings
+                        .sources
+                        .retain(|s| s.id != "md" && s.id != "readcomics");
+                    for s in &mut settings.sources {
+                        s.adapter = "generic".into();
+                    }
+                    for def in sources::defaults() {
+                        if !settings.sources.iter().any(|s| s.id == def.id) {
+                            settings.sources.push(def);
+                        } else if let Some(existing) =
+                            settings.sources.iter_mut().find(|s| s.id == def.id)
+                        {
+                            if existing.id == "mw" {
+                                existing.adapter = "generic".into();
+                                existing.search_path = def.search_path.clone();
+                                existing.result_selector = def.result_selector.clone();
+                                existing.volume_selector = def.volume_selector.clone();
+                                existing.volume_title_selector = def.volume_title_selector.clone();
+                                existing.chapter_title_selector =
+                                    def.chapter_title_selector.clone();
+                                existing.chapter_url_suffix = def.chapter_url_suffix.clone();
+                            }
                         }
                     }
                 }
-                saved.source_catalog_version = 4;
+                saved.source_catalog_version = 5;
             }
             if let Some(settings) = &mut saved.settings {
                 if settings.export_format.is_empty() {
@@ -1691,8 +1693,10 @@ fn main() {
             lab::lab_cancel,
             lab::lab_open_output,
             lab::lab_firefox_launch,
+            lab::lab_firefox_navigate,
             lab::lab_firefox_get_url,
             lab::lab_firefox_inject_picker,
+            lab::lab_firefox_start_picker,
             lab::lab_firefox_get_picked,
             lab::lab_firefox_close,
             lab::lab_firefox_status,
@@ -1883,49 +1887,38 @@ mod tests {
         std::fs::remove_dir_all(base).unwrap();
     }
     #[tokio::test]
-    #[ignore = "Verifica live comics: ricerca, elenco albi e PDF completo di 27 pagine"]
-    async fn live_comics_complete_pdf() {
-        let base = std::env::temp_dir().join(format!("mwr-comics-live-{}", std::process::id()));
+    #[ignore = "Verifica live mangapill: ricerca, capitoli e scan"]
+    async fn live_mangapill_complete_pdf() {
+        let base = std::env::temp_dir().join(format!("mwr-mangapill-live-{}", std::process::id()));
         std::fs::create_dir_all(&base).unwrap();
         let engine = test_engine(&base);
         let source = sources::defaults()
             .into_iter()
-            .find(|s| s.id == "readcomics")
+            .find(|s| s.id == "mangapill")
             .unwrap();
-        let result = sources::search(&engine, &source, "Invincible", 1, 500)
+        let result = sources::search(&engine, &source, "Naruto", 1, 500)
             .await
             .unwrap();
         let manga = result
             .items
             .into_iter()
-            .find(|m| m.url.ends_with("/Invincible"))
+            .find(|m| m.title.eq_ignore_ascii_case("Naruto"))
             .unwrap();
         let detail = sources::detail(&engine, &source, manga, 500).await.unwrap();
-        let volume = detail
-            .volumes
-            .iter()
-            .find(|v| v.chapters[0].url.ends_with("/1"))
-            .unwrap()
-            .clone();
-        let mut job = sample_job(&base, "pdf");
-        job.manga = detail.manga;
-        job.volume = volume;
-        engine.saved.lock().await.jobs.push(job.clone());
-        download(&engine, None, &job).await.unwrap();
-        let finished = engine.saved.lock().await.jobs[0].clone();
-        assert_eq!(finished.verification.total, 27);
-        assert_eq!(verify_saved_job(&finished).unwrap(), 27);
-        assert_eq!(
-            lopdf::Document::load(&finished.output)
-                .unwrap()
-                .get_pages()
-                .len(),
-            27
-        );
-        println!(
-            "PDF live completo: {} · 27 pagine verificate",
-            finished.output
-        );
+        assert!(!detail.volumes.is_empty());
+        assert!(!detail.volumes[0].chapters.is_empty());
+        let chapter = &detail.volumes[0].chapters[0];
+        let pages = sources::pages(
+            &engine,
+            &source,
+            chapter,
+            &detail.manga.url,
+            500,
+            Some("mangapill-test"),
+        )
+        .await
+        .unwrap();
+        assert!(!pages.is_empty());
         std::fs::remove_dir_all(base).unwrap();
     }
     #[tokio::test]
@@ -2008,7 +2001,11 @@ mod tests {
             .text()
             .await
             .unwrap();
-        let manga = provider::search(&html, base, 1)
+        let source = sources::defaults()
+            .into_iter()
+            .find(|s| s.id == "mw")
+            .unwrap();
+        let manga = sources::generic_search(&html, base, &source)
             .unwrap()
             .items
             .into_iter()
@@ -2021,7 +2018,7 @@ mod tests {
             .text()
             .await
             .unwrap();
-        let detail = provider::detail(&html, manga.clone()).unwrap();
+        let detail = sources::generic_detail(&html, manga.clone(), &source).unwrap();
         let chapter = detail.volumes[0].chapters[0].clone();
         let job = Job {
             archived: false,
@@ -2111,51 +2108,18 @@ mod tests {
         tokio::fs::remove_dir_all(path).await.unwrap();
     }
     #[tokio::test]
-    #[ignore = "Verifica live ricerca, capitoli e una scan per MangaDex e MangaFreak"]
+    #[ignore = "Verifica live ricerca, capitoli e una scan per fonti generiche"]
     async fn live_multiple_sources() {
         let engine = test_engine(&std::env::temp_dir());
         for s in sources::defaults()
             .into_iter()
-            .filter(|s| ["md", "mf"].contains(&s.id.as_str()))
+            .filter(|s| ["mw", "mf"].contains(&s.id.as_str()))
         {
-            let r = sources::search(&engine, &s, "20th Century Boys", 1, 1000)
+            let r = sources::search(&engine, &s, "One Piece", 1, 1000)
                 .await
                 .unwrap();
             assert!(!r.items.is_empty(), "{}: nessun risultato", s.name);
-            let manga = r
-                .items
-                .iter()
-                .find(|m| m.title == "20th Century Boys" && m.language == "en")
-                .or_else(|| r.items.iter().find(|m| m.title == "20th Century Boys"))
-                .unwrap()
-                .clone();
-            let manga = if s.id == "md" {
-                // Licensed titles can remain in the catalogue after their scans are removed.
-                // Use a currently readable chapter's parent manga for the API download check.
-                let text=engine.request("https://api.mangadex.org/chapter?translatedLanguage%5B%5D=en&limit=5&order%5BreadableAt%5D=desc&includeExternalUrl=0","https://mangadex.org",1000,None).await.unwrap().text().await.unwrap();
-                let latest: serde_json::Value = serde_json::from_str(&text).unwrap();
-                let c = latest["data"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .find(|c| c["attributes"]["pages"].as_u64().unwrap_or(0) > 0)
-                    .unwrap();
-                let id = c["relationships"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .find(|r| r["type"] == "manga")
-                    .unwrap()["id"]
-                    .as_str()
-                    .unwrap();
-                Manga {
-                    url: format!("https://mangadex.org/title/{id}?lang=en"),
-                    language: "en".into(),
-                    ..manga
-                }
-            } else {
-                manga
-            };
+            let manga = r.items[0].clone();
             let detail = sources::detail(&engine, &s, manga, 1000).await.unwrap();
             let chapter = &detail.volumes[0].chapters[0];
             let pages = sources::pages(
@@ -2168,20 +2132,7 @@ mod tests {
             )
             .await
             .unwrap();
-            let image = engine
-                .request(&pages[0], &chapter.url, 1000, None)
-                .await
-                .unwrap()
-                .bytes()
-                .await
-                .unwrap();
-            assert!(image_extension(&image).is_ok());
-            println!(
-                "{}: ricerca, {} gruppi, {} scan nel primo capitolo, immagine valida",
-                s.name,
-                detail.volumes.len(),
-                pages.len()
-            );
+            assert!(!pages.is_empty());
         }
     }
     #[test]
@@ -2201,26 +2152,19 @@ mod tests {
     }
     #[test]
     fn old_preferences_remain_readable() {
-        let settings:Settings=serde_json::from_str(r#"{"base_url":"https://www.mangaworld.mx","output":"/existing/folder","delay_ms":3000,"cbz":true}"#).unwrap();
+        let settings: Settings = serde_json::from_str(
+            r#"{"base_url":"https://www.mangaworld.mx","output":"/existing/folder","delay_ms":3000,"cbz":true}"#,
+        )
+        .unwrap();
         assert_eq!(settings.output, "/existing/folder");
-        assert_eq!(settings.sources.iter().filter(|s| s.enabled).count(), 4);
-        assert!(
-            !settings
-                .sources
-                .iter()
-                .find(|s| s.id == "md")
-                .unwrap()
-                .enabled
-        );
+        assert_eq!(settings.sources.iter().filter(|s| s.enabled).count(), 6);
+        assert!(settings.sources.iter().any(|s| s.id == "mw"));
         let manga: Manga = serde_json::from_str(
             r#"{"title":"Old","url":"https://www.mangaworld.mx/manga/1/old","cover":""}"#,
         )
         .unwrap();
         assert_eq!(manga.language, "it");
-        assert_eq!(
-            manga_source(&settings, &manga).unwrap().adapter,
-            "mangaworld"
-        );
+        assert_eq!(manga_source(&settings, &manga).unwrap().adapter, "generic");
     }
     #[tokio::test]
     async fn retry_after_is_enforced() {

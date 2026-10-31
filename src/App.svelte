@@ -588,7 +588,7 @@
             onclick={() => (notice = "")}><X size={16} /></button
           >
         </div>{/if}
-      <main bind:this={content}>
+      <main bind:this={content} class:lab-main={active === "lab"}>
         {#if active === "search" && !current}
           <CatalogPage
             bind:query

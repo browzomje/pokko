@@ -10,7 +10,7 @@
     Settings,
     Languages,
   } from "lucide-svelte";
-  import { t, currentLanguage, setLanguage } from "../lib/i18n";
+  import { t, currentLanguage, setLanguage, availableUILanguages } from "../lib/i18n";
 
   let {
     active,
@@ -29,7 +29,16 @@
   } = $props();
 
   function toggleLanguage() {
-    setLanguage(currentLanguage() === "it" ? "en" : "it");
+    const cur = currentLanguage();
+    if (cur === "it") {
+      setLanguage("en");
+    } else if (cur === "en") {
+      setLanguage("it");
+    } else {
+      const langs = availableUILanguages.map((l) => l.code);
+      const idx = langs.indexOf(cur);
+      setLanguage(langs[(idx + 1) % langs.length]);
+    }
   }
 </script>
 

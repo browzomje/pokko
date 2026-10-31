@@ -1,11 +1,11 @@
 {
   "id": "readberserk",
   "name": "ReadBerserk",
-  "version": "1.0.0",
   "base_url": "https://readberserk.com",
   "category": "manga",
   "language": "en",
   "adapter": "generic",
+  "enabled": true,
   "min_delay_ms": 1000,
   "note": "Berserk completo in inglese · scansioni HD e capitoli ordinati",
   "search_path": "",
@@ -13,6 +13,5 @@
   "chapter_selector": "table.table tbody tr td a",
   "image_selector": "img.pages__img",
   "description_selector": "p.text-muted",
-  "next_selector": "",
-  "enabled": true
+  "next_selector": ""
 }

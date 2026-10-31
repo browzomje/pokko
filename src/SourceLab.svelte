@@ -2,6 +2,7 @@
   import { api, message as msg } from "./lib/api";
   import { onMount, onDestroy } from "svelte";
   import { open, save } from "@tauri-apps/plugin-dialog";
+  import { listen } from "@tauri-apps/api/event";
   import {
     ChevronLeft,
     ChevronRight,
@@ -20,6 +21,12 @@
     RotateCcw,
     ExternalLink,
     Shield,
+    MousePointerClick,
+    Sparkles,
+    Play,
+    CheckCircle2,
+    FolderOpen,
+    Info,
   } from "lucide-svelte";
   import SourceForm from "./SourceForm.svelte";
   import Select from "./Select.svelte";
@@ -76,11 +83,11 @@
     onNew?: () => void;
   } = $props();
 
-  const builtInIds = ["mw", "md", "mf", "mangaread", "readcomics"];
+  const builtInIds = ["mw", "mf", "mangaread", "mangapill", "mangatown", "readberserk"];
 
   let url = $state("");
   let testQuery = $state("");
-  let assets = $state(true);
+  let assets = $state(false);
   let offline = $state(true);
   let samples = $state<SampleInfo[]>([]);
   let sample = $state<Sample | null>(null);
@@ -111,6 +118,16 @@
   let imagesConfirmed = $state(false);
   let completedStages = $state<string[]>([]);
   let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+  // Co-pilot states & field test
+  let detectedResults = $state<{ title: string; url: string; group?: string }[]>([]);
+  let detectedChapters = $state<{ title: string; url: string; group?: string }[]>([]);
+  let selectedTestChapterUrl = $state("");
+  let generalizationQuery = $state("");
+  let generalizationResults = $state<{ title: string; url: string }[] | null>(null);
+  let generalizationBusy = $state(false);
+  let downloadSuccessInfo = $state<{ pages: number; path: string } | null>(null);
+  let unlistenProgress: (() => void) | null = null;
 
   // Firefox companion status
   let firefoxInstalled = $state(false);
@@ -192,7 +209,7 @@
   // Template pre-compilation
   let templateOptions = $derived.by(() => {
     const builtIns = sources.filter((s) =>
-      ["mw", "mf", "readcomics", "mangaread"].includes(s.id),
+      ["mw", "mf", "mangaread", "mangapill", "mangatown", "readberserk"].includes(s.id),
     );
     const customs = sources.filter(
       (s) => s.adapter === "generic" && !builtInIds.includes(s.id) && s.id !== source.id,
@@ -228,7 +245,7 @@
       ...source,
       category: template.category,
       language: template.language === "both" ? "it" : template.language,
-      min_delay_ms: template.min_delay_ms || 1000,
+      min_delay_ms: template.min_delay_ms || 500,
       search_path: template.search_path || "",
       result_selector: template.result_selector || "",
       chapter_selector: template.chapter_selector || "",
@@ -263,13 +280,22 @@
     const toOpen = targetUrl || url || source.base_url;
     if (!toOpen || !toOpen.startsWith("http")) return;
     try {
-      status = "Avvio di Firefox con uBlock Origin attivo…";
+      status = t("lab.startingFirefox");
       const launched = await api<boolean>("lab_firefox_launch", { url: toOpen });
       if (launched) {
         firefoxRunning = true;
         startFirefoxPolling();
         status = t("lab.firefoxActive");
       }
+    } catch (e) {
+      failure = msg(e);
+    }
+  }
+
+  async function startFirefoxPicker() {
+    try {
+      await api("lab_firefox_start_picker");
+      status = t("lab.clickElementInPreview");
     } catch (e) {
       failure = msg(e);
     }
@@ -299,30 +325,42 @@
         // Check if an element was picked in Firefox
         const picked = await api<string | null>("lab_firefox_get_picked");
         if (picked) {
-          applyPickedSelector(picked);
+          await applyPickedSelector(picked);
         }
       } catch {}
     }, 1500);
   }
 
-  function applyPickedSelector(selector: string) {
+  async function applyPickedSelector(selector: string) {
+    if (!selector) return;
     if (kind === "search") {
       source = { ...source, result_selector: selector };
+      if (!sample) await capture();
+      await extract();
       markStageCompleted("search");
-      status = t("lab.detectedResults", { count: 1 });
+      status = t("lab.detectedResults", { count: extraction?.items.length || 1 });
       setTimeout(() => step("detail"), 800);
     } else if (kind === "detail") {
       source = { ...source, chapter_selector: selector };
-      void extract();
+      if (!sample) await capture();
+      await extract();
+      status = t("lab.detectedChapters", { count: extraction?.items.length || 0 });
     } else if (kind === "reader") {
       source = { ...source, image_selector: selector };
-      void extract();
+      if (!sample) await capture();
+      await extract();
+      status = t("lab.detectedPages", { count: extraction?.items.length || 0 });
     }
   }
 
+  let taskDepth = 0;
   async function task(label: string, work: () => Promise<void>) {
-    if (busy) return;
+    if (taskDepth > 0) {
+      busy = label;
+      return await work();
+    }
     busy = label;
+    taskDepth++;
     failure = "";
     progress = "";
     downloaded = "";
@@ -332,8 +370,11 @@
     } catch (e) {
       failure = msg(e);
     } finally {
-      busy = "";
-      progress = "";
+      taskDepth--;
+      if (taskDepth === 0) {
+        busy = "";
+        progress = "";
+      }
     }
   }
 
@@ -397,13 +438,13 @@
 
   // Step 2: "Ho cercato"
   async function onSearched() {
-    await task("Acquisizione", async () => {
+    await task(t("lab.iSearched"), async () => {
       try {
         const ffUrl = await api<string>("lab_firefox_get_url");
         if (ffUrl && ffUrl.startsWith("http")) url = ffUrl;
       } catch {}
 
-      if (!url.trim()) throw new Error("Incolla o apri l'URL della ricerca sul sito.");
+      if (!url.trim()) throw new Error(t("lab.searchUrlRequired"));
 
       if (testQuery.trim()) {
         const path = inferSearchPath(url, testQuery);
@@ -412,19 +453,21 @@
 
       await capture();
       selectorField = "result_selector";
-      status = "Pagina acquisita. Clicca sul titolo di un manga per registrarlo.";
+      await extract();
+      void api("lab_firefox_start_picker").catch(() => {});
+      status = t("lab.pageAcquiredClickManga");
     });
   }
 
   // Step 3: "Sono qui" on Series page with Heuristic Auto-Detection!
   async function onHereSeries() {
-    await task("Acquisizione serie", async () => {
+    await task(t("lab.imHereChapters"), async () => {
       try {
         const ffUrl = await api<string>("lab_firefox_get_url");
         if (ffUrl && ffUrl.startsWith("http")) url = ffUrl;
       } catch {}
 
-      if (!url.trim()) throw new Error("Incolla o apri l'URL della scheda serie sul sito.");
+      if (!url.trim()) throw new Error(t("lab.seriesUrlRequired"));
 
       await capture();
       selectorField = "chapter_selector";
@@ -446,7 +489,8 @@
         } catch {}
       }
 
-      status = "Pagina acquisita. Clicca su uno dei capitoli nell'anteprima per registrarlo.";
+      void api("lab_firefox_start_picker").catch(() => {});
+      status = t("lab.pageAcquiredClickChapter");
     });
   }
 
@@ -461,18 +505,19 @@
     chaptersConfirmed = false;
     source.chapter_selector = "";
     extraction = null;
-    status = "Clicca su un altro capitolo per cambiare selettore.";
+    void api("lab_firefox_start_picker").catch(() => {});
+    status = t("lab.clickAnotherChapter");
   }
 
   // Step 4: "Sono qui" on Reader page
   async function onHereReader() {
-    await task("Acquisizione lettore", async () => {
+    await task(t("lab.imHereScans"), async () => {
       try {
         const ffUrl = await api<string>("lab_firefox_get_url");
         if (ffUrl && ffUrl.startsWith("http")) url = ffUrl;
       } catch {}
 
-      if (!url.trim()) throw new Error("Incolla o apri l'URL del lettore con le scan.");
+      if (!url.trim()) throw new Error(t("lab.readerUrlRequired"));
 
       await capture();
       selectorField = "image_selector";
@@ -483,6 +528,7 @@
         if (detected) source = { ...source, image_selector: detected };
       }
       await extract();
+      void api("lab_firefox_start_picker").catch(() => {});
       status = t("lab.detectedPages", { count: extraction?.items.length || 0 });
     });
   }
@@ -496,22 +542,62 @@
       ".read_img img",
       "img#gohere",
       "img.page-image",
+      "img.pages__img",
+      "img.js-page",
       "img.scan",
       ".entry-content img",
       ".page-break img",
+      "picture img",
     ];
     for (const sel of candidates) {
       const matches = doc.querySelectorAll(sel);
       if (matches.length >= 2) return sel;
     }
-    const lazyImages = doc.querySelectorAll("img[data-src], img[data-original]");
+    const lazyImages = doc.querySelectorAll("img[data-src], img[data-original], img[data-lazy-src]");
     if (lazyImages.length >= 2) {
       const first = lazyImages[0];
       if (first.className) {
-        const cls = first.className.trim().split(/\s+/)[0];
+        const cls = first.className
+          .trim()
+          .split(/\s+/)
+          .find((c) => !/^(lazy|lazyload|dracula|darkreader|img-fluid|img-responsive)/i.test(c));
         if (cls) return `img.${cls}`;
       }
       return "img[data-src]";
+    }
+    // Generic structural grouping: find repeated images outside nav/header/footer/sidebar
+    const classCounts = new Map<string, number>();
+    const parentCounts = new Map<string, number>();
+    const allImgs = Array.from(doc.querySelectorAll("img"));
+    for (const img of allImgs) {
+      if (img.closest("header, nav, footer, aside, .sidebar, .comments, .widget")) continue;
+      const src = (img.getAttribute("data-src") || img.getAttribute("src") || "").toLowerCase();
+      if (!src || /(logo|icon|avatar|banner|ads|pixel|1x1|\.svg)/i.test(src)) continue;
+      const classes = (img.className || "")
+        .trim()
+        .split(/\s+/)
+        .filter((c) => c && !/^(lazy|lazyload|dracula|darkreader|img-fluid|img-responsive|__pokko)/i.test(c));
+      if (classes[0]) {
+        const sel = `img.${classes[0]}`;
+        classCounts.set(sel, (classCounts.get(sel) || 0) + 1);
+      }
+      const parent = img.parentElement;
+      if (parent && parent.className) {
+        const pCls = parent.className
+          .trim()
+          .split(/\s+/)
+          .find((c) => c && !/^(dracula|darkreader|__pokko|row|col|container)/i.test(c));
+        if (pCls) {
+          const pSel = `.${pCls} img`;
+          parentCounts.set(pSel, (parentCounts.get(pSel) || 0) + 1);
+        }
+      }
+    }
+    for (const [sel, count] of classCounts.entries()) {
+      if (count >= 3) return sel;
+    }
+    for (const [sel, count] of parentCounts.entries()) {
+      if (count >= 3) return sel;
     }
     return "img";
   }
@@ -521,6 +607,135 @@
     markStageCompleted("reader");
     status = t("lab.detectedPages", { count: extraction?.items.length || 0 });
     setTimeout(() => step("review"), 600);
+  }
+
+  function confirmImagesAndGo() {
+    imagesConfirmed = true;
+    markStageCompleted("reader");
+    status = t("lab.detectedPages", { count: extraction?.items.length || 0 });
+    step("review");
+  }
+
+  async function confirmSearchResultAndGo(targetUrl?: string) {
+    const toOpen = targetUrl || extraction?.items[0]?.url;
+    if (!toOpen) return;
+    markStageCompleted("search");
+    url = toOpen;
+    if (firefoxRunning) {
+      void api("lab_firefox_navigate", { url: toOpen });
+    }
+    step("detail");
+    setTimeout(() => {
+      void onHereSeries();
+    }, 700);
+  }
+
+  async function confirmChaptersAndGo(chapterUrl?: string) {
+    chaptersConfirmed = true;
+    markStageCompleted("detail");
+    const toOpen = chapterUrl || extraction?.items[0]?.url || detectedChapters[0]?.url;
+    if (toOpen) {
+      selectedTestChapterUrl = toOpen;
+      url = toOpen;
+      if (firefoxRunning) {
+        void api("lab_firefox_navigate", { url: toOpen });
+      }
+    }
+    step("reader");
+    setTimeout(() => {
+      void onHereReader();
+    }, 700);
+  }
+
+  async function runLiveTestDownload() {
+    await task("Download di prova", async () => {
+      downloadSuccessInfo = null;
+      downloaded = "";
+
+      let targetSample = stageSamples["reader"] || sample;
+      let targetHtml = targetSample?.html || html;
+
+      if (selectedTestChapterUrl && targetSample?.url !== selectedTestChapterUrl) {
+        progress = "Caricamento capitolo selezionato…";
+        if (firefoxRunning) {
+          await api("lab_firefox_navigate", { url: selectedTestChapterUrl }).catch(() => {});
+        }
+        const s = await api<Sample>("lab_capture", {
+          url: selectedTestChapterUrl,
+          source: $state.snapshot(source),
+          assets: false,
+          token,
+        });
+        targetSample = s;
+        targetHtml = s.html;
+      }
+
+      if (!targetSample) {
+        throw new Error("Nessun capitolo disponibile per il download di prova.");
+      }
+
+      progress = "Download scan in corso…";
+      const result = await api<{
+        output: string;
+        pages: number;
+        bytes: number;
+      }>("lab_download", {
+        request: {
+          source: $state.snapshot(source),
+          sampleId: targetSample.id,
+          html: targetHtml,
+          output: "",
+          offline: false,
+          token,
+        },
+      });
+
+      downloaded = result.output;
+      downloadSuccessInfo = { pages: result.pages, path: result.output };
+      status = `Capitolo verificato: ${result.pages} pagine ✓`;
+    });
+  }
+
+  async function saveAndEnable() {
+    source.enabled = true;
+    await saveSource();
+  }
+
+  async function testGeneralization() {
+    if (!generalizationQuery.trim()) return;
+    generalizationBusy = true;
+    generalizationResults = null;
+    failure = "";
+    try {
+      let searchUrl = "";
+      const base = source.base_url.replace(/\/$/, "");
+      const q = encodeURIComponent(generalizationQuery.trim());
+      if (source.search_path.includes("{query}")) {
+        searchUrl = `${base}/${source.search_path.replace(/^\//, "").replace("{query}", q)}`;
+      } else {
+        searchUrl = `${base}/${source.search_path.replace(/^\//, "")}${q}`;
+      }
+      if (firefoxRunning) {
+        void api("lab_firefox_navigate", { url: searchUrl });
+      }
+      const s = await api<Sample>("lab_capture", {
+        url: searchUrl,
+        source: $state.snapshot(source),
+        assets: false,
+        token: `gen-${crypto.randomUUID()}`,
+      });
+      const ext = await api<Extraction>("lab_extract", {
+        source: $state.snapshot(source),
+        html: s.html,
+        url: s.url,
+        kind: "search",
+      });
+      generalizationResults = ext.items;
+    } catch (e) {
+      failure = `Verifica fallita: ${msg(e)}`;
+    } finally {
+      generalizationBusy = false;
+    }
   }
 
   function retryImages() {
@@ -536,7 +751,7 @@
 
     if (kind === "reader") {
       if (value.tag !== "img") {
-        status = "Clicca un'immagine della scan, non un contenitore.";
+        status = t("lab.clickScanImageNotContainer");
         return;
       }
       source = { ...source, image_selector: value.selector };
@@ -563,7 +778,7 @@
 
     if (selectorField !== fieldForStep(kind)) {
       source = { ...source, [selectorField]: value.selector };
-      status = "Campo aggiornato ✓";
+      status = t("lab.fieldUpdated");
     }
   }
 
@@ -603,6 +818,14 @@
         ...passed,
         [kind]: { signature, count: extraction.items.length },
       };
+      if (kind === "search" && extraction?.items) {
+        detectedResults = extraction.items;
+      } else if (kind === "detail" && extraction?.items) {
+        detectedChapters = extraction.items;
+        if (!selectedTestChapterUrl && detectedChapters.length > 0) {
+          selectedTestChapterUrl = detectedChapters[0].url;
+        }
+      }
       const selector = source[selectorField as keyof Source];
       if (typeof selector === "string") inspector?.highlight(selector);
     });
@@ -646,7 +869,7 @@
       a.href = URL.createObjectURL(blob);
       a.download = filename;
       a.click();
-      status = "Connettore esportato con successo ✓";
+      status = t("lab.connectorExported");
     } catch (e) {
       failure = `Errore esportazione: ${msg(e)}`;
     }
@@ -668,7 +891,7 @@
         const text = await file.text();
         const parsed = JSON.parse(text) as Source;
         if (!parsed.base_url || !parsed.name) {
-          throw new Error("File connettore non valido: mancano nome o indirizzo del sito.");
+          throw new Error(t("lab.invalidConnectorFile"));
         }
         source = {
           ...parsed,
@@ -689,7 +912,7 @@
         throw new Error(t("lab.nameRequired") || "Inserisci un nome per la fonte prima di salvare.");
       }
       await onSave($state.snapshot(source));
-      status = "Fonte salvata con successo.";
+      status = t("lab.sourceSavedSuccess");
     });
   }
 
@@ -698,18 +921,33 @@
     void refresh().catch((e) => (failure = msg(e)));
     void checkFirefoxStatus();
 
+    listen<{ token: string; message: string }>("lab-progress", (event) => {
+      if (event.payload?.message) {
+        progress = event.payload.message;
+      }
+    }).then((unlisten) => {
+      if (!disposed) {
+        unlistenProgress = unlisten;
+      } else {
+        unlisten();
+      }
+    });
+
     return () => {
       disposed = true;
+      if (unlistenProgress) unlistenProgress();
       if (pollInterval) clearInterval(pollInterval);
       if (busy) void api("lab_cancel", { token }).catch(() => {});
     };
   });
 
   onDestroy(() => {
+    if (unlistenProgress) unlistenProgress();
     if (pollInterval) clearInterval(pollInterval);
   });
 </script>
 
+<div class="lab-workspace">
 <!-- Top Row: Left = 5 step tabs, Right = Template select + Save draft button (Zero wasted space above tabs) -->
 <div class="lab-topbar">
   <div class="lab-topbar-tabs">
@@ -802,69 +1040,87 @@
     {:else if kind === "search"}
       <div class="wizard-card step-card">
         <div class="step-badge">{t("lab.step2Badge")}</div>
-        <h2>{t("lab.step2Title")}</h2>
+        <h2>{t("lab.step2CopilotTitle")}</h2>
 
         <div class="animated-hint">
           <Search size={16} class="pulse-icon" />
-          <span>{t("lab.step2Hint")}</span>
+          <div class="hint-lines">
+            <div>{t("lab.step2Instruction1")}</div>
+            <small>{t("lab.step2Instruction2")}</small>
+          </div>
         </div>
 
-        <label class="checkbox skip-search-toggle">
-          <input
-            type="checkbox"
-            bind:checked={skipSearch}
-            onchange={() => {
-              if (skipSearch) step("detail");
-            }}
-          />
-          <strong>{t("lab.step2Skip")}</strong>
-        </label>
+        <div class="step-fields">
+          <button
+            class="primary single-cta"
+            disabled={!!busy}
+            onclick={onSearched}
+          >
+            <Search size={16} /> {t("lab.detectResults")}
+          </button>
 
-        {#if !skipSearch}
-          <div class="step-fields">
-            <label>
-              <FieldLabel
-                text="Titolo cercato sul sito (facoltativo)"
-                icon={Search}
-                help="Aiuta a identificare il termine di ricerca nell'URL."
-              />
-              <input
-                bind:value={testQuery}
-                placeholder="Es. Berserk o Invincible"
-              />
-            </label>
-
+          {#if firefoxRunning}
             <button
-              class="primary single-cta"
+              type="button"
+              class="subtle-btn picker-action-btn"
               disabled={!!busy}
-              onclick={onSearched}
+              onclick={startFirefoxPicker}
             >
-              {t("lab.iSearched")}
+              <MousePointerClick size={15} /> {t("lab.pickResultInFirefox")}
             </button>
+          {/if}
 
-            {#if source.search_path}
-              <div class="status-badge success">
-                Modello ricerca: <code>{source.search_path}</code>
-              </div>
-            {/if}
+          <button
+            type="button"
+            class="text-link-btn"
+            onclick={() => {
+              skipSearch = true;
+              step("detail");
+            }}
+          >
+            {t("lab.skipSearchExplanation")}
+          </button>
 
-            {#if source.result_selector}
-              <div class="status-badge success">
-                Selettore titoli: <code>{source.result_selector}</code>
+          {#if source.search_path}
+            <div class="status-badge success">
+              <span>{t("lab.searchPatternBadge")}</span><code>{source.search_path}</code>
+            </div>
+          {/if}
+
+          {#if source.result_selector}
+            <div class="status-badge success">
+              <span>{t("lab.resultSelectorBadge")}</span><code>{source.result_selector}</code>
+            </div>
+          {/if}
+
+          {#if extraction?.items.length}
+            <div class="confirmation-box copilot-box">
+              <h4>{t("lab.isValidResult")}</h4>
+              <p class="first-title-preview">🎯 <strong>{extraction.items[0]?.title}</strong></p>
+              <div class="confirmation-actions">
+                <button
+                  class="primary"
+                  onclick={() => confirmSearchResultAndGo()}
+                >
+                  <Check size={16} /> {t("lab.openMangaAndGo")}
+                </button>
+                <button type="button" onclick={startFirefoxPicker}>
+                  <RotateCcw size={16} /> {t("lab.pickDifferentResult")}
+                </button>
               </div>
-            {/if}
-          </div>
-        {/if}
+            </div>
+          {/if}
+        </div>
       </div>
 
     {:else if kind === "detail"}
       <div class="wizard-card step-card">
         <div class="step-badge">{t("lab.step3Badge")}</div>
-        <h2>{t("lab.step3Title")}</h2>
+        <h2>{t("lab.step3CopilotTitle")}</h2>
 
         <div class="animated-hint">
           <BookOpen size={16} class="pulse-icon" />
-          <span>{t("lab.step3Hint")}</span>
+          <span>{t("lab.step3Instruction")}</span>
         </div>
 
         <div class="step-fields">
@@ -873,30 +1129,53 @@
             disabled={!!busy}
             onclick={onHereSeries}
           >
-            {t("lab.imHereChapters")}
+            <BookOpen size={16} /> {t("lab.detectChaptersAuto")}
           </button>
+
+          {#if firefoxRunning}
+            <button
+              type="button"
+              class="subtle-btn picker-action-btn"
+              disabled={!!busy}
+              onclick={startFirefoxPicker}
+            >
+              <MousePointerClick size={15} /> {t("lab.pickChapterInFirefox")}
+            </button>
+          {/if}
+
+          <details class="expand-list-accordion">
+            <summary>{t("lab.expandChaptersHint")}</summary>
+            <p>{t("lab.expandChaptersDesc")}</p>
+          </details>
 
           {#if source.chapter_selector}
             <div class="status-badge success">
-              Selettore capitoli: <code>{source.chapter_selector}</code>
+              <span>{t("lab.chapterSelectorBadge")}</span><code>{source.chapter_selector}</code>
             </div>
           {/if}
 
           {#if extraction?.items.length}
-            <div class="confirmation-box">
-              <h4>
-                Trovati {extraction.items.length} capitoli. Confermi la lista?
-              </h4>
+            <div class="confirmation-box copilot-box">
+              <h4>{t("lab.areTheseChapters", { count: extraction.items.length })}</h4>
+              <p class="first-title-preview">
+                📖 <strong>{extraction.items[0]?.title}</strong>
+                {#if extraction.items[1]}
+                  <span class="sub-chapter">, {extraction.items[1]?.title}</span>
+                {/if}
+                {#if extraction.items.length > 2}
+                  <span class="sub-chapter">…</span>
+                {/if}
+              </p>
               <div class="confirmation-actions">
                 <button
                   class="primary"
                   disabled={chaptersConfirmed}
-                  onclick={confirmChapters}
+                  onclick={() => confirmChaptersAndGo()}
                 >
-                  <Check size={16} /> {t("lab.confirmChapters")}
+                  <Check size={16} /> {t("lab.openChapterAndGo")}
                 </button>
-                <button onclick={retryChapters}>
-                  <RotateCcw size={16} /> {t("lab.retry")}
+                <button type="button" onclick={retryChapters}>
+                  <RotateCcw size={16} /> {t("lab.pickDifferentChapter")}
                 </button>
               </div>
             </div>
@@ -907,11 +1186,11 @@
     {:else if kind === "reader"}
       <div class="wizard-card step-card">
         <div class="step-badge">{t("lab.step4Badge")}</div>
-        <h2>{t("lab.step4Title")}</h2>
+        <h2>{t("lab.step4CopilotTitle")}</h2>
 
         <div class="animated-hint">
           <Images size={16} class="pulse-icon" />
-          <span>{t("lab.step4Hint")}</span>
+          <span>{t("lab.step4Instruction")}</span>
         </div>
 
         <div class="step-fields">
@@ -920,30 +1199,61 @@
             disabled={!!busy}
             onclick={onHereReader}
           >
-            {t("lab.imHereScans")}
+            <Images size={16} /> {t("lab.detectScansAuto")}
           </button>
+
+          {#if firefoxRunning}
+            <button
+              type="button"
+              class="subtle-btn picker-action-btn"
+              disabled={!!busy}
+              onclick={startFirefoxPicker}
+            >
+              <MousePointerClick size={15} /> {t("lab.pickScanInFirefox")}
+            </button>
+          {/if}
 
           {#if source.image_selector}
             <div class="status-badge success">
-              Selettore immagini: <code>{source.image_selector}</code>
+              <span>{t("lab.imageSelectorBadge")}</span><code>{source.image_selector}</code>
             </div>
           {/if}
 
           {#if extraction?.items.length}
-            <div class="confirmation-box">
-              <h4>
-                Rilevate {extraction.items.length} immagini scan. Confermi la prima pagina?
-              </h4>
+            <div class="confirmation-box copilot-box">
+              <h4>{t("lab.isThisScan", { count: extraction.items.length })}</h4>
+              {#if extraction.items[0]}
+                <div class="first-scan-preview-thumb">
+                  <img
+                    src={sample?.resources[extraction.items[0].url] || extraction.items[0].url}
+                    alt="Scan 1"
+                    referrerpolicy="no-referrer"
+                    onerror={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                </div>
+              {/if}
+
+              {#if extraction.items.length === 1}
+                <div class="single-page-alert">
+                  <p>{t("lab.singlePageDetected")}</p>
+                  <button type="button" class="subtle-btn" onclick={startFirefoxPicker}>
+                    {t("lab.clickNextInFirefox")}
+                  </button>
+                </div>
+              {/if}
+
               <div class="confirmation-actions">
                 <button
                   class="primary"
                   disabled={imagesConfirmed}
-                  onclick={confirmImages}
+                  onclick={confirmImagesAndGo}
                 >
-                  <Check size={16} /> {t("lab.confirmImages")}
+                  <Check size={16} /> {t("lab.confirmScansAndVerify")}
                 </button>
-                <button onclick={retryImages}>
-                  <RotateCcw size={16} /> {t("lab.chooseAnother")}
+                <button type="button" onclick={retryImages}>
+                  <RotateCcw size={16} /> {t("lab.pickDifferentScan")}
                 </button>
               </div>
             </div>
@@ -959,52 +1269,44 @@
 
         <div class="verify-checklist">
           <div class="verify-item">
-            <strong>Sito</strong>
+            <strong>{t("lab.url")}</strong>
             <span>{source.name} ({source.base_url})</span>
             <Check size={16} class="check-green" />
           </div>
 
           <div class="verify-item">
-            <strong>Lingua</strong>
-            <span>{flag(source.language)} {getLanguageLabel(getLanguage(source.language) || { code: source.language, name: source.language, nameEn: source.language, flag: flag(source.language) })}</span>
+            <strong>{t("lab.language")}</strong>
+            <span>{getLanguageLabel(getLanguage(source.language) || { code: source.language, name: source.language, nameEn: source.language, flag: flag(source.language) })}</span>
             <Check size={16} class="check-green" />
           </div>
 
           <div class="verify-item">
-            <strong>Ricerca</strong>
-            <span>{skipSearch ? "Serie singola" : source.search_path || "Configurata"}</span>
+            <strong>{t("nav.explore")}</strong>
+            <span>{skipSearch ? t("lab.step2Skip") : source.search_path || "✓"}</span>
             <Check size={16} class="check-green" />
           </div>
 
           <div class="verify-item">
-            <strong>Capitoli</strong>
-            <span>{source.chapter_selector || "Configurati"}</span>
+            <strong>{t("lab.summaryChapters")}</strong>
+            <span>{source.chapter_selector || "✓"}</span>
             <Check size={16} class="check-green" />
           </div>
 
           <div class="verify-item">
-            <strong>Pagine scan</strong>
-            <span>{source.image_selector || "Configurate"}</span>
+            <strong>{t("lab.summaryPages")}</strong>
+            <span>{source.image_selector || "✓"}</span>
             <Check size={16} class="check-green" />
           </div>
         </div>
 
-        <label class="checkbox enable-checkbox">
-          <input type="checkbox" bind:checked={source.enabled} />
-          <strong>{t("lab.enableInCatalog")}</strong>
-        </label>
-
-        <div class="export-import-card">
-          <h4>Condividi il connettore</h4>
-          <p class="export-hint">{t("lab.exportHint")}</p>
-          <div class="export-import-buttons">
-            <button type="button" onclick={exportConnector}>
-              <Download size={15} /> {t("lab.exportConnector")}
-            </button>
-            <button type="button" onclick={importConnector}>
-              <Upload size={15} /> {t("lab.importConnector")}
-            </button>
-          </div>
+        <div class="enable-catalog-box">
+          <label class="checkbox enable-checkbox" title={t("sources.enabled")}>
+            <input type="checkbox" bind:checked={source.enabled} />
+            <strong>{t("lab.enableInCatalog")}</strong>
+            <span class="info-pill" title={t("lab.step5Desc")}>
+              <Info size={14} />
+            </span>
+          </label>
         </div>
 
         <button
@@ -1028,13 +1330,13 @@
           stage={kind}
           onPick={(field) => {
             selectorField = field;
-            status = "Clicca l'elemento nell'anteprima.";
+            status = t("lab.clickElementInPreview");
           }}
         />
         {#if html}
           <div class="advanced-html-wrap">
             <label>
-              <span>HTML pagina corrente (modificabile per prove)</span>
+              <span>{t("lab.viewDom")}</span>
               <textarea
                 class="lab-code"
                 bind:value={html}
@@ -1049,8 +1351,154 @@
   </section>
 
   <!-- Right Column: Interactive Sanitized Preview & Live Element Picker -->
-  <section class="lab-panel" aria-label="Anteprima e ispezione">
-    {#if kind !== "review"}
+  <section class="lab-panel" aria-label="Preview">
+    {#if kind === "review"}
+      <!-- Step 5 Studio: Prova sul campo (Live Test & Download) & Generalizzazione -->
+      <div class="review-stage-studio">
+        <!-- Live Test & Download Hero Card -->
+        <div class="hero-live-card">
+          <div class="hero-live-header">
+            <div class="hero-live-title">
+              <Sparkles size={22} class="sparkle-icon" />
+              <div>
+                <h3>{t("lab.step5LiveTestTitle")}</h3>
+                <p class="hero-sub">{t("lab.step5LiveTestPrompt")}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="live-test-form">
+            {#if detectedChapters.length > 0}
+              <div class="source-field">
+                <span>{t("lab.selectChapterToTest")}</span>
+                <Select
+                  label={t("lab.selectChapterToTest")}
+                  bind:value={selectedTestChapterUrl}
+                  options={detectedChapters.map((chap) => ({ value: chap.url, label: chap.title }))}
+                  disabled={!!busy}
+                />
+              </div>
+            {:else}
+              <label class="chapter-picker-label">
+                <span>{t("lab.selectChapterToTest")}</span>
+                <input bind:value={selectedTestChapterUrl} placeholder="https://..." disabled={!!busy} />
+              </label>
+            {/if}
+
+            <button
+              type="button"
+              class="primary live-download-cta"
+              disabled={!!busy}
+              onclick={runLiveTestDownload}
+            >
+              {#if busy}
+                <LoaderCircle size={18} class="spin" />
+                <span>{progress || t("lab.waiting")}</span>
+              {:else}
+                <Download size={18} />
+                <span>{t("lab.downloadTestChapterBtn")}</span>
+              {/if}
+            </button>
+          </div>
+
+          {#if downloadSuccessInfo}
+            <div class="download-success-banner">
+              <div class="success-banner-heading">
+                <CheckCircle2 size={24} class="check-green" />
+                <div>
+                  <h4>{t("lab.downloadSuccessTitle", { count: downloadSuccessInfo.pages })}</h4>
+                  <p>{t("lab.downloadSuccessDesc")}</p>
+                </div>
+              </div>
+              <div class="success-actions">
+                <button
+                  type="button"
+                  class="open-pdf-btn"
+                  onclick={() => {
+                    if (downloadSuccessInfo?.path) {
+                      void api("lab_open_output", { path: downloadSuccessInfo.path }).catch((e) => (failure = msg(e)));
+                    }
+                  }}
+                >
+                  <FolderOpen size={16} /> {t("lab.openDownloadedChapter")}
+                </button>
+                <button type="button" class="primary save-enable-btn" onclick={saveAndEnable}>
+                  <Check size={16} /> {t("lab.saveAndEnableBtn")}
+                </button>
+              </div>
+            </div>
+          {/if}
+        </div>
+
+        <!-- Generalization Verification Card -->
+        <div class="generalization-card">
+          <div class="generalization-header">
+            <h4>🧪 {t("lab.generalizationTitle")}</h4>
+            <p>{t("lab.generalizationDesc")}</p>
+          </div>
+
+          <div class="gen-search-form">
+            <input
+              type="text"
+              bind:value={generalizationQuery}
+              placeholder={t("lab.generalizationPlaceholder")}
+              disabled={generalizationBusy}
+              onkeydown={(e) => {
+                if (e.key === "Enter") void testGeneralization();
+              }}
+            />
+            <button
+              type="button"
+              class="primary"
+              disabled={generalizationBusy || !generalizationQuery.trim()}
+              onclick={testGeneralization}
+            >
+              {#if generalizationBusy}
+                <LoaderCircle size={14} class="spin" />
+              {:else}
+                <Search size={14} /> {t("lab.testGeneralizationBtn")}
+              {/if}
+            </button>
+          </div>
+
+          {#if generalizationResults !== null}
+            <div class="gen-results-box">
+              {#if generalizationResults.length > 0}
+                <div class="status-badge success">
+                  <Check size={14} /> {t("lab.detectedResults", { count: generalizationResults.length })}
+                </div>
+                <div class="lab-result-list">
+                  {#each generalizationResults.slice(0, 5) as item}
+                    <div class="extraction-item">
+                      <strong>{item.title}</strong>
+                      <small class="item-url">{item.url}</small>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <div class="status-badge">
+                  <span>{t("explore.noResults")}</span>
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </div>
+
+        <!-- Share / Export / Import Connector Card moved to Right Studio -->
+        <div class="export-import-card">
+          <h4>{t("lab.shareConnector")}</h4>
+          <p class="export-hint">{t("lab.exportHint")}</p>
+          <div class="export-import-buttons">
+            <button type="button" onclick={exportConnector}>
+              <Download size={15} /> {t("lab.exportConnector")}
+            </button>
+            <button type="button" onclick={importConnector}>
+              <Upload size={15} /> {t("lab.importConnector")}
+            </button>
+          </div>
+        </div>
+      </div>
+    {:else}
       <!-- Live Status Line (Single status line, no duplicate Firefox buttons) -->
       <div class="status-bar" role="status">
         <span class="status-text">{status}</span>
@@ -1059,72 +1507,155 @@
         {/if}
       </div>
 
-      <!-- Single Sanitized Interactive DOM Preview (NO double window/webview) -->
-      <div class="preview-stage-container">
-        {#if html && sample}
-          <SampleBrowser
-            {html}
-            {sample}
-            onInspect={inspectElement}
-            onReady={(value) => (inspector = value)}
+      <!-- Prominent Detected Elements Preview Card (Shows extracted chapters, results or pages) -->
+      {#if extraction && extraction.items.length > 0}
+        <div class="extraction-card detected-primary-card">
+          <div class="extraction-card-header">
+            <div>
+              <h4>
+                <Check size={16} class="check-green" />
+                {#if kind === "detail"}
+                  {t("lab.detectedChapters", { count: extraction.items.length })}
+                {:else if kind === "reader"}
+                  {t("lab.detectedPages", { count: extraction.items.length })}
+                {:else}
+                  {t("lab.detectedResults", { count: extraction.items.length })}
+                {/if}
+              </h4>
+              {#if kind === "detail" && source.chapter_selector}
+                <small class="selector-tag"><code>{source.chapter_selector}</code></small>
+              {:else if kind === "search" && source.result_selector}
+                <small class="selector-tag"><code>{source.result_selector}</code></small>
+              {:else if kind === "reader" && source.image_selector}
+                <small class="selector-tag"><code>{source.image_selector}</code></small>
+              {/if}
+            </div>
+            {#if firefoxRunning}
+              <button
+                type="button"
+                class="subtle-btn"
+                title={t("lab.firefoxSelectWithClick")}
+                onclick={startFirefoxPicker}
+              >
+                <MousePointerClick size={14} /> {t("lab.firefoxSelectWithClick")}
+              </button>
+            {/if}
+          </div>
+
+          {#if kind === "reader"}
+            <div class="lab-result-list scan-pages-list">
+              {#each extraction.items.slice(0, 8) as item, i}
+                <div class="extraction-item scan-list-row">
+                  <div class="scan-row-meta">
+                    <strong>{item.title || `#${i + 1}`}</strong>
+                    <small class="item-url">{item.url}</small>
+                  </div>
+                </div>
+              {/each}
+              {#if extraction.items.length > 8}
+                <div class="more-items-notice">
+                  {t("lab.moreItems", { count: extraction.items.length - 8 })}
+                </div>
+              {/if}
+            </div>
+            <button
+              class="primary test-pdf-btn"
+              disabled={!!busy}
+              onclick={runLiveTestDownload}
+            >
+              <Download size={15} /> {t("lab.testPdf")}
+            </button>
+          {:else}
+            <div class="lab-result-list">
+              {#each extraction.items.slice(0, 10) as item}
+                <div class="extraction-item">
+                  <strong>{item.title}</strong>
+                  {#if item.group}<small>{item.group}</small>{/if}
+                  <small class="item-url">{item.url}</small>
+                </div>
+              {/each}
+              {#if extraction.items.length > 10}
+                <div class="more-items-notice">
+                  {t("lab.moreItems", { count: extraction.items.length - 10 })}
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      <!-- Firefox Companion Active Banner when nothing is extracted yet or during navigation -->
+      {#if firefoxRunning && (!extraction || extraction.items.length === 0)}
+        <div class="firefox-companion-card">
+          <div class="firefox-companion-header">
+            <span class="firefox-pill">
+              <span class="live-indicator"></span>
+              {t("lab.firefoxActive")}
+            </span>
+            <small class="firefox-url truncate" title={url}>{url}</small>
+          </div>
+          <p class="firefox-hint">{t("lab.firefoxCompanionHint")}</p>
+          <div class="firefox-companion-actions">
+            {#if kind === "search"}
+              <button type="button" class="primary" disabled={!!busy} onclick={onSearched}>
+                <Search size={14} /> {t("lab.detectResults")}
+              </button>
+            {:else if kind === "detail"}
+              <button type="button" class="primary" disabled={!!busy} onclick={onHereSeries}>
+                <BookOpen size={14} /> {t("lab.detectChaptersAuto")}
+              </button>
+            {:else if kind === "reader"}
+              <button type="button" class="primary" disabled={!!busy} onclick={onHereReader}>
+                <Images size={14} /> {t("lab.detectScansAuto")}
+              </button>
+            {/if}
+            <button type="button" disabled={!!busy} onclick={startFirefoxPicker}>
+              <MousePointerClick size={14} /> {t("lab.firefoxSelectWithClick")}
+            </button>
+            <button type="button" disabled={!!busy} onclick={capture}>
+              <RotateCcw size={14} /> {t("lab.firefoxSyncNow")}
+            </button>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Single Sanitized Interactive DOM Preview (with Inspector if sample present) -->
+      {#if sample && html}
+        <details class="preview-dom-accordion" open={!extraction || extraction.items.length === 0}>
+          <summary>
+            <Layers size={14} /> {t("lab.viewDom")}
+          </summary>
+          <div class="preview-stage-container">
+            <SampleBrowser
+              {html}
+              {sample}
+              onInspect={inspectElement}
+              onReady={(value) => (inspector = value)}
+            />
+          </div>
+          <SampleInspector
+            {inspected}
+            stage={kind}
+            bind:selectorField
+            generic={source.adapter === "generic"}
+            {busy}
+            onApply={(exact) => {
+              if (!inspected || source.adapter !== "generic") return;
+              const sel = exact ? inspected.exact : inspected.selector;
+              source = { ...source, [selectorField]: sel };
+              inspector?.highlight(sel);
+            }}
+            onParent={() => inspector?.parent()}
           />
-        {:else}
+        </details>
+      {:else if !firefoxRunning}
+        <div class="preview-stage-container">
           <div class="preview-placeholder">
             <Globe size={40} class="placeholder-icon" />
             <p>{t("lab.previewPlaceholder")}</p>
             <p class="placeholder-sub">{t("lab.previewSub")}</p>
           </div>
-        {/if}
-      </div>
-
-      {#if sample}
-        <SampleInspector
-          {inspected}
-          stage={kind}
-          bind:selectorField
-          generic={source.adapter === "generic"}
-          {busy}
-          onApply={(exact) => {
-            if (!inspected || source.adapter !== "generic") return;
-            const sel = exact ? inspected.exact : inspected.selector;
-            source = { ...source, [selectorField]: sel };
-            inspector?.highlight(sel);
-          }}
-          onParent={() => inspector?.parent()}
-        />
-
-        {#if extraction && validTest}
-          <div class="extraction-card">
-            <h4>Elementi rilevati: {extraction.items.length}</h4>
-
-            {#if kind === "reader" && extraction.items.length}
-              <div class="lab-image-preview">
-                {#each extraction.items.slice(0, 8) as item}
-                  {#if sample.resources[item.url]?.startsWith("data:image/")}
-                    <img src={sample.resources[item.url]} alt={item.title} />
-                  {/if}
-                {/each}
-              </div>
-              <button
-                class="primary test-pdf-btn"
-                disabled={!!busy}
-                onclick={download}
-              >
-                <Download size={15} /> {t("lab.testPdf")}
-              </button>
-            {:else}
-              <div class="lab-result-list">
-                {#each extraction.items.slice(0, 10) as item}
-                  <div class="extraction-item">
-                    <strong>{item.title}</strong>
-                    {#if item.group}<small>{item.group}</small>{/if}
-                    <small class="item-url">{item.url}</small>
-                  </div>
-                {/each}
-              </div>
-            {/if}
-          </div>
-        {/if}
+        </div>
       {/if}
     {/if}
 
@@ -1137,7 +1668,7 @@
             (e) => (failure = msg(e)),
           )}
       >
-        Apri PDF di prova
+        {t("lab.openTestPdf")}
       </button>
     {/if}
   </section>
@@ -1169,6 +1700,7 @@
       {t("lab.nextStep")} <ChevronRight size={15} />
     </button>
   {/if}
+</div>
 </div>
 
 <style>
@@ -1357,7 +1889,45 @@
 
   .confirmation-actions {
     display: flex;
+    flex-direction: column;
     gap: 8px;
+    width: 100%;
+  }
+
+  .confirmation-actions button {
+    width: 100%;
+    white-space: normal;
+    height: auto;
+    padding: 10px 12px;
+    text-align: center;
+    justify-content: center;
+    line-height: 1.35;
+  }
+
+  .enable-catalog-box {
+    margin: 6px 0;
+  }
+
+  .info-pill {
+    display: inline-flex;
+    align-items: center;
+    color: var(--muted, #94a3b8);
+    margin-left: 6px;
+    cursor: help;
+  }
+
+  .scan-list-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .scan-row-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
   }
 
   .verify-checklist {
@@ -1509,5 +2079,432 @@
     align-items: center;
     gap: 6px;
     font-size: 13px;
+  }
+
+  .lab-workspace {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 100%;
+  }
+
+  .firefox-companion-card {
+    background: rgba(129, 140, 248, 0.08);
+    border: 1px solid rgba(129, 140, 248, 0.25);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .firefox-companion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .firefox-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent, #818cf8);
+  }
+
+  .live-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 6px #4ade80;
+    animation: pulse-dot 2s infinite ease-in-out;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(0.85);
+    }
+  }
+
+  .firefox-url {
+    color: var(--muted, #94a3b8);
+    font-family: monospace;
+    font-size: 11px;
+    max-width: 320px;
+  }
+
+  .firefox-hint {
+    font-size: 13px;
+    color: var(--fg, #e2e8f0);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .firefox-companion-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .detected-primary-card {
+    background: rgba(74, 222, 128, 0.05);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+
+  .extraction-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .extraction-card-header h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 4px;
+  }
+
+  .selector-tag code {
+    font-size: 11px;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .subtle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .more-items-notice {
+    padding: 8px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted, #94a3b8);
+    font-style: italic;
+  }
+
+  .preview-dom-accordion {
+    margin-top: 14px;
+    border: 1px solid var(--border, #374151);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.01);
+  }
+
+  .preview-dom-accordion summary {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted, #94a3b8);
+  }
+
+  .hint-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .hint-lines small {
+    color: var(--muted, #94a3b8);
+    font-size: 11px;
+  }
+
+  .picker-action-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 10px;
+    font-weight: 500;
+  }
+
+  .text-link-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted, #94a3b8);
+    font-size: 11px;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 4px;
+    text-align: left;
+  }
+
+  .text-link-btn:hover {
+    color: var(--accent, #818cf8);
+  }
+
+  .copilot-box {
+    background: rgba(129, 140, 248, 0.08);
+    border: 1px solid rgba(129, 140, 248, 0.25);
+    border-radius: 8px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .first-title-preview {
+    font-size: 13px;
+    color: var(--accent, #818cf8);
+    margin: 0;
+    word-break: break-word;
+  }
+
+  .sub-chapter {
+    color: var(--muted, #94a3b8);
+    font-weight: normal;
+  }
+
+  .expand-list-accordion {
+    font-size: 12px;
+    color: var(--muted, #94a3b8);
+    padding: 6px 0;
+  }
+
+  .expand-list-accordion summary {
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  .expand-list-accordion p {
+    margin: 6px 0 0;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .first-scan-preview-thumb {
+    width: 100%;
+    max-height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border, #374151);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 4px 0;
+  }
+
+  .first-scan-preview-thumb img {
+    max-height: 140px;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  .single-page-alert {
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .single-page-alert p {
+    margin: 0;
+  }
+
+  /* Step 5 Studio Styles */
+  .review-stage-studio {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 480px;
+  }
+
+  .hero-live-card {
+    background: rgba(129, 140, 248, 0.05);
+    border: 1px solid rgba(129, 140, 248, 0.25);
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .hero-live-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .hero-live-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .hero-live-title h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .hero-sub {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--muted, #94a3b8);
+  }
+
+  :global(.sparkle-icon) {
+    color: var(--accent, #818cf8);
+    flex-shrink: 0;
+  }
+
+  .live-test-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .chapter-picker-label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .chapter-picker-label input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg, #111827);
+    border: 1px solid var(--border, #374151);
+    border-radius: 6px;
+    color: var(--text, #f9fafb);
+    font-size: 13px;
+  }
+
+  .live-download-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 8px;
+    margin-top: 4px;
+  }
+
+  .download-success-banner {
+    background: rgba(74, 222, 128, 0.08);
+    border: 1px solid rgba(74, 222, 128, 0.35);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .success-banner-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .success-banner-heading h4 {
+    margin: 0;
+    font-size: 14px;
+    color: #4ade80;
+  }
+
+  .success-banner-heading p {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--muted, #94a3b8);
+  }
+
+  .success-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+
+  .open-pdf-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .save-enable-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    font-size: 13px;
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #fff;
+  }
+
+  .generalization-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border, #374151);
+    border-radius: 10px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .generalization-header h4 {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .generalization-header p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--muted, #94a3b8);
+  }
+
+  .gen-search-form {
+    display: flex;
+    gap: 8px;
+  }
+
+  .gen-search-form input {
+    flex: 1;
+    padding: 9px 12px;
+    background: var(--bg, #111827);
+    border: 1px solid var(--border, #374151);
+    border-radius: 6px;
+    color: var(--text, #f9fafb);
+    font-size: 13px;
+  }
+
+  .gen-results-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
   }
 </style>

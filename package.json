@@ -9,6 +9,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "tauri": "tauri",
     "format": "prettier --plugin prettier-plugin-svelte --write src vite.config.ts svelte.config.js",
+    "check:i18n": "node scripts/check-i18n.mjs",
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {

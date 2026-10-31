@@ -148,28 +148,28 @@
     </div>
 
     <div class="settings-card">
-      <h2><FileText size={19} /> Diagnostica e Log</h2>
+      <h2><FileText size={19} /> {t("settings.diagnosticsTitle")}</h2>
       
-      <label for="log-path-input">Percorso file di log</label>
+      <label for="log-path-input">{t("settings.logPath")}</label>
       <div class="input-row">
-        <input id="log-path-input" readonly value={logPath || "Caricamento…"} spellcheck="false" />
-        <button onclick={copyLogPath} title="Copia percorso negli appunti">
-          <Copy size={15} /> Copia
+        <input id="log-path-input" readonly value={logPath || t("settings.loadingPreferences")} spellcheck="false" />
+        <button onclick={copyLogPath} title={t("settings.copy")}>
+          <Copy size={15} /> {t("settings.copy")}
         </button>
       </div>
 
       <div class="log-actions-row">
         <button onclick={loadRecentLogs}>
-          <RotateCcw size={14} /> Aggiorna log
+          <RotateCcw size={14} /> {t("settings.refreshLog")}
         </button>
         <button class="danger" onclick={clearLogs}>
-          <Trash2 size={14} /> Svuota log
+          <Trash2 size={14} /> {t("settings.clearLog")}
         </button>
       </div>
 
       <details class="log-details" bind:open={logViewerOpen}>
-        <summary>Visualizza log recenti ({recentLogs.length} righe)</summary>
-        <pre class="log-viewer">{recentLogs.length ? recentLogs.join("\n") : "Nessun log registrato."}</pre>
+        <summary>{t("settings.viewLogs", { count: recentLogs.length })}</summary>
+        <pre class="log-viewer">{recentLogs.length ? recentLogs.join("\n") : t("settings.noLogs")}</pre>
       </details>
     </div>
   </div>

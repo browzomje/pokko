@@ -213,13 +213,7 @@
         </label>
         <span class="pill">
           {flag(source.language)}
-          {source.adapter === "mangadex"
-            ? "API"
-            : source.adapter === "readcomics"
-              ? "Comics"
-              : source.adapter === "mangaworld"
-                ? "MangaWorld"
-                : t("sources.genericHtml")}
+          {t("sources.genericHtml")}
         </span>
         <button
           class="icon danger"
@@ -231,18 +225,11 @@
       </div>
       <p class="source-note">{formatSourceNote(source.note)}</p>
       <div class="source-actions">
-        {#if source.adapter === "generic" && !["mw", "md", "mf", "mangaread", "readcomics"].includes(source.id)}
-          <button onclick={() => editSource(source)}>{t("sources.edit")}</button>
-          <button onclick={() => openLab(source)}>{t("sources.openLab")}</button>
-          <button onclick={() => exportSource(source)} title="Esporta file .json">
-            <Download size={14} /> Esporta
-          </button>
-        {:else}
-          <button onclick={() => editSource(source)}>{t("sources.configure")}</button>
-          <button onclick={() => exportSource(source)} title="Esporta file .json">
-            <Download size={14} /> Esporta
-          </button>
-        {/if}
+        <button onclick={() => editSource(source)}>{t("sources.edit")}</button>
+        <button onclick={() => openLab(source)}>{t("sources.openLab")}</button>
+        <button onclick={() => exportSource(source)} title="Esporta file .json">
+          <Download size={14} /> Esporta
+        </button>
       </div>
     </article>
   {/each}

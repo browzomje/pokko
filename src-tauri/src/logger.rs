@@ -10,7 +10,11 @@ static LOG_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 const MAX_LOG_SIZE: u64 = 5 * 1024 * 1024; // 5 MB
 
 pub fn init(app: &AppHandle) {
-    if let Ok(dir) = app.path().app_data_dir().or_else(|_| app.path().app_config_dir()) {
+    if let Ok(dir) = app
+        .path()
+        .app_data_dir()
+        .or_else(|_| app.path().app_config_dir())
+    {
         let logs_dir = dir.join("logs");
         let _ = fs::create_dir_all(&logs_dir);
         let log_file = logs_dir.join("pokko.log");

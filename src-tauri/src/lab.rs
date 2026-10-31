@@ -16,7 +16,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use tauri::{Emitter, State};
+use tauri::{Emitter, Manager, State};
 
 const MAX_HTML: usize = 8 * 1024 * 1024;
 const MAX_ASSET: usize = 12 * 1024 * 1024;
@@ -139,19 +139,61 @@ fn css_urls(css: &str, base: &str) -> Vec<String> {
     urls
 }
 fn reader(html: &str, url: &str, source: &Source) -> Result<Vec<String>, String> {
-    match source.adapter.as_str() {
-        "generic" => sources::generic_pages(html, url, source),
-        "mangaworld" => provider::pages(html, url),
-        "readcomics" => sources::comics_pages(html),
-        _ => Err(
-            "MangaDex usa l’API: i campioni HTML sono disponibili per gli adattatori HTML.".into(),
-        ),
-    }
+    sources::generic_pages(html, url, source)
 }
 #[tauri::command]
 pub fn validate_source(source: Source) -> Result<(), String> {
     sources::validate(&source)
 }
+fn strip_proto(s: &str) -> &str {
+    s.trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_start_matches("www.")
+}
+
+fn lab_urls_match(u1: &str, u2: &str) -> bool {
+    let s1 = u1.trim().trim_end_matches('/');
+    let s2 = u2.trim().trim_end_matches('/');
+    if s1.eq_ignore_ascii_case(s2) {
+        return true;
+    }
+    strip_proto(s1).eq_ignore_ascii_case(strip_proto(s2))
+}
+
+fn same_domain(u1: &str, u2: &str) -> bool {
+    let d1 = url::Url::parse(u1)
+        .ok()
+        .and_then(|u| u.host_str().map(|s| s.to_lowercase()));
+    let d2 = url::Url::parse(u2)
+        .ok()
+        .and_then(|u| u.host_str().map(|s| s.to_lowercase()));
+    match (d1, d2) {
+        (Some(a), Some(b)) => {
+            let s1 = a.trim_start_matches("www.");
+            let s2 = b.trim_start_matches("www.");
+            s1 == s2
+        }
+        _ => false,
+    }
+}
+
+async fn fetch_via_engine(
+    url: &str,
+    source: &Source,
+    throttle: u64,
+    token: Option<&str>,
+    engine: &Engine,
+) -> Result<(String, String), String> {
+    let response = engine
+        .request(url, &source.base_url, throttle, token)
+        .await?;
+    let final_url = response.url().to_string();
+    provider::site(&final_url)?;
+    let raw = String::from_utf8(limited(response, MAX_HTML).await?)
+        .map_err(|_| "HTML non UTF-8: importa una copia convertita in UTF-8")?;
+    Ok((final_url, raw))
+}
+
 #[tauri::command]
 pub async fn lab_capture(
     url: String,
@@ -162,7 +204,6 @@ pub async fn lab_capture(
     engine: State<'_, Arc<Engine>>,
 ) -> Result<Sample, String> {
     sources::validate(&source)?;
-    provider::site(&url)?;
     if source.adapter == "mangadex" {
         return Err("MangaDex usa l’API, non i selettori HTML.".into());
     }
@@ -170,14 +211,37 @@ pub async fn lab_capture(
         "lab-progress",
         json!({"token":token,"message":"Acquisizione HTML…"}),
     );
-    let throttle = delay(&engine, &source).await;
-    let response = engine
-        .request(&url, &source.base_url, throttle, Some(&token))
-        .await?;
-    let url = response.url().to_string();
-    provider::site(&url)?;
-    let raw_html = String::from_utf8(limited(response, MAX_HTML).await?)
-        .map_err(|_| "HTML non UTF-8: importa una copia convertita in UTF-8")?;
+
+    let ff_target = url.clone();
+    let base_url = source.base_url.clone();
+    let ff_page = tokio::task::spawn_blocking(move || {
+        if let Ok(ff_url) = lab_firefox_get_url() {
+            if ff_url.starts_with("http") {
+                let is_match = ff_target.trim().is_empty()
+                    || lab_urls_match(&ff_url, &ff_target)
+                    || same_domain(&ff_url, &ff_target)
+                    || same_domain(&ff_url, &base_url);
+                if is_match {
+                    if let Ok(resp) = marionette_exec("WebDriver:GetPageSource", json!({})) {
+                        if let Some(src) = resp["value"].as_str().filter(|s| !s.trim().is_empty()) {
+                            return Some((ff_url, src.to_string()));
+                        }
+                    }
+                }
+            }
+        }
+        None
+    })
+    .await
+    .unwrap_or(None);
+
+    let (url, raw_html) = if let Some((ff_url, src)) = ff_page {
+        (ff_url, src)
+    } else {
+        provider::site(&url)?;
+        let throttle = delay(&engine, &source).await;
+        fetch_via_engine(&url, &source, throttle, Some(&token), &engine).await?
+    };
     let html = sanitize_html_adblock(&raw_html);
     let mut sample = Sample {
         id: id(),
@@ -193,18 +257,16 @@ pub async fn lab_capture(
     };
     if assets {
         let mut queue: VecDeque<_> = asset_urls(&sample.html, &url, &source).into();
-        let mut seen = HashSet::new();
+        let mut seen: HashSet<String> = HashSet::new();
         let mut total = sample.html.len();
+        let asset_limit = 3.min(MAX_ASSETS);
+        let throttle = delay(&engine, &source).await;
         while let Some(asset) = queue.pop_front() {
-            engine.checkpoint(&token).await?;
+            if seen.len() >= asset_limit || total >= MAX_SAMPLE / 2 {
+                break;
+            }
             if !seen.insert(asset.clone()) {
                 continue;
-            }
-            if seen.len() > MAX_ASSETS || total >= MAX_SAMPLE / 2 {
-                sample.warnings.push(
-                    "Limite campione raggiunto: alcune risorse non sono state salvate.".into(),
-                );
-                break;
             }
             let _ = app.emit(
                 "lab-progress",
@@ -383,23 +445,13 @@ pub fn lab_extract(
     };
     match kind.as_str() {
         "search" => {
-            let result = match source.adapter.as_str() {
-                "generic" => sources::generic_search(&html, &url, &source)?,
-                "mangaworld" => provider::search(&html, &url, 1)?,
-                "readcomics" => sources::comics_search(&html, &url, &source)?,
-                _ => return Err("Adattatore API: i selettori HTML non si applicano.".into()),
-            };
+            let result = sources::generic_search(&html, &url, &source)?;
             Ok(
                 json!({"items":result.items.iter().map(|m|json!({"title":m.title,"url":m.url})).collect::<Vec<_>>(), "description":"", "has_next":result.has_next}),
             )
         }
         "detail" => {
-            let detail = match source.adapter.as_str() {
-                "generic" => sources::generic_detail(&html, manga, &source)?,
-                "mangaworld" => provider::detail(&html, manga)?,
-                "readcomics" => sources::comics_detail(&html, manga)?,
-                _ => return Err("Adattatore API: i selettori HTML non si applicano.".into()),
-            };
+            let detail = sources::generic_detail(&html, manga, &source)?;
             Ok(
                 json!({"items":detail.volumes.iter().flat_map(|v|v.chapters.iter().map(move |c|json!({"title":c.title,"url":c.url,"group":v.title}))).collect::<Vec<_>>(),"description":detail.description, "has_next":false}),
             )
@@ -427,10 +479,19 @@ pub struct DownloadTest {
 }
 #[tauri::command]
 pub async fn lab_download(
-    request: DownloadTest,
+    mut request: DownloadTest,
     app: tauri::AppHandle,
     engine: State<'_, Arc<Engine>>,
 ) -> Result<Value, String> {
+    if request.output.trim().is_empty() {
+        request.output = app
+            .path()
+            .download_dir()
+            .or_else(|_| app.path().home_dir().map(|p| p.join("Downloads")))
+            .unwrap_or_else(|_| std::env::temp_dir())
+            .display()
+            .to_string();
+    }
     let sample = lab_load(request.sample_id.clone(), engine.clone()).await?;
     run_download(request, sample, &engine, |message| {
         let _ = app.emit("lab-progress", message);
@@ -565,7 +626,30 @@ async fn run_download(
             .map_err(|e| e.to_string())?;
     }
     engine.checkpoint(&token).await?;
-    let destination = dir.join("campione.pdf");
+    let site_slug = provider::safe_name(if source.name.trim().is_empty() {
+        "site"
+    } else {
+        &source.name
+    })
+    .to_lowercase()
+    .replace(' ', "_")
+    .chars()
+    .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+    .collect::<String>();
+    let site_slug = if site_slug.is_empty() {
+        "site".to_string()
+    } else {
+        site_slug
+    };
+    let secs_today = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() % 86400)
+        .unwrap_or(0);
+    let hh = secs_today / 3600;
+    let mm = (secs_today % 3600) / 60;
+    let ss = secs_today % 60;
+    let pdf_filename = format!("{site_slug}_test_download_{hh:02}_{mm:02}_{ss:02}.pdf");
+    let destination = dir.join(pdf_filename);
     let source_dir = dir.clone();
     let dest = destination.clone();
     let controls = engine.controls.clone();
@@ -661,7 +745,10 @@ pub async fn ensure_firefox_profile_with_ublock(port: u16) -> Result<PathBuf, St
                 }
             }
             Err(e) => {
-                crate::logger::warn("lab", &format!("Download uBlock Origin non riuscito ({e}), avvio senza estensione"));
+                crate::logger::warn(
+                    "lab",
+                    &format!("Download uBlock Origin non riuscito ({e}), avvio senza estensione"),
+                );
             }
             _ => {}
         }
@@ -695,21 +782,30 @@ user_pref("app.update.enabled", false);
     Ok(profile_dir)
 }
 
-fn marionette_connect() -> Result<std::net::TcpStream, String> {
+fn marionette_connect_with_retry(
+    retries: usize,
+    wait_ms: u64,
+) -> Result<std::net::TcpStream, String> {
     let port = MARIONETTE_PORT.lock().map(|p| *p).unwrap_or(2828);
     let addr = format!("127.0.0.1:{port}");
-    for _ in 0..40 {
+    for _ in 0..retries {
         if let Ok(stream) = std::net::TcpStream::connect_timeout(
             &addr.parse().unwrap(),
-            std::time::Duration::from_millis(250),
+            std::time::Duration::from_millis(100),
         ) {
-            let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(10)));
-            let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(10)));
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
+            let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(5)));
             return Ok(stream);
         }
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        std::thread::sleep(std::time::Duration::from_millis(wait_ms));
     }
-    Err(format!("Connessione a Marionette non riuscita (porta {port})"))
+    Err(format!(
+        "Connessione a Marionette non riuscita (porta {port})"
+    ))
+}
+
+fn marionette_connect() -> Result<std::net::TcpStream, String> {
+    marionette_connect_with_retry(2, 50)
 }
 
 fn marionette_read_packet(stream: &mut std::net::TcpStream) -> Result<Value, String> {
@@ -733,11 +829,18 @@ fn marionette_read_packet(stream: &mut std::net::TcpStream) -> Result<Value, Str
     serde_json::from_slice(&body).map_err(|e| e.to_string())
 }
 
-fn marionette_send_cmd(stream: &mut std::net::TcpStream, id: u64, name: &str, params: Value) -> Result<Value, String> {
+fn marionette_send_cmd(
+    stream: &mut std::net::TcpStream,
+    id: u64,
+    name: &str,
+    params: Value,
+) -> Result<Value, String> {
     use std::io::Write;
     let payload = json!([0, id, name, params]).to_string();
     let wire = format!("{}:{}", payload.len(), payload);
-    stream.write_all(wire.as_bytes()).map_err(|e| e.to_string())?;
+    stream
+        .write_all(wire.as_bytes())
+        .map_err(|e| e.to_string())?;
     marionette_read_packet(stream)
 }
 
@@ -795,15 +898,38 @@ pub async fn lab_firefox_launch(url: String) -> Result<bool, String> {
 
     // Connect Marionette, install uBlock Origin XPI if present, and navigate to target URL
     tokio::task::spawn_blocking(move || {
-        let xpi_path = profile_dir.join("extensions").join("uBlock0@raymondhill.net.xpi");
+        let mut stream = marionette_connect_with_retry(35, 150)?;
+        let _ = marionette_read_packet(&mut stream)?;
+        let _ = marionette_send_cmd(&mut stream, 1, "WebDriver:NewSession", json!({}))?;
+        drop(stream);
+
+        let xpi_path = profile_dir
+            .join("extensions")
+            .join("uBlock0@raymondhill.net.xpi");
         if xpi_path.exists() {
-            let _ = marionette_exec("Addon:Install", json!({"path": xpi_path.display().to_string(), "temporary": false}));
+            let _ = marionette_exec(
+                "Addon:Install",
+                json!({"path": xpi_path.display().to_string(), "temporary": false}),
+            );
         }
         let _ = marionette_exec("WebDriver:Navigate", json!({"url": url}));
-    }).await.map_err(|e| e.to_string())?;
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
 
     crate::logger::info("lab", "Firefox avviato con uBlock Origin attivo");
     Ok(true)
+}
+
+#[tauri::command]
+pub async fn lab_firefox_navigate(url: String) -> Result<bool, String> {
+    provider::site(&url)?;
+    tokio::task::spawn_blocking(move || {
+        marionette_exec("WebDriver:Navigate", json!({"url": url})).map(|_| true)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -819,16 +945,37 @@ pub fn lab_firefox_get_url() -> Result<String, String> {
 pub fn lab_firefox_inject_picker() -> Result<(), String> {
     let script = r#"
 (function() {
+  window.__pokko_picker_active = true;
   if (window.__pokko_picker_installed) return;
   window.__pokko_picker_installed = true;
   window.__pokko_picked = null;
 
+  function isJunkClass(c) {
+    if (!c || typeof c !== 'string') return true;
+    var s = c.toLowerCase();
+    return s.startsWith('dracula') ||
+           s.startsWith('darkreader') ||
+           s.startsWith('__pokko') ||
+           s.startsWith('pokko') ||
+           s.startsWith('stylus') ||
+           s.startsWith('adguard') ||
+           s.startsWith('ublock') ||
+           s.startsWith('ext-') ||
+           s.includes('processed') ||
+           s.includes('transit');
+  }
+
+  function cleanClassList(el) {
+    if (!el || !el.classList) return [];
+    return Array.from(el.classList).filter(function(c) { return !isJunkClass(c); });
+  }
+
   function cssPath(el) {
-    if (el.id) return '#' + CSS.escape(el.id);
+    if (el.id && !isJunkClass(el.id)) return '#' + CSS.escape(el.id);
     var parts = [];
     while (el && el.tagName !== 'HTML' && el.tagName !== 'BODY') {
       var tag = el.tagName.toLowerCase();
-      if (el.id) { parts.unshift('#' + CSS.escape(el.id)); break; }
+      if (el.id && !isJunkClass(el.id)) { parts.unshift('#' + CSS.escape(el.id)); break; }
       var siblings = el.parentElement ? Array.from(el.parentElement.children).filter(function(s) { return s.tagName === el.tagName; }) : [el];
       if (siblings.length > 1) {
         parts.unshift(tag + ':nth-of-type(' + (siblings.indexOf(el) + 1) + ')');
@@ -841,21 +988,81 @@ pub fn lab_firefox_inject_picker() -> Result<(), String> {
   }
 
   function suggestSelector(el) {
+    if (!el) return '';
     var tag = el.tagName.toLowerCase();
-    if (el.id) return '#' + CSS.escape(el.id);
-    if (el.classList && el.classList.length > 0) {
-      return tag + '.' + Array.from(el.classList).map(function(c) { return CSS.escape(c); }).join('.');
+
+    // 1. Image elements (Step 4 Reader)
+    if (tag === 'img') {
+      var imgClasses = cleanClassList(el);
+      if (imgClasses.length > 0) {
+        return 'img.' + imgClasses.map(function(c) { return CSS.escape(c); }).join('.');
+      }
+      if (el.parentElement) {
+        var parentClasses = cleanClassList(el.parentElement);
+        if (parentClasses.length > 0) {
+          return '.' + parentClasses.map(function(c) { return CSS.escape(c); }).join('.') + ' img';
+        }
+      }
+      return 'img';
     }
-    if (tag === 'a' && el.getAttribute('href')) {
-      var href = el.getAttribute('href');
+
+    // 2. Link / Chapter elements (Step 2 Search, Step 3 Series)
+    var a = tag === 'a' ? el : el.closest('a');
+    if (a) {
+      var href = a.getAttribute('href') || '';
+      var cleanClasses = cleanClassList(a);
+
+      // Check if inside a table (very common for chapters, e.g. readberserk)
+      var table = a.closest('table');
+      if (table) {
+        var tableClasses = cleanClassList(table);
+        if (tableClasses.includes('table')) {
+          return 'table.table tbody tr td a';
+        }
+        return 'table tr td a';
+      }
+
+      // Check for specific chapter/manga classes
+      var specificClass = cleanClasses.find(function(c) {
+        var lc = c.toLowerCase();
+        return lc.includes('chap') || lc.includes('manga') || lc.includes('episode');
+      });
+      if (specificClass) {
+        return 'a.' + CSS.escape(specificClass);
+      }
+
+      // Check href patterns
       if (href.indexOf('/chapter') !== -1) return 'a[href*="/chapter"]';
       if (href.indexOf('/read') !== -1) return 'a[href*="/read"]';
+      if (href.indexOf('ch-') !== -1) return 'a[href*="ch-"]';
+      if (href.indexOf('-chapter-') !== -1) return 'a[href*="-chapter-"]';
+
+      // Non-generic classes (ignore Bootstrap buttons/margin classes)
+      var utilityClasses = ['btn', 'btn-sm', 'btn-primary', 'btn-secondary', 'btn-default', 'mr-1', 'mr-2', 'ml-1', 'ml-2', 'd-flex', 'flex', 'text-muted', 'badge'];
+      var nonUtility = cleanClasses.filter(function(c) {
+        return !utilityClasses.includes(c.toLowerCase());
+      });
+      if (nonUtility.length > 0) {
+        return 'a.' + nonUtility.map(function(c) { return CSS.escape(c); }).join('.');
+      }
+      if (cleanClasses.length > 0) {
+        return 'a.' + cleanClasses.map(function(c) { return CSS.escape(c); }).join('.');
+      }
+      return 'a';
+    }
+
+    // 3. Fallback for other elements
+    if (el.id && !isJunkClass(el.id)) return '#' + CSS.escape(el.id);
+    var classes = cleanClassList(el);
+    if (classes.length > 0) {
+      return tag + '.' + classes.map(function(c) { return CSS.escape(c); }).join('.');
     }
     return cssPath(el);
   }
 
   var activeEl = null;
   document.addEventListener('mouseover', function(e) {
+    if (!window.__pokko_picker_active) return;
     if (activeEl) activeEl.style.outline = '';
     activeEl = e.target;
     if (activeEl) {
@@ -865,26 +1072,44 @@ pub fn lab_firefox_inject_picker() -> Result<(), String> {
   }, true);
 
   document.addEventListener('mouseout', function(e) {
-    if (e.target) e.target.style.outline = '';
+    if (e.target && e.target === activeEl) e.target.style.outline = '';
   }, true);
 
   document.addEventListener('click', function(e) {
+    if (!window.__pokko_picker_active) return;
     e.preventDefault();
     e.stopPropagation();
     var sel = suggestSelector(e.target);
     window.__pokko_picked = sel;
+    window.__pokko_picker_active = false;
     if (activeEl) activeEl.style.outline = '3px solid #4ade80';
   }, true);
 })();
 "#;
-    marionette_exec("WebDriver:ExecuteScript", json!({"script": script, "args": []}))?;
+    marionette_exec(
+        "WebDriver:ExecuteScript",
+        json!({"script": script, "args": []}),
+    )?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn lab_firefox_start_picker() -> Result<(), String> {
+    let script = "window.__pokko_picker_active = true;";
+    let _ = marionette_exec(
+        "WebDriver:ExecuteScript",
+        json!({"script": script, "args": []}),
+    );
+    lab_firefox_inject_picker()
 }
 
 #[tauri::command]
 pub fn lab_firefox_get_picked() -> Result<Option<String>, String> {
     let script = "var sel = window.__pokko_picked; window.__pokko_picked = null; return sel;";
-    let resp = marionette_exec("WebDriver:ExecuteScript", json!({"script": script, "args": []}))?;
+    let resp = marionette_exec(
+        "WebDriver:ExecuteScript",
+        json!({"script": script, "args": []}),
+    )?;
     if let Some(val) = resp["value"].as_str() {
         return Ok(Some(val.to_string()));
     }
@@ -939,14 +1164,21 @@ pub fn lab_detect_chapters(html: String, _url: String) -> Result<serde_json::Val
     let doc = scraper::Html::parse_document(&html);
 
     let candidate_selectors = [
+        "table.table tbody tr td a",
+        "table tr td a",
+        "table.table a",
         "a.chap",
         "a.chapter-link",
         ".wp-manga-chapter a",
         ".chapter-list a",
         "ul.chapters a",
-        "table.table tbody tr td a",
         ".chapter-name a",
+        ".chapters-list a",
+        ".chapter-item a",
+        ".listing-chapters_wrap a",
+        "a.chapter-title",
         "a[href*=\"/chapter/\"]",
+        "a[href*=\"/chapter-\"]",
         "a[href*=\"/read/\"]",
         "a[href*=\"/ch-\"]",
         "a[href*=\"-chapter-\"]",
@@ -959,12 +1191,58 @@ pub fn lab_detect_chapters(html: String, _url: String) -> Result<serde_json::Val
             if matches.len() >= 2 {
                 let sample_titles: Vec<String> = matches
                     .iter()
-                    .take(5)
-                    .map(|el| el.text().collect::<Vec<_>>().join(" ").trim().to_string())
+                    .take(10)
+                    .map(|el| {
+                        let t = el.text().collect::<Vec<_>>().join(" ").trim().to_string();
+                        if t.is_empty()
+                            || t.eq_ignore_ascii_case("read")
+                            || t.eq_ignore_ascii_case("leggi")
+                            || t.eq_ignore_ascii_case("view")
+                        {
+                            let mut cur = el.parent();
+                            while let Some(node) = cur {
+                                if let Some(elem) = scraper::ElementRef::wrap(node) {
+                                    if elem.value().name() == "tr" {
+                                        if let Ok(td_sel) = scraper::Selector::parse("td") {
+                                            if let Some(td) = elem.select(&td_sel).next() {
+                                                let td_text = td
+                                                    .text()
+                                                    .collect::<Vec<_>>()
+                                                    .join(" ")
+                                                    .trim()
+                                                    .to_string();
+                                                if !td_text.is_empty()
+                                                    && !td_text.eq_ignore_ascii_case("read")
+                                                    && !td_text.eq_ignore_ascii_case("leggi")
+                                                {
+                                                    return td_text;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                cur = node.parent();
+                            }
+                            if let Some(href) = el.value().attr("href") {
+                                let derived = crate::sources::derive_chapter_title(href);
+                                if !derived.is_empty() {
+                                    return derived;
+                                }
+                            }
+                        }
+                        t
+                    })
                     .filter(|s| !s.is_empty())
                     .collect();
 
-                crate::logger::info("lab", &format!("Rilevati capitoli con selettore '{}': {} elementi", sel_str, matches.len()));
+                crate::logger::info(
+                    "lab",
+                    &format!(
+                        "Rilevati capitoli con selettore '{}': {} elementi",
+                        sel_str,
+                        matches.len()
+                    ),
+                );
 
                 return Ok(json!({
                     "found": true,
@@ -976,26 +1254,46 @@ pub fn lab_detect_chapters(html: String, _url: String) -> Result<serde_json::Val
         }
     }
 
-    // Broad fallback heuristic: look for any <a> with chapter keywords in href or text
+    // Broad fallback heuristic: check distinct href patterns
     let a_sel = scraper::Selector::parse("a").unwrap();
-    let mut matching_hrefs = Vec::new();
-    for el in doc.select(&a_sel) {
-        if let Some(href) = el.value().attr("href") {
-            let lower = href.to_lowercase();
-            let text = el.text().collect::<Vec<_>>().join(" ").to_lowercase();
-            if lower.contains("/chapter") || lower.contains("/read/") || lower.contains("ch-") || text.contains("chapter") || text.contains("capitolo") {
-                matching_hrefs.push(el.text().collect::<Vec<_>>().join(" ").trim().to_string());
+    let patterns = [
+        ("a[href*=\"/chapter/\"]", "/chapter/"),
+        ("a[href*=\"/chapter-\"]", "/chapter-"),
+        ("a[href*=\"/read/\"]", "/read/"),
+        ("a[href*=\"-chapter-\"]", "-chapter-"),
+        ("a[href*=\"/ch-\"]", "/ch-"),
+        ("a[href*=\"/ch/\"]", "/ch/"),
+    ];
+
+    for (sel_name, pattern) in patterns {
+        let mut sample_titles = Vec::new();
+        let mut count = 0;
+        for el in doc.select(&a_sel) {
+            if let Some(href) = el.value().attr("href") {
+                if href.to_lowercase().contains(pattern) {
+                    count += 1;
+                    if sample_titles.len() < 10 {
+                        let mut t = el.text().collect::<Vec<_>>().join(" ").trim().to_string();
+                        if t.is_empty()
+                            || t.eq_ignore_ascii_case("read")
+                            || t.eq_ignore_ascii_case("leggi")
+                            || t.eq_ignore_ascii_case("view")
+                        {
+                            t = crate::sources::derive_chapter_title(href);
+                        }
+                        sample_titles.push(t);
+                    }
+                }
             }
         }
-    }
-
-    if matching_hrefs.len() >= 2 {
-        return Ok(json!({
-            "found": true,
-            "selector": "a[href*=\"/chapter/\"], a[href*=\"/read/\"]",
-            "count": matching_hrefs.len(),
-            "sample_titles": matching_hrefs.iter().take(5).cloned().collect::<Vec<_>>()
-        }));
+        if count >= 2 {
+            return Ok(json!({
+                "found": true,
+                "selector": sel_name,
+                "count": count,
+                "sample_titles": sample_titles
+            }));
+        }
     }
 
     Ok(json!({
@@ -1009,11 +1307,25 @@ pub fn lab_detect_chapters(html: String, _url: String) -> Result<serde_json::Val
 /// Clean HTML adblock sanitizer for acquired pages
 pub fn sanitize_html_adblock(raw: &str) -> String {
     // Strip scripts, iframes, objects, embeds, and intrusive ad tags
-    let without_scripts = regex::Regex::new(r"(?is)<script\b[^>]*>.*?</script>").unwrap().replace_all(raw, "");
-    let without_iframes = regex::Regex::new(r"(?is)<iframe\b[^>]*>.*?</iframe>").unwrap().replace_all(&without_scripts, "");
-    let without_embeds = regex::Regex::new(r"(?is)<(?:object|embed)\b[^>]*>.*?</(?:object|embed)>").unwrap().replace_all(&without_iframes, "");
-    let without_popups = regex::Regex::new(r#"(?i)on\w+\s*=\s*["'][^"']*window\.open[^"']*["']"#).unwrap().replace_all(&without_embeds, "");
-    without_popups.to_string()
+    let without_scripts = regex::Regex::new(r"(?is)<script\b[^>]*>.*?</script>")
+        .unwrap()
+        .replace_all(raw, "");
+    let without_iframes = regex::Regex::new(r"(?is)<iframe\b[^>]*>.*?</iframe>")
+        .unwrap()
+        .replace_all(&without_scripts, "");
+    let without_embeds = regex::Regex::new(r"(?is)<(?:object|embed)\b[^>]*>.*?</(?:object|embed)>")
+        .unwrap()
+        .replace_all(&without_iframes, "");
+    let without_popups = regex::Regex::new(r#"(?i)on\w+\s*=\s*["'][^"']*window\.open[^"']*["']"#)
+        .unwrap()
+        .replace_all(&without_embeds, "");
+    // Strip junk classes injected by browser extensions/themes (dracula, darkreader, pokko picker, etc.)
+    let class_cleaner = regex::Regex::new(
+        r#"(?i)\b(dracula-[a-z0-9_-]+|dracula-processed|darkreader[a-z0-9_-]*|__pokko[a-z0-9_-]*|stylus[a-z0-9_-]*)\b"#,
+    )
+    .unwrap();
+    let cleaned = class_cleaner.replace_all(&without_popups, "");
+    cleaned.to_string()
 }
 
 #[cfg(test)]
@@ -1077,7 +1389,7 @@ mod tests {
     #[test]
     fn dedicated_adapters_are_available_in_workbench() {
         let presets = sources::defaults();
-        let mw = presets.iter().find(|s| s.adapter == "mangaworld").unwrap();
+        let mw = presets.iter().find(|s| s.id == "mw").unwrap();
         let result = lab_extract(
             mw.clone(),
             include_str!("../../tests/fixtures/detail.html").into(),
@@ -1086,15 +1398,15 @@ mod tests {
         )
         .unwrap();
         assert!(result["items"].as_array().unwrap().len() > 100);
-        let comics = presets.iter().find(|s| s.adapter == "readcomics").unwrap();
+        let mf = presets.iter().find(|s| s.id == "mf").unwrap();
         let result = lab_extract(
-            comics.clone(),
-            include_str!("../../tests/fixtures/readcomics-reader.html").into(),
-            "https://readcomicsonline.lol/comic/test/1".into(),
+            mf.clone(),
+            include_str!("../../tests/fixtures/mf-reader.html").into(),
+            "https://ww3.mangafreak.me/Read1_Test_1".into(),
             "reader".into(),
         )
         .unwrap();
-        assert_eq!(result["items"].as_array().unwrap().len(), 27);
+        assert_eq!(result["items"].as_array().unwrap().len(), 36);
     }
     #[tokio::test]
     async fn paginated_offline_pdf_requires_saved_pages_and_rejects_cycles() {
@@ -1214,5 +1526,29 @@ mod tests {
         assert_eq!(pdf.get_pages().len(), 2);
         assert!(sample_path(&engine, "../../queue").is_err());
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn detect_chapters_readberserk_and_strip_junk_classes() {
+        let raw_detail = include_str!("../../tests/fixtures/readberserk-detail.html");
+        // Test dirty class cleaning
+        let dirty_html = r#"<div class="row"><a class="btn btn-sm btn-primary mr-2 dracula-style-all dracula-style-link dracula-processed darkreader darkreader--sync" href="/chapter/1">Read</a></div>"#;
+        let cleaned = sanitize_html_adblock(dirty_html);
+        assert!(!cleaned.contains("dracula-style-all"));
+        assert!(!cleaned.contains("dracula-processed"));
+        assert!(!cleaned.contains("darkreader"));
+        assert!(cleaned.contains("btn-primary"));
+
+        // Test chapter detection on real readberserk detail fixture
+        let detected =
+            lab_detect_chapters(raw_detail.to_string(), "https://readberserk.com".into()).unwrap();
+        println!("DETECTED: {:#?}", detected);
+        assert_eq!(detected["found"], true);
+        assert!(detected["count"].as_u64().unwrap() >= 10);
+        let sel = detected["selector"].as_str().unwrap();
+        assert!(sel == "table.table tbody tr td a" || sel.contains("chapter"));
+        let sample_titles = detected["sample_titles"].as_array().unwrap();
+        assert!(!sample_titles.is_empty());
+        assert!(sample_titles[0].as_str().unwrap().contains("Berserk"));
     }
 }
