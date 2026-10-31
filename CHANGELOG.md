@@ -1,3 +1,9 @@
+## [1.1.1](https://github.com/browzomje/pokko/compare/v1.1.0...v1.1.1) (2026-10-31)
+
+### 🐛 Fixes
+
+* polish lab wizard layout, sidebar settings alignment, dynamic dropdowns and i18n audit ([097f13a](https://github.com/browzomje/pokko/commit/097f13a0a53bdc301cd009542cd42c9fd0d3cbbb))
+
 ## [1.1.0](https://github.com/browzomje/pokko/compare/v1.0.0...v1.1.0) (2026-10-31)
 
 ### ✨ Features
