@@ -948,17 +948,12 @@ pub async fn lab_firefox_launch(url: String) -> Result<bool, String> {
         let xpi_path = profile_dir_clone
             .join("extensions")
             .join("uBlock0@raymondhill.net.xpi");
-        let mut ublock_installed = false;
-        if xpi_path.exists() {
-            if marionette_exec(
+        let ublock_installed = xpi_path.exists()
+            && marionette_exec(
                 "Addon:Install",
                 json!({"path": xpi_path.display().to_string(), "temporary": false}),
             )
-            .is_ok()
-            {
-                ublock_installed = true;
-            }
-        }
+            .is_ok();
 
         // Wait ~1800ms so uBlock Origin compiles its built-in filter lists (assets.json, EasyList, etc.)
         if ublock_installed {
@@ -1665,6 +1660,222 @@ pub fn lab_detect_chapters(html: String, _url: String) -> Result<serde_json::Val
     }))
 }
 
+/// Infers the search_path (and optionally suggested result_selector) directly from HTML forms or search inputs.
+pub fn infer_search_path_from_html_form(
+    html: &str,
+    _base_url: &str,
+) -> Option<(String, Option<String>)> {
+    let doc = scraper::Html::parse_document(html);
+
+    // 1. Scan for <form> with GET (or unspecified) method containing search inputs
+    if let Ok(form_sel) = scraper::Selector::parse("form") {
+        if let Ok(input_sel) = scraper::Selector::parse("input") {
+            for form in doc.select(&form_sel) {
+                let method = form.value().attr("method").unwrap_or("get").to_lowercase();
+                if method == "post" {
+                    continue;
+                }
+
+                let mut search_param: Option<String> = None;
+                for inp in form.select(&input_sel) {
+                    let itype = inp.value().attr("type").unwrap_or("text").to_lowercase();
+                    let name = inp.value().attr("name").unwrap_or("").to_string();
+                    let name_lower = name.to_lowercase();
+                    let id_class = format!(
+                        "{} {}",
+                        inp.value().attr("id").unwrap_or(""),
+                        inp.value().attr("class").unwrap_or("")
+                    )
+                    .to_lowercase();
+
+                    let is_search_field = itype == "search"
+                        || [
+                            "q", "s", "search", "keyword", "term", "query", "key", "title", "text",
+                            "name", "k",
+                        ]
+                        .iter()
+                        .any(|&k| {
+                            name_lower == k
+                                || name_lower.contains(&format!("_{k}"))
+                                || name_lower.contains(&format!("{k}_"))
+                        })
+                        || id_class.contains("search")
+                        || id_class.contains("buscar");
+
+                    if is_search_field {
+                        search_param = Some(if name.trim().is_empty() {
+                            "q".to_string()
+                        } else {
+                            name
+                        });
+                        break;
+                    }
+                }
+
+                if let Some(param) = search_param {
+                    let raw_action = form.value().attr("action").unwrap_or("/").trim();
+                    let action = if raw_action.is_empty() {
+                        "/".to_string()
+                    } else if raw_action.starts_with("http://")
+                        || raw_action.starts_with("https://")
+                    {
+                        if let Ok(parsed) = url::Url::parse(raw_action) {
+                            let mut p = parsed.path().to_string();
+                            if let Some(q) = parsed.query() {
+                                p = format!("{p}?{q}");
+                            }
+                            p
+                        } else {
+                            raw_action.to_string()
+                        }
+                    } else if !raw_action.starts_with('/') {
+                        format!("/{raw_action}")
+                    } else {
+                        raw_action.to_string()
+                    };
+
+                    let search_path = if action.contains('?') {
+                        format!("{action}&{param}={{query}}")
+                    } else {
+                        format!("{action}?{param}={{query}}")
+                    };
+
+                    // Check for suggested result selectors in the page
+                    let mut suggested_sel = None;
+                    let candidate_selectors = [
+                        "a.lc-card-name, a.lc-sr-item",
+                        "a.lc-card-name",
+                        "a.lc-sr-item",
+                        ".manga_search_item h3 a",
+                        ".post-title a",
+                        "div.my-3 a.mb-2",
+                        ".manga_pic_list li .title a",
+                        "a.manga-title",
+                    ];
+                    for c_sel in candidate_selectors {
+                        if let Ok(s) = scraper::Selector::parse(c_sel) {
+                            if doc.select(&s).next().is_some() {
+                                suggested_sel = Some(c_sel.to_string());
+                                break;
+                            }
+                        }
+                    }
+
+                    return Some((search_path, suggested_sel));
+                }
+            }
+        }
+    }
+
+    // 2. Scan for standalone <input type="search"> or search input without a <form>
+    if let Ok(input_sel) = scraper::Selector::parse(
+        "input[type='search'], input[data-search-input], input[name='q'], input[name='s'], input[name='search'], input[class*='search'], input[id*='search']",
+    ) {
+        if let Some(inp) = doc.select(&input_sel).next() {
+            let param = inp.value().attr("name").unwrap_or("q");
+            let param_clean = if param.trim().is_empty() {
+                "q"
+            } else {
+                param
+            };
+
+            // Check if input has data-url or data-action or data-search-url
+            for attr in ["data-action", "data-url", "data-search-url", "action"] {
+                if let Some(val) = inp.value().attr(attr) {
+                    if !val.trim().is_empty() {
+                        let sep = if val.contains('?') { "&" } else { "?" };
+                        let path = if val.starts_with('/') {
+                            val.to_string()
+                        } else {
+                            format!("/{val}")
+                        };
+                        return Some((
+                            format!("{path}{sep}{param_clean}={{query}}"),
+                            Some("a.lc-card-name, a.lc-sr-item".into()),
+                        ));
+                    }
+                }
+            }
+
+            // Check navbar / links for catalog or search links (e.g. /manga/, /catalogo/, /search/)
+            if let Ok(a_sel) = scraper::Selector::parse("a[href]") {
+                for a in doc.select(&a_sel) {
+                    if let Some(href) = a.value().attr("href") {
+                        let href_lower = href.to_lowercase();
+                        if href_lower == "/manga/"
+                            || href_lower == "/manga"
+                            || href_lower == "/catalogo/"
+                            || href_lower == "/catalog/"
+                            || href_lower == "/series/"
+                        {
+                            let clean_href = if href.ends_with('/') {
+                                href.to_string()
+                            } else {
+                                format!("{href}/")
+                            };
+                            let path = if clean_href.starts_with('/') {
+                                clean_href
+                            } else {
+                                format!("/{clean_href}")
+                            };
+                            return Some((
+                                format!("{path}?{param_clean}={{query}}"),
+                                Some("a.lc-card-name, a.lc-sr-item".into()),
+                            ));
+                        }
+                        if href_lower.contains("/search") || href_lower.contains("/buscar") {
+                            let path = if href.starts_with('/') {
+                                href.to_string()
+                            } else {
+                                format!("/{href}")
+                            };
+                            let sep = if path.contains('?') { "&" } else { "?" };
+                            return Some((format!("{path}{sep}{param_clean}={{query}}"), None));
+                        }
+                    }
+                }
+            }
+
+            // Check inline script for search endpoints
+            if html.contains("/manga/?")
+                || html.contains("/search/?q=")
+                || html.contains("data-live-search")
+            {
+                return Some((
+                    "/manga/?q={query}".to_string(),
+                    Some("a.lc-card-name, a.lc-sr-item".into()),
+                ));
+            }
+
+            // Generic fallback
+            return Some((format!("/?s={{query}}"), None));
+        }
+    }
+
+    None
+}
+
+/// Tauri command to infer search_path and result_selector from HTML
+#[tauri::command]
+pub fn lab_infer_search_path_from_html(
+    html: String,
+    base_url: String,
+) -> Result<serde_json::Value, String> {
+    if let Some((search_path, selector)) = infer_search_path_from_html_form(&html, &base_url) {
+        Ok(json!({
+            "found": true,
+            "search_path": search_path,
+            "result_selector": selector
+        }))
+    } else {
+        Ok(json!({
+            "found": false,
+            "search_path": "",
+            "result_selector": null
+        }))
+    }
+}
+
 /// Clean HTML adblock sanitizer for acquired pages
 pub fn sanitize_html_adblock(raw: &str) -> String {
     // Strip scripts, iframes, objects, embeds, and intrusive ad tags
@@ -1967,5 +2178,38 @@ mod tests {
                     .unwrap()
                     .contains("chapterList")
         );
+    }
+
+    #[test]
+    fn test_infer_search_path_from_html_form() {
+        // 1. Explicit GET form (like leercapitulo /manga/ page)
+        let form_html = r##"
+        <form class="lc-panel p-3 mb-4" method="get" action="/manga/" data-filter-form>
+            <label class="form-label small mb-1" for="f-q">Buscar</label>
+            <input type="search" class="form-control" id="f-q" name="q">
+            <button type="submit">Buscar</button>
+        </form>
+        <a class="lc-card-name" href="/manga/psvkfbmjgo/one-piece/">One Piece</a>
+        "##;
+        let inferred =
+            infer_search_path_from_html_form(form_html, "https://www.leercapitulo.co").unwrap();
+        assert_eq!(inferred.0, "/manga/?q={query}");
+        assert_eq!(inferred.1, Some("a.lc-card-name, a.lc-sr-item".to_string()));
+
+        // 2. Standalone live-search input with catalog link (like leercapitulo homepage)
+        let live_search_html = r##"
+        <nav class="navbar navbar-expand-lg lc-navbar sticky-top">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="/manga/">Catalogo</a></li>
+            </ul>
+            <div class="lc-search" data-live-search>
+                <input type="search" class="form-control" placeholder="Buscar manga..." data-search-input>
+            </div>
+        </nav>
+        "##;
+        let inferred_live =
+            infer_search_path_from_html_form(live_search_html, "https://www.leercapitulo.co")
+                .unwrap();
+        assert_eq!(inferred_live.0, "/manga/?q={query}");
     }
 }

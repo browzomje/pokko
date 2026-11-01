@@ -5,10 +5,14 @@
     Upload,
     Github,
     FolderOpen,
+    FolderDown,
     FileCode,
     X,
     Pencil,
     FlaskConical,
+    ShieldCheck,
+    Plus,
+    RotateCcw,
   } from "lucide-svelte";
   import { open, save } from "@tauri-apps/plugin-dialog";
   import { api, message as msg } from "../lib/api";
@@ -21,7 +25,7 @@
     saveError,
     saveStatus: _saveStatus,
     restoreSources,
-    addSource: _addSource,
+    addSource,
     editSource,
     openLab,
     removeSource,
@@ -40,6 +44,31 @@
   let githubRepoInput = $state("");
   let actionStatus = $state("");
   let actionError = $state("");
+
+  const builtInIds = ["mw", "mf", "mangaread", "mangapill", "mangatown"];
+
+  let officialSources = $derived(
+    sortedSources.filter(
+      (s) => s.origin === "official" || builtInIds.includes(s.id),
+    ),
+  );
+
+  let createdSources = $derived(
+    sortedSources.filter(
+      (s) =>
+        !builtInIds.includes(s.id) &&
+        (s.origin === "created" ||
+          (!s.origin && !s.id.startsWith("imported-"))),
+    ),
+  );
+
+  let importedSources = $derived(
+    sortedSources.filter(
+      (s) =>
+        !builtInIds.includes(s.id) &&
+        (s.origin === "imported" || s.id.startsWith("imported-")),
+    ),
+  );
 
   function checkArchiveExt(filename: string): boolean {
     const lower = filename.toLowerCase();
@@ -64,6 +93,8 @@
       const imported = await api<Source>("sources_import_file", {
         path: selected,
       });
+      imported.origin = "imported";
+      imported.enabled = true;
       const index = sortedSources.findIndex((s) => s.id === imported.id);
       if (index >= 0) sortedSources[index] = imported;
       else sortedSources.push(imported);
@@ -87,6 +118,8 @@
         path: selected,
       });
       for (const imported of importedList) {
+        imported.origin = "imported";
+        imported.enabled = true;
         const index = sortedSources.findIndex((s) => s.id === imported.id);
         if (index >= 0) sortedSources[index] = imported;
         else sortedSources.push(imported);
@@ -116,6 +149,8 @@
         repo: githubRepoInput.trim(),
       });
       for (const imported of importedList) {
+        imported.origin = "imported";
+        imported.enabled = true;
         const index = sortedSources.findIndex((s) => s.id === imported.id);
         if (index >= 0) sortedSources[index] = imported;
         else sortedSources.push(imported);
@@ -149,6 +184,43 @@
   }
 </script>
 
+{#snippet sourceCard(source: Source)}
+  <article class="source-card">
+    <div class="source-header">
+      <label class="checkbox">
+        <input type="checkbox" bind:checked={source.enabled} />
+        <strong>{source.name}</strong>
+      </label>
+      <span class="pill">
+        {flag(source.language)}
+        {t("sources.genericHtml")}
+      </span>
+      <button
+        class="icon danger"
+        title={`${t("sources.remove")} ${source.name}`}
+        onclick={() => removeSource(source.id)}
+      >
+        <Trash2 size={18} />
+      </button>
+    </div>
+    <p class="source-note">{formatSourceNote(source.note, source.id)}</p>
+    <div class="source-actions">
+      <button onclick={() => editSource(source)}>
+        <Pencil size={14} /> {t("sources.edit")}
+      </button>
+      <button onclick={() => openLab(source)}>
+        <FlaskConical size={14} /> {t("sources.openLab")}
+      </button>
+      <button
+        onclick={() => exportSource(source)}
+        title={t("sources.export")}
+      >
+        <Download size={14} /> {t("sources.export")}
+      </button>
+    </div>
+  </article>
+{/snippet}
+
 <div class="page-heading">
   <div>
     <h1>{t("sources.title")}</h1>
@@ -166,7 +238,9 @@
     <button class="primary" onclick={() => (importModalOpen = true)}>
       <Upload size={15} /> {t("sources.import")}
     </button>
-    <button class="danger" onclick={restoreSources}>{t("sources.restore")}</button>
+    <button class="danger-btn" onclick={restoreSources}>
+      <RotateCcw size={15} /> {t("sources.restore")}
+    </button>
   </div>
 </div>
 
@@ -225,46 +299,169 @@
   </div>
 {/if}
 
-<div class="sources-list">
-  {#each sortedSources as source (source.id)}
-    <article class="source-card">
-      <div class="source-header">
-        <label class="checkbox">
-          <input type="checkbox" bind:checked={source.enabled} />
-          <strong>{source.name}</strong>
-        </label>
-        <span class="pill">
-          {flag(source.language)}
-          {t("sources.genericHtml")}
-        </span>
-        <button
-          class="icon danger"
-          title={`${t("sources.remove")} ${source.name}`}
-          onclick={() => removeSource(source.id)}
-        >
-          <Trash2 size={18} />
+<!-- Section 1: Official Sources -->
+<section class="sources-section">
+  <div class="sources-section-header">
+    <div class="section-title-wrap">
+      <ShieldCheck size={18} class="section-icon official-icon" />
+      <h2>{t("sources.sectionOfficial")}</h2>
+      <span class="count-badge">{officialSources.length}</span>
+    </div>
+  </div>
+  <div class="sources-list">
+    {#each officialSources as source (source.id)}
+      {@render sourceCard(source)}
+    {/each}
+  </div>
+</section>
+
+<!-- Section 2: Created Connectors (Source Lab) -->
+<section class="sources-section">
+  <div class="sources-section-header">
+    <div class="section-title-wrap">
+      <FlaskConical size={18} class="section-icon created-icon" />
+      <h2>{t("sources.sectionCreated")}</h2>
+      <span class="count-badge">{createdSources.length}</span>
+    </div>
+    {#if addSource}
+      <button class="primary subtle-action-btn" onclick={addSource}>
+        <Plus size={14} /> {t("sources.createConnector")}
+      </button>
+    {/if}
+  </div>
+
+  {#if createdSources.length > 0}
+    <div class="sources-list">
+      {#each createdSources as source (source.id)}
+        {@render sourceCard(source)}
+      {/each}
+    </div>
+  {:else}
+    <div class="empty-sources-box">
+      <FlaskConical size={32} class="empty-icon" />
+      <p>{t("sources.emptyCreated")}</p>
+      {#if addSource}
+        <button class="primary" onclick={addSource}>
+          <Plus size={15} /> {t("sources.createConnector")}
         </button>
-      </div>
-      <p class="source-note">{formatSourceNote(source.note, source.id)}</p>
-      <div class="source-actions">
-        <button onclick={() => editSource(source)}>
-          <Pencil size={14} /> {t("sources.edit")}
-        </button>
-        <button onclick={() => openLab(source)}>
-          <FlaskConical size={14} /> {t("sources.openLab")}
-        </button>
-        <button
-          onclick={() => exportSource(source)}
-          title={t("sources.export")}
-        >
-          <Download size={14} /> {t("sources.export")}
-        </button>
-      </div>
-    </article>
-  {/each}
-</div>
+      {/if}
+    </div>
+  {/if}
+</section>
+
+<!-- Section 3: Imported Connectors -->
+<section class="sources-section">
+  <div class="sources-section-header">
+    <div class="section-title-wrap">
+      <FolderDown size={18} class="section-icon imported-icon" />
+      <h2>{t("sources.sectionImported")}</h2>
+      <span class="count-badge">{importedSources.length}</span>
+    </div>
+    <button class="primary subtle-action-btn" onclick={() => (importModalOpen = true)}>
+      <Upload size={14} /> {t("sources.import")}
+    </button>
+  </div>
+
+  {#if importedSources.length > 0}
+    <div class="sources-list">
+      {#each importedSources as source (source.id)}
+        {@render sourceCard(source)}
+      {/each}
+    </div>
+  {:else}
+    <div class="empty-sources-box">
+      <FolderDown size={32} class="empty-icon" />
+      <p>{t("sources.emptyImported")}</p>
+      <button onclick={() => (importModalOpen = true)}>
+        <Upload size={15} /> {t("sources.import")}
+      </button>
+    </div>
+  {/if}
+</section>
 
 <style>
+  .sources-section {
+    margin-bottom: 32px;
+  }
+
+  .sources-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border, #374151);
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .section-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title-wrap h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--fg, #f3f4f6);
+  }
+
+  :global(.section-icon.official-icon) {
+    color: #60a5fa;
+  }
+
+  :global(.section-icon.created-icon) {
+    color: #a78bfa;
+  }
+
+  :global(.section-icon.imported-icon) {
+    color: #34d399;
+  }
+
+  .count-badge {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9999px;
+    padding: 1px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted, #94a3b8);
+  }
+
+  .subtle-action-btn {
+    font-size: 12px;
+    padding: 6px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .empty-sources-box {
+    border: 1px dashed var(--border, #374151);
+    border-radius: 10px;
+    padding: 32px 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  .empty-sources-box p {
+    color: var(--muted, #94a3b8);
+    font-size: 13px;
+    margin: 0;
+  }
+
+  :global(.empty-icon) {
+    opacity: 0.4;
+    color: var(--muted, #94a3b8);
+  }
+
   .modal-backdrop {
     position: fixed;
     top: 0;

@@ -39,6 +39,7 @@
   import {
     fieldForStep,
     inferSearchPath,
+    inferSearchPathFromHtml,
     stageSignature,
   } from "./lib/source-config";
   import { flag } from "./lib/presentation";
@@ -119,6 +120,34 @@
   let imagesConfirmed = $state(false);
   let completedStages = $state<string[]>([]);
   let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+  // Yellow visual flash (Vesta style) when step changes or co-pilot detects elements
+  let stepFlash = $state(false);
+  let copilotFlash = $state(false);
+  let stepFlashTimer: ReturnType<typeof setTimeout> | null = null;
+  let copilotFlashTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function triggerStepFlash() {
+    stepFlash = false;
+    if (stepFlashTimer) clearTimeout(stepFlashTimer);
+    requestAnimationFrame(() => {
+      stepFlash = true;
+      stepFlashTimer = setTimeout(() => {
+        stepFlash = false;
+      }, 1600);
+    });
+  }
+
+  function triggerCopilotFlash() {
+    copilotFlash = false;
+    if (copilotFlashTimer) clearTimeout(copilotFlashTimer);
+    requestAnimationFrame(() => {
+      copilotFlash = true;
+      copilotFlashTimer = setTimeout(() => {
+        copilotFlash = false;
+      }, 1600);
+    });
+  }
 
   // Co-pilot states & field test
   let detectedResults = $state<{ title: string; url: string; group?: string }[]>([]);
@@ -486,7 +515,8 @@
     url =
       stageUrls[value] ||
       source.workflow?.find((s) => s.kind === value)?.url ||
-      "";
+      (firefoxLiveUrl && firefoxLiveUrl.startsWith("http") ? firefoxLiveUrl : "");
+    triggerStepFlash();
   }
 
   function markStageCompleted(stage: string) {
@@ -538,6 +568,9 @@
         if (ffUrl && ffUrl.startsWith("http")) url = ffUrl;
       } catch {}
 
+      if (!url.trim() && firefoxLiveUrl && firefoxLiveUrl.startsWith("http")) {
+        url = firefoxLiveUrl;
+      }
       if (!url.trim()) throw new Error(t("lab.searchUrlRequired"));
 
       let lastNav: LastNav | null = null;
@@ -556,6 +589,23 @@
 
       await capture();
 
+      // If search_path was not inferred from URL, infer from HTML form or search input
+      if (!source.search_path && (html || lastNav?.from_html)) {
+        const inferred = inferSearchPathFromHtml(
+          html || lastNav?.from_html || "",
+          source.base_url || url,
+        );
+        if (inferred) {
+          source = {
+            ...source,
+            search_path: inferred.searchPath,
+            ...(inferred.resultSelector && !source.result_selector
+              ? { result_selector: inferred.resultSelector }
+              : {}),
+          };
+        }
+      }
+
       // Check if current page is already a series page with chapters!
       if (html) {
         try {
@@ -571,6 +621,7 @@
             }
             source = { ...source, chapter_selector: autoChap.selector };
             markStageCompleted("search");
+            stageUrls["detail"] = url;
             step("detail");
             await extract();
             status = t("lab.alreadyOnMangaPage", { count: autoChap.count });
@@ -609,6 +660,9 @@
         if (ffUrl && ffUrl.startsWith("http")) url = ffUrl;
       } catch {}
 
+      if (!url.trim() && firefoxLiveUrl && firefoxLiveUrl.startsWith("http")) {
+        url = firefoxLiveUrl;
+      }
       if (!url.trim()) throw new Error(t("lab.seriesUrlRequired"));
 
       let lastNav: LastNav | null = null;
@@ -619,6 +673,21 @@
       if (lastNav?.search_input_value && !testQuery.trim()) {
         testQuery = lastNav.search_input_value;
       }
+
+      // If search_path not set, infer from from_html of the previous search page!
+      if (!source.search_path && lastNav?.from_html) {
+        const inferred = inferSearchPathFromHtml(
+          lastNav.from_html,
+          source.base_url || url,
+        );
+        if (inferred) {
+          source = { ...source, search_path: inferred.searchPath };
+          if (inferred.resultSelector && !source.result_selector) {
+            source = { ...source, result_selector: inferred.resultSelector };
+          }
+        }
+      }
+
       if (lastNav?.clicked_selector && !source.result_selector) {
         source = { ...source, result_selector: lastNav.clicked_selector };
       } else if (!source.result_selector && url.includes("/manga/")) {
@@ -626,6 +695,7 @@
       }
 
       markStageCompleted("search");
+      stageUrls["detail"] = url;
       step("detail");
       await onHereSeries();
     });
@@ -639,7 +709,29 @@
         if (ffUrl && ffUrl.startsWith("http")) url = ffUrl;
       } catch {}
 
+      if (!url.trim() && firefoxLiveUrl && firefoxLiveUrl.startsWith("http")) {
+        url = firefoxLiveUrl;
+      }
       if (!url.trim()) throw new Error(t("lab.seriesUrlRequired"));
+
+      // Also try inferring search_path from lastNav if still empty
+      if (!source.search_path) {
+        try {
+          const lastNav = await api<LastNav | null>("lab_firefox_get_last_nav");
+          if (lastNav?.from_html) {
+            const inferred = inferSearchPathFromHtml(
+              lastNav.from_html,
+              source.base_url || url,
+            );
+            if (inferred) {
+              source = { ...source, search_path: inferred.searchPath };
+              if (inferred.resultSelector && !source.result_selector) {
+                source = { ...source, result_selector: inferred.resultSelector };
+              }
+            }
+          }
+        } catch {}
+      }
 
       await capture();
       selectorField = "chapter_selector";
@@ -687,6 +779,12 @@
         if (ffUrl && ffUrl.startsWith("http")) url = ffUrl;
       } catch {}
 
+      if (!url.trim() && firefoxLiveUrl && firefoxLiveUrl.startsWith("http")) {
+        url = firefoxLiveUrl;
+      }
+      if (!url.trim() && selectedTestChapterUrl) {
+        url = selectedTestChapterUrl;
+      }
       if (!url.trim()) throw new Error(t("lab.readerUrlRequired"));
 
       await capture();
@@ -792,31 +890,30 @@
     const toOpen = targetUrl || extraction?.items[0]?.url;
     if (!toOpen) return;
     markStageCompleted("search");
+    stageUrls["detail"] = toOpen;
     url = toOpen;
     if (firefoxRunning) {
-      void api("lab_firefox_navigate", { url: toOpen });
+      await api("lab_firefox_navigate", { url: toOpen }).catch(() => {});
     }
     step("detail");
-    setTimeout(() => {
-      void onHereSeries();
-    }, 700);
+    await onHereSeries();
   }
 
   async function confirmChaptersAndGo(chapterUrl?: string) {
     chaptersConfirmed = true;
     markStageCompleted("detail");
-    const toOpen = chapterUrl || extraction?.items[0]?.url || detectedChapters[0]?.url;
+    const toOpen =
+      chapterUrl || extraction?.items[0]?.url || detectedChapters[0]?.url;
     if (toOpen) {
       selectedTestChapterUrl = toOpen;
+      stageUrls["reader"] = toOpen;
       url = toOpen;
       if (firefoxRunning) {
-        void api("lab_firefox_navigate", { url: toOpen });
+        await api("lab_firefox_navigate", { url: toOpen }).catch(() => {});
       }
     }
     step("reader");
-    setTimeout(() => {
-      void onHereReader();
-    }, 700);
+    await onHereReader();
   }
 
   async function runLiveTestDownload() {
@@ -998,6 +1095,9 @@
           selectedTestChapterUrl = detectedChapters[0].url;
         }
       }
+      if (extraction?.items && extraction.items.length > 0) {
+        triggerCopilotFlash();
+      }
       const selector = source[selectorField as keyof Source];
       if (typeof selector === "string") inspector?.highlight(selector);
     });
@@ -1081,8 +1181,13 @@
     await task("Salvataggio", async () => {
       source.base_url = normalizeUrl(source.base_url);
       if (!source.name.trim() || source.name.trim() === "Nuova fonte") {
-        throw new Error(t("lab.nameRequired") || "Inserisci un nome per la fonte prima di salvare.");
+        throw new Error(
+          t("lab.nameRequired") ||
+            "Inserisci un nome per la fonte prima di salvare.",
+        );
       }
+      source.enabled = true;
+      source.origin = "created";
       await onSave($state.snapshot(source));
       status = t("lab.sourceSavedSuccess");
     });
@@ -1107,6 +1212,8 @@
 
     return () => {
       disposed = true;
+      if (stepFlashTimer) clearTimeout(stepFlashTimer);
+      if (copilotFlashTimer) clearTimeout(copilotFlashTimer);
       if (unlistenProgress) unlistenProgress();
       if (pollInterval) clearInterval(pollInterval);
       if (busy) void api("lab_cancel", { token }).catch(() => {});
@@ -1114,6 +1221,8 @@
   });
 
   onDestroy(() => {
+    if (stepFlashTimer) clearTimeout(stepFlashTimer);
+    if (copilotFlashTimer) clearTimeout(copilotFlashTimer);
     if (unlistenProgress) unlistenProgress();
     if (pollInterval) clearInterval(pollInterval);
   });
@@ -1146,7 +1255,7 @@
   <!-- Left Column: Single-Path Guided Step Wizard -->
   <section class="lab-config" aria-label="Passo guidato">
     {#if kind === "setup"}
-      <div class="wizard-card step-card">
+      <div class="wizard-card step-card" class:vesta-flash-yellow={stepFlash}>
         <div class="step-badge">{t("lab.step1Badge")}</div>
         <h2>{t("lab.step1Title")}</h2>
 
@@ -1226,7 +1335,7 @@
       </div>
 
     {:else if kind === "search"}
-      <div class="wizard-card step-card">
+      <div class="wizard-card step-card" class:vesta-flash-yellow={stepFlash}>
         <div class="step-badge">{t("lab.step2Badge")}</div>
         <h2>{t("lab.step2CopilotTitle")}</h2>
 
@@ -1239,7 +1348,7 @@
         </div>
 
         {#if mangaNavDetected}
-          <div class="confirmation-box copilot-box" style="margin-bottom: 0.75rem;">
+          <div class="confirmation-box copilot-box" class:vesta-flash-yellow={copilotFlash} style="margin-bottom: 0.75rem;">
             <h4>{t("lab.mangaOpenedInFirefox", { title: mangaNavDetected.title || "Manga" })}</h4>
             <div class="confirmation-actions">
               <button class="primary" onclick={onOpenedMangaInFirefox}>
@@ -1301,7 +1410,7 @@
           {/if}
 
           {#if extraction?.items.length}
-            <div class="confirmation-box copilot-box">
+            <div class="confirmation-box copilot-box" class:vesta-flash-yellow={copilotFlash}>
               <h4>{t("lab.isValidResult")}</h4>
               <p class="first-title-preview">🎯 <strong>{extraction.items[0]?.title}</strong></p>
               <div class="confirmation-actions">
@@ -1321,7 +1430,7 @@
       </div>
 
     {:else if kind === "detail"}
-      <div class="wizard-card step-card">
+      <div class="wizard-card step-card" class:vesta-flash-yellow={stepFlash}>
         <div class="step-badge">{t("lab.step3Badge")}</div>
         <h2>{t("lab.step3CopilotTitle")}</h2>
 
@@ -1362,7 +1471,7 @@
           {/if}
 
           {#if extraction?.items.length}
-            <div class="confirmation-box copilot-box">
+            <div class="confirmation-box copilot-box" class:vesta-flash-yellow={copilotFlash}>
               <h4>{t("lab.areTheseChapters", { count: extraction.items.length })}</h4>
               <p class="first-title-preview">
                 📖 <strong>{extraction.items[0]?.title}</strong>
@@ -1391,7 +1500,7 @@
       </div>
 
     {:else if kind === "reader"}
-      <div class="wizard-card step-card">
+      <div class="wizard-card step-card" class:vesta-flash-yellow={stepFlash}>
         <div class="step-badge">{t("lab.step4Badge")}</div>
         <h2>{t("lab.step4CopilotTitle")}</h2>
 
@@ -1427,7 +1536,7 @@
           {/if}
 
           {#if extraction?.items.length}
-            <div class="confirmation-box copilot-box">
+            <div class="confirmation-box copilot-box" class:vesta-flash-yellow={copilotFlash}>
               <h4>{t("lab.isThisScan", { count: extraction.items.length })}</h4>
               {#if extraction.items[0]}
                 <div class="first-scan-preview-thumb">
@@ -1469,7 +1578,7 @@
       </div>
 
     {:else if kind === "review"}
-      <div class="wizard-card step-card">
+      <div class="wizard-card step-card" class:vesta-flash-yellow={stepFlash}>
         <div class="step-badge">{t("lab.step5Badge")}</div>
         <h2>{t("lab.step5Title")}</h2>
         <p class="step-instruction">{t("lab.step5Desc")}</p>
@@ -1716,7 +1825,7 @@
 
       <!-- Prominent Detected Elements Preview Card (Shows extracted chapters, results or pages) -->
       {#if extraction && extraction.items.length > 0}
-        <div class="extraction-card detected-primary-card">
+        <div class="extraction-card detected-primary-card" class:vesta-flash-yellow={copilotFlash}>
           <div class="extraction-card-header">
             <div>
               <h4>
@@ -1737,16 +1846,6 @@
                 <small class="selector-tag"><code>{source.image_selector}</code></small>
               {/if}
             </div>
-            {#if firefoxRunning}
-              <button
-                type="button"
-                class="subtle-btn"
-                title={t("lab.firefoxSelectWithClick")}
-                onclick={startFirefoxPicker}
-              >
-                <MousePointerClick size={14} /> {t("lab.firefoxSelectWithClick")}
-              </button>
-            {/if}
           </div>
 
           {#if kind === "reader"}
@@ -1765,13 +1864,6 @@
                 </div>
               {/if}
             </div>
-            <button
-              class="primary test-pdf-btn"
-              disabled={!!busy}
-              onclick={runLiveTestDownload}
-            >
-              <Download size={15} /> {t("lab.testPdf")}
-            </button>
           {:else}
             <div class="lab-result-list">
               {#each extraction.items.slice(0, 10) as item}
@@ -1799,30 +1891,9 @@
               <span class="live-indicator"></span>
               {t("lab.firefoxActive")}
             </span>
-            <small class="firefox-url truncate" title={url}>{url}</small>
+            <small class="firefox-url truncate" title={firefoxLiveUrl || url}>{firefoxLiveUrl || url}</small>
           </div>
           <p class="firefox-hint">{t("lab.firefoxCompanionHint")}</p>
-          <div class="firefox-companion-actions">
-            {#if kind === "search"}
-              <button type="button" class="primary" disabled={!!busy} onclick={onSearched}>
-                <Search size={14} /> {t("lab.detectResults")}
-              </button>
-            {:else if kind === "detail"}
-              <button type="button" class="primary" disabled={!!busy} onclick={onHereSeries}>
-                <BookOpen size={14} /> {t("lab.detectChaptersAuto")}
-              </button>
-            {:else if kind === "reader"}
-              <button type="button" class="primary" disabled={!!busy} onclick={onHereReader}>
-                <Images size={14} /> {t("lab.detectScansAuto")}
-              </button>
-            {/if}
-            <button type="button" disabled={!!busy} onclick={startFirefoxPicker}>
-              <MousePointerClick size={14} /> {t("lab.firefoxSelectWithClick")}
-            </button>
-            <button type="button" disabled={!!busy} onclick={capture}>
-              <RotateCcw size={14} /> {t("lab.firefoxSyncNow")}
-            </button>
-          </div>
         </div>
       {/if}
 
@@ -2319,14 +2390,6 @@
     white-space: nowrap;
   }
 
-  .test-pdf-btn {
-    margin-top: 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-  }
-
   .lab-workspace {
     display: flex;
     flex-direction: column;
@@ -2394,12 +2457,6 @@
     color: var(--fg, #e2e8f0);
     margin: 0;
     line-height: 1.5;
-  }
-
-  .firefox-companion-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
   }
 
   .detected-primary-card {

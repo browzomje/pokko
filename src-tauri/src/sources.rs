@@ -39,6 +39,8 @@ pub struct Source {
     pub volume_title_selector: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub chapter_title_selector: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RecordedStep {
@@ -74,13 +76,18 @@ impl Default for Source {
             volume_selector: String::new(),
             volume_title_selector: String::new(),
             chapter_title_selector: String::new(),
+            origin: None,
             workflow: Vec::new(),
         }
     }
 }
 pub fn defaults() -> Vec<Source> {
-    serde_json::from_str(include_str!("../../resources/sources.json"))
-        .expect("Preset fonti incorporati non validi")
+    let mut list: Vec<Source> = serde_json::from_str(include_str!("../../resources/sources.json"))
+        .expect("Preset fonti incorporati non validi");
+    for s in &mut list {
+        s.origin = Some("official".into());
+    }
+    list
 }
 pub fn validate(s: &Source) -> Result<(), String> {
     provider::site(&s.base_url)?;
@@ -962,6 +969,10 @@ pub fn validate_connector_json(content: &str) -> Result<Source, String> {
     }
 
     validate(&source)?;
+    if source.origin.is_none() {
+        source.origin = Some("imported".into());
+    }
+    source.enabled = true;
     Ok(source)
 }
 
@@ -1029,7 +1040,7 @@ pub async fn import_connectors_from_github(
     let mut subpath_parts = Vec::new();
     let mut skip_next = false;
     let slice = if parts.len() > 2 { &parts[2..] } else { &[] };
-    for (_i, part) in slice.iter().enumerate() {
+    for part in slice {
         if skip_next {
             skip_next = false;
             continue;
@@ -1122,7 +1133,7 @@ pub async fn import_connectors_from_github(
     }
 
     // 2. If empty and subpath wasn't root, try root ("")
-    if imported.is_empty() && subpath != "" {
+    if imported.is_empty() && !subpath.is_empty() {
         if let Ok(list) = fetch_from_api("").await {
             imported.extend(list);
         }

@@ -391,7 +391,13 @@ async fn bootstrap(engine: State<'_, Arc<Engine>>) -> Result<Saved, String> {
     })
 }
 #[tauri::command]
-async fn save_settings(settings: Settings, engine: State<'_, Arc<Engine>>) -> Result<(), String> {
+async fn save_settings(
+    mut settings: Settings,
+    engine: State<'_, Arc<Engine>>,
+) -> Result<(), String> {
+    settings
+        .sources
+        .retain(|s| s.id != "readberserk" && s.id != "md" && s.id != "readcomics");
     let mut ids = std::collections::HashSet::new();
     for source in &settings.sources {
         sources::validate(source)?;
@@ -1414,7 +1420,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            logger::init(&app.handle());
+            logger::init(app.handle());
             logger::info("app", "Pokko avviato");
             let path = app.path().app_data_dir()?;
             std::fs::create_dir_all(&path)?;
@@ -1422,6 +1428,11 @@ fn main() {
             let mut saved: Saved = if file.exists() {
                 let value: serde_json::Value = serde_json::from_slice(&std::fs::read(&file)?)?;
                 let mut restored: Saved = serde_json::from_value(value.clone())?;
+                if let Some(settings) = &mut restored.settings {
+                    settings
+                        .sources
+                        .retain(|s| s.id != "readberserk" && s.id != "md" && s.id != "readcomics");
+                }
                 if value["settings"].get("sources").is_none() {
                     if let Some(settings) = &mut restored.settings {
                         if let Some(mw) = settings.sources.iter_mut().find(|s| s.id == "mw") {
@@ -1539,6 +1550,14 @@ fn main() {
                     }
                 }
                 saved.source_catalog_version = 5;
+            }
+            if saved.source_catalog_version < 6 {
+                if let Some(settings) = &mut saved.settings {
+                    settings
+                        .sources
+                        .retain(|s| s.id != "readberserk" && s.id != "md" && s.id != "readcomics");
+                }
+                saved.source_catalog_version = 6;
             }
             if let Some(settings) = &mut saved.settings {
                 if settings.export_format.is_empty() {
@@ -1704,6 +1723,7 @@ fn main() {
             lab::lab_firefox_clear_last_nav,
             lab::lab_detect_search_results,
             lab::lab_detect_chapters,
+            lab::lab_infer_search_path_from_html,
             logger::get_log_path,
             logger::read_recent_logs,
             logger::clear_logs,

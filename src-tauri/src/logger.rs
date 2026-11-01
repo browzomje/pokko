@@ -99,8 +99,8 @@ pub fn read_recent_logs(lines: usize, app: AppHandle) -> Result<Vec<String>, Str
     }
     let file = fs::File::open(&path).map_err(|e| e.to_string())?;
     let reader = BufReader::new(file);
-    let all_lines: Vec<String> = reader.lines().filter_map(|l| l.ok()).collect();
-    let count = lines.max(1).min(500);
+    let all_lines: Vec<String> = reader.lines().map_while(Result::ok).collect();
+    let count = lines.clamp(1, 500);
     let start = all_lines.len().saturating_sub(count);
     Ok(all_lines[start..].to_vec())
 }

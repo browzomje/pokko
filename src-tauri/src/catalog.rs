@@ -108,7 +108,7 @@ mod tests {
             .iter()
             .find(|m| m.title.contains("20th Century Boys"))
             .unwrap();
-        assert!(updates.len() >= 1);
+        assert!(!updates.is_empty());
         let cached = search_source(&engine, &source, "20th Century Boys", 1, 500, |_| {})
             .await
             .unwrap();
