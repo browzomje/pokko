@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Bypass pre-push checks in CI / GitHub Actions environments
+if [ "${CI:-}" = "true" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
+  exit 0
+fi
+
 echo "=========================================="
 echo "🛡️  Pokko Quality Gate: pre-push hook"
 echo "=========================================="

@@ -11,7 +11,7 @@
     "format": "prettier --plugin prettier-plugin-svelte --write src vite.config.ts svelte.config.js",
     "check:i18n": "node scripts/check-i18n.mjs",
     "test": "node --test tests/*.test.mjs",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "test -n \"$CI\" || git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
