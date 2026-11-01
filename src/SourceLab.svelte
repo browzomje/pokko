@@ -302,7 +302,20 @@
     }
   }
 
+  interface LastNav {
+    from_url: string;
+    from_html: string;
+    clicked_selector: string;
+    clicked_href: string;
+    clicked_text: string;
+    search_input_value: string;
+    timestamp: number;
+  }
+
   let firefoxLiveUrl = $state("");
+  let mangaNavDetected = $state<{ title: string; selector: string; url: string } | null>(null);
+  let lastProcessedNavTimestamp = 0;
+
   function startFirefoxPolling() {
     if (pollInterval) clearInterval(pollInterval);
     pollInterval = setInterval(async () => {
@@ -315,16 +328,80 @@
           if (!url) url = current;
         }
 
-        // Try injecting anti-popup & picker helper
+        // Try injecting anti-popup & navigation helper
         void api("lab_firefox_inject_picker").catch(() => {});
 
-        // Check if an element was picked in Firefox (only active if user clicked startFirefoxPicker)
+        // Check if an element was picked in Firefox (inspect mode)
         const picked = await api<string | null>("lab_firefox_get_picked");
         if (picked) {
           await applyPickedSelector(picked);
         }
+
+        // Check transparent last navigation data from user natural clicks in Firefox!
+        const lastNav = await api<LastNav | null>("lab_firefox_get_last_nav");
+        if (lastNav && lastNav.timestamp && lastNav.timestamp > lastProcessedNavTimestamp) {
+          lastProcessedNavTimestamp = lastNav.timestamp;
+          await handleFirefoxNavEvent(lastNav, current || url);
+        }
       } catch {}
     }, 1500);
+  }
+
+  async function handleFirefoxNavEvent(lastNav: LastNav, currentUrl: string) {
+    if (!lastNav) return;
+
+    if (lastNav.search_input_value && !testQuery.trim()) {
+      testQuery = lastNav.search_input_value;
+    }
+
+    if (kind === "search") {
+      // User clicked a manga link or navigated
+      const isMangaLink =
+        lastNav.clicked_href?.includes("/manga/") ||
+        lastNav.clicked_href?.includes("/comic/") ||
+        lastNav.clicked_href?.includes("/series/") ||
+        currentUrl.includes("/manga/") ||
+        currentUrl.includes("/series/") ||
+        currentUrl.includes("/comic/");
+
+      if (isMangaLink && currentUrl !== source.base_url) {
+        mangaNavDetected = {
+          title: lastNav.clicked_text || "Manga",
+          selector: lastNav.clicked_selector,
+          url: currentUrl,
+        };
+        if (lastNav.clicked_selector && !source.result_selector) {
+          source = { ...source, result_selector: lastNav.clicked_selector };
+        }
+        status = t("lab.mangaOpenedInFirefox", { title: lastNav.clicked_text || "Manga" });
+      }
+    } else if (kind === "detail") {
+      // User is on series page and clicked a chapter in Firefox!
+      const isChapterLink =
+        lastNav.clicked_href?.includes("/leer/") ||
+        lastNav.clicked_href?.includes("/chapter") ||
+        lastNav.clicked_href?.includes("/read/") ||
+        lastNav.clicked_href?.includes("/ch-") ||
+        currentUrl.includes("/leer/") ||
+        currentUrl.includes("/chapter") ||
+        currentUrl.includes("/read/") ||
+        currentUrl.includes("/ch-");
+
+      if (isChapterLink && currentUrl !== lastNav.from_url) {
+        if (lastNav.clicked_selector) {
+          source = { ...source, chapter_selector: lastNav.clicked_selector };
+        }
+        chaptersConfirmed = true;
+        markStageCompleted("detail");
+        selectedTestChapterUrl = currentUrl;
+        url = currentUrl;
+        status = t("lab.chapterOpenedInFirefox", { title: lastNav.clicked_text || "Capitolo" });
+        step("reader");
+        setTimeout(() => {
+          void onHereReader();
+        }, 500);
+      }
+    }
   }
 
   async function applyPickedSelector(selector: string) {
@@ -463,15 +540,94 @@
 
       if (!url.trim()) throw new Error(t("lab.searchUrlRequired"));
 
+      let lastNav: LastNav | null = null;
+      try {
+        lastNav = await api<LastNav | null>("lab_firefox_get_last_nav");
+      } catch {}
+
+      if (lastNav?.search_input_value && !testQuery.trim()) {
+        testQuery = lastNav.search_input_value;
+      }
+
       if (testQuery.trim()) {
         const path = inferSearchPath(url, testQuery);
         if (path) source = { ...source, search_path: path };
       }
 
       await capture();
+
+      // Check if current page is already a series page with chapters!
+      if (html) {
+        try {
+          const autoChap = await api<{ found: boolean; selector: string; count: number; sample_titles: string[] }>(
+            "lab_detect_chapters",
+            { html, url },
+          );
+          if (autoChap.found && autoChap.count >= 2) {
+            if (lastNav?.clicked_selector) {
+              source = { ...source, result_selector: lastNav.clicked_selector };
+            } else if (url.includes("/manga/")) {
+              source = { ...source, result_selector: "a[href*=\"/manga/\"]" };
+            }
+            source = { ...source, chapter_selector: autoChap.selector };
+            markStageCompleted("search");
+            step("detail");
+            await extract();
+            status = t("lab.alreadyOnMangaPage", { count: autoChap.count });
+            return;
+          }
+        } catch {}
+      }
+
+      // If on search page, detect search results automatically!
+      if (!source.result_selector && html) {
+        try {
+          const autoRes = await api<{ found: boolean; selector: string; count: number; sample_titles: string[] }>(
+            "lab_detect_search_results",
+            { html, url },
+          );
+          if (autoRes.found && autoRes.count >= 1) {
+            source = { ...source, result_selector: autoRes.selector };
+          }
+        } catch {}
+      }
+      if (!source.result_selector && lastNav?.clicked_selector) {
+        source = { ...source, result_selector: lastNav.clicked_selector };
+      }
+
       selectorField = "result_selector";
       await extract();
       status = t("lab.pageAcquiredClickManga");
+    });
+  }
+
+  // Step 2 shortcut: user already navigated to the manga page in Firefox
+  async function onOpenedMangaInFirefox() {
+    await task(t("lab.detectingFromFirefox"), async () => {
+      try {
+        const ffUrl = await api<string>("lab_firefox_get_url");
+        if (ffUrl && ffUrl.startsWith("http")) url = ffUrl;
+      } catch {}
+
+      if (!url.trim()) throw new Error(t("lab.seriesUrlRequired"));
+
+      let lastNav: LastNav | null = null;
+      try {
+        lastNav = await api<LastNav | null>("lab_firefox_get_last_nav");
+      } catch {}
+
+      if (lastNav?.search_input_value && !testQuery.trim()) {
+        testQuery = lastNav.search_input_value;
+      }
+      if (lastNav?.clicked_selector && !source.result_selector) {
+        source = { ...source, result_selector: lastNav.clicked_selector };
+      } else if (!source.result_selector && url.includes("/manga/")) {
+        source = { ...source, result_selector: "a[href*=\"/manga/\"]" };
+      }
+
+      markStageCompleted("search");
+      step("detail");
+      await onHereSeries();
     });
   }
 
@@ -561,6 +717,9 @@
       ".entry-content img",
       ".page-break img",
       "picture img",
+      ".lc-pages img",
+      "#lcPages img",
+      "main.lc-pages img",
     ];
     for (const sel of candidates) {
       const matches = doc.querySelectorAll(sel);
@@ -1079,6 +1238,17 @@
           </div>
         </div>
 
+        {#if mangaNavDetected}
+          <div class="confirmation-box copilot-box" style="margin-bottom: 0.75rem;">
+            <h4>{t("lab.mangaOpenedInFirefox", { title: mangaNavDetected.title || "Manga" })}</h4>
+            <div class="confirmation-actions">
+              <button class="primary" onclick={onOpenedMangaInFirefox}>
+                <Check size={16} /> {t("lab.alreadyOpenedManga")}
+              </button>
+            </div>
+          </div>
+        {/if}
+
         <div class="step-fields">
           <button
             class="primary single-cta"
@@ -1089,6 +1259,14 @@
           </button>
 
           {#if firefoxRunning}
+            <button
+              type="button"
+              class="subtle-btn picker-action-btn"
+              disabled={!!busy}
+              onclick={onOpenedMangaInFirefox}
+            >
+              <BookOpen size={15} /> {t("lab.alreadyOpenedManga")}
+            </button>
             <button
               type="button"
               class="subtle-btn picker-action-btn"

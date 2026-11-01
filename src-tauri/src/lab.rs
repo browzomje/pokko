@@ -1011,7 +1011,7 @@ pub fn lab_firefox_get_url() -> Result<String, String> {
 
 #[tauri::command]
 pub fn lab_firefox_inject_picker() -> Result<(), String> {
-    let script = r#"
+    let script = r##"
 (function() {
   // 1. Popup & Window Shield
   try {
@@ -1025,51 +1025,25 @@ pub fn lab_firefox_inject_picker() -> Result<(), String> {
     try { window.open = function() { return null; }; } catch(e2) {}
   }
 
-  // 2. Cosmetic Residual Ad & Overlay Shield
+  // 2. Cosmetic Residual Ad Shield (strictly ad-network iframes & ins.adsbygoogle, NEVER touch page divs/modals)
   function cleanResidualAds() {
     try {
       var adSelectors = [
         'iframe[src*="doubleclick"]',
+        'iframe[src*="googlesyndication"]',
         'iframe[src*="adnxs"]',
         'iframe[src*="popads"]',
         'iframe[src*="trafficjunky"]',
-        'ins.adsbygoogle',
-        '[id*="ad-"]',
-        '[id*="ad_"]',
-        '[id*="ads_"]',
-        '[id*="banner-ad"]',
-        '[class~="ads"]',
-        '[class~="ad"]',
-        '[class*="ad-box"]',
-        '[class*="ad-banner"]',
-        '[class*="ad-container"]',
-        '[class*="ad-wrapper"]',
-        '[class*="ad-unit"]',
-        '[class*="ad-slot"]',
-        '[class*="advertisement"]',
-        '.sponsor',
-        '.sponsored',
-        '[id*="sponsored"]',
-        '.popunder',
-        '.popup-ad'
+        'iframe[src*="exoclick"]',
+        'iframe[src*="juicyads"]',
+        'iframe[src*="a-ads"]',
+        'ins.adsbygoogle'
       ];
       var nodes = document.querySelectorAll(adSelectors.join(','));
       for (var i = 0; i < nodes.length; i++) {
         var el = nodes[i];
         if (el.tagName === 'BODY' || el.tagName === 'HTML' || el.id === '__pokko_picker') continue;
         el.remove();
-      }
-
-      var fixedOverlays = document.querySelectorAll('div[style*="position: fixed"], div[style*="position:fixed"]');
-      for (var j = 0; j < fixedOverlays.length; j++) {
-        var overlay = fixedOverlays[j];
-        var style = window.getComputedStyle ? window.getComputedStyle(overlay) : null;
-        if (style && parseInt(style.zIndex, 10) >= 999) {
-          var text = (overlay.innerText || '').toLowerCase();
-          if (text.includes('close') || text.includes('chiudi') || text.includes('acquista') || text.includes('subscribe')) {
-            overlay.remove();
-          }
-        }
       }
     } catch(e) {}
   }
@@ -1084,11 +1058,7 @@ pub fn lab_firefox_inject_picker() -> Result<(), String> {
     }
   } catch(e) {}
 
-  window.__pokko_picker_active = true;
-  if (window.__pokko_picker_installed) return;
-  window.__pokko_picker_installed = true;
-  window.__pokko_picked = null;
-
+  // Helper functions for class filtering and smart selectors
   function isJunkClass(c) {
     if (!c || typeof c !== 'string') return true;
     var s = c.toLowerCase();
@@ -1104,26 +1074,21 @@ pub fn lab_firefox_inject_picker() -> Result<(), String> {
            s.includes('transit');
   }
 
+  var UTILITY_CLASSES = [
+    'btn', 'btn-sm', 'btn-primary', 'btn-secondary', 'btn-default', 'btn-outline-light', 'btn-outline-secondary',
+    'd-block', 'd-flex', 'd-inline', 'd-inline-block', 'd-none',
+    'flex', 'flex-row', 'flex-column', 'flex-grow-1', 'justify-content-center', 'align-items-center',
+    'row', 'col', 'container', 'nav-link', 'active', 'show', 'fade',
+    'text-muted', 'text-center', 'text-left', 'text-right', 'small', 'badge',
+    'mt-1', 'mt-2', 'mt-3', 'mb-1', 'mb-2', 'mb-3', 'ms-1', 'me-1', 'p-1', 'p-2', 'py-1', 'py-2', 'px-1', 'px-2',
+    'is-pending', 'is-current', 'is-active', 'is-open', 'is-hidden', 'loading', 'loaded'
+  ];
+
   function cleanClassList(el) {
     if (!el || !el.classList) return [];
-    return Array.from(el.classList).filter(function(c) { return !isJunkClass(c); });
-  }
-
-  function cssPath(el) {
-    if (el.id && !isJunkClass(el.id)) return '#' + CSS.escape(el.id);
-    var parts = [];
-    while (el && el.tagName !== 'HTML' && el.tagName !== 'BODY') {
-      var tag = el.tagName.toLowerCase();
-      if (el.id && !isJunkClass(el.id)) { parts.unshift('#' + CSS.escape(el.id)); break; }
-      var siblings = el.parentElement ? Array.from(el.parentElement.children).filter(function(s) { return s.tagName === el.tagName; }) : [el];
-      if (siblings.length > 1) {
-        parts.unshift(tag + ':nth-of-type(' + (siblings.indexOf(el) + 1) + ')');
-      } else {
-        parts.unshift(tag);
-      }
-      el = el.parentElement;
-    }
-    return parts.join(' > ');
+    return Array.from(el.classList).filter(function(c) {
+      return !isJunkClass(c) && !UTILITY_CLASSES.includes(c.toLowerCase());
+    });
   }
 
   function suggestSelector(el) {
@@ -1133,16 +1098,31 @@ pub fn lab_firefox_inject_picker() -> Result<(), String> {
     // 1. Image elements (Step 4 Reader)
     if (tag === 'img') {
       var imgClasses = cleanClassList(el);
-      if (imgClasses.length > 0) {
-        return 'img.' + imgClasses.map(function(c) { return CSS.escape(c); }).join('.');
-      }
-      if (el.parentElement) {
-        var parentClasses = cleanClassList(el.parentElement);
-        if (parentClasses.length > 0) {
-          return '.' + parentClasses.map(function(c) { return CSS.escape(c); }).join('.') + ' img';
+      var specificImgClass = imgClasses.find(function(c) {
+        var lc = c.toLowerCase();
+        return lc.includes('page') || lc.includes('scan') || lc.includes('read') || lc.includes('chapter');
+      });
+      if (specificImgClass) return 'img.' + CSS.escape(specificImgClass);
+
+      var cur = el.parentElement;
+      for (var level = 0; level < 4 && cur && cur.tagName !== 'BODY'; level++) {
+        if (cur.id && !isJunkClass(cur.id)) {
+          return '#' + CSS.escape(cur.id) + ' img';
         }
+        var pClasses = cleanClassList(cur);
+        var readerParentClass = pClasses.find(function(c) {
+          var lc = c.toLowerCase();
+          return lc.includes('page') || lc.includes('reader') || lc.includes('reading') || lc.includes('content') || lc.includes('scan') || lc.includes('lc-pages');
+        });
+        if (readerParentClass) {
+          return '.' + CSS.escape(readerParentClass) + ' img';
+        }
+        if (pClasses.length > 0) {
+          return '.' + CSS.escape(pClasses[0]) + ' img';
+        }
+        cur = cur.parentElement;
       }
-      return 'img';
+      return 'img[data-src], img[src]';
     }
 
     // 2. Link / Chapter elements (Step 2 Search, Step 3 Series)
@@ -1161,33 +1141,67 @@ pub fn lab_firefox_inject_picker() -> Result<(), String> {
         return 'table tr td a';
       }
 
-      // Check for specific chapter/manga classes
+      // Check for specific chapter/manga/title classes on link itself
       var specificClass = cleanClasses.find(function(c) {
         var lc = c.toLowerCase();
-        return lc.includes('chap') || lc.includes('manga') || lc.includes('episode');
+        return lc.includes('chap') || lc.includes('manga') || lc.includes('episode') ||
+               lc.includes('title') || lc.includes('name') || lc.includes('item') || lc.includes('card');
       });
       if (specificClass) {
         return 'a.' + CSS.escape(specificClass);
       }
 
+      // Check parents for distinct container with id or class
+      var curParent = a.parentElement;
+      for (var pLevel = 0; pLevel < 4 && curParent && curParent.tagName !== 'BODY'; pLevel++) {
+        if (curParent.id && !isJunkClass(curParent.id) && !UTILITY_CLASSES.includes(curParent.id.toLowerCase())) {
+          return '#' + CSS.escape(curParent.id) + ' a';
+        }
+        var pClasses = cleanClassList(curParent);
+        var goodPClass = pClasses.find(function(c) {
+          var lc = c.toLowerCase();
+          return lc.includes('chapter') || lc.includes('manga') || lc.includes('card') ||
+                 lc.includes('result') || lc.includes('search') || lc.includes('list') || lc.includes('item');
+        });
+        if (goodPClass) {
+          if (cleanClasses.length > 0) {
+            return '.' + CSS.escape(goodPClass) + ' a.' + CSS.escape(cleanClasses[0]);
+          }
+          return '.' + CSS.escape(goodPClass) + ' a';
+        }
+        curParent = curParent.parentElement;
+      }
+
       // Check href patterns
-      if (href.indexOf('/chapter') !== -1) return 'a[href*="/chapter"]';
-      if (href.indexOf('/read') !== -1) return 'a[href*="/read"]';
+      if (href.indexOf('/chapter/') !== -1) return 'a[href*="/chapter/"]';
+      if (href.indexOf('/chapter-') !== -1) return 'a[href*="/chapter-"]';
+      if (href.indexOf('/leer/') !== -1) return 'a[href*="/leer/"]';
+      if (href.indexOf('/read/') !== -1) return 'a[href*="/read/"]';
+      if (href.indexOf('/manga/') !== -1) return 'a[href*="/manga/"]';
+      if (href.indexOf('/comic/') !== -1) return 'a[href*="/comic/"]';
+      if (href.indexOf('/series/') !== -1) return 'a[href*="/series/"]';
+      if (href.indexOf('/title/') !== -1) return 'a[href*="/title/"]';
       if (href.indexOf('ch-') !== -1) return 'a[href*="ch-"]';
       if (href.indexOf('-chapter-') !== -1) return 'a[href*="-chapter-"]';
 
-      // Non-generic classes (ignore Bootstrap buttons/margin classes)
-      var utilityClasses = ['btn', 'btn-sm', 'btn-primary', 'btn-secondary', 'btn-default', 'mr-1', 'mr-2', 'ml-1', 'ml-2', 'd-flex', 'flex', 'text-muted', 'badge'];
-      var nonUtility = cleanClasses.filter(function(c) {
-        return !utilityClasses.includes(c.toLowerCase());
-      });
-      if (nonUtility.length > 0) {
-        return 'a.' + nonUtility.map(function(c) { return CSS.escape(c); }).join('.');
-      }
       if (cleanClasses.length > 0) {
         return 'a.' + cleanClasses.map(function(c) { return CSS.escape(c); }).join('.');
       }
-      return 'a';
+
+      // Ascend to find any parent container
+      var parent = a.parentElement;
+      if (parent && parent.tagName !== 'BODY') {
+        var parentTag = parent.tagName.toLowerCase();
+        var parentClasses = cleanClassList(parent);
+        if (parentClasses.length > 0) {
+          return '.' + CSS.escape(parentClasses[0]) + ' a';
+        }
+        if (parentTag === 'li') return 'li a';
+        if (parentTag === 'article') return 'article a';
+      }
+
+      // NEVER return bare 'a'!
+      return 'main a[href], .content a[href], article a[href], a[href]:not([href^="#"]):not([href="/"])';
     }
 
     // 3. Fallback for other elements
@@ -1196,35 +1210,104 @@ pub fn lab_firefox_inject_picker() -> Result<(), String> {
     if (classes.length > 0) {
       return tag + '.' + classes.map(function(c) { return CSS.escape(c); }).join('.');
     }
-    return cssPath(el);
+    return tag;
   }
 
-  var activeEl = null;
-  document.addEventListener('mouseover', function(e) {
-    if (!window.__pokko_picker_active) return;
-    if (activeEl) activeEl.style.outline = '';
-    activeEl = e.target;
-    if (activeEl) {
-      activeEl.style.outline = '3px solid #818cf8';
-      activeEl.style.cursor = 'pointer';
+  // 3. Transparent / Passive Navigation Tracker (NEVER prevents default navigation!)
+  if (!window.__pokko_nav_installed) {
+    window.__pokko_nav_installed = true;
+
+    function recordNavClick(e) {
+      try {
+        var a = e.target.closest('a');
+        if (!a) return;
+        var href = a.getAttribute('href') || a.href || '';
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+
+        var sel = suggestSelector(a);
+        var text = (a.textContent || '').trim().replace(/\s+/g, ' ');
+        var inputVal = '';
+        var searchInputs = document.querySelectorAll('input[type="search"], input[type="text"], input[name*="q"], input[name*="search"]');
+        for (var i = 0; i < searchInputs.length; i++) {
+          if (searchInputs[i].value && searchInputs[i].value.trim()) {
+            inputVal = searchInputs[i].value.trim();
+            break;
+          }
+        }
+
+        var navData = {
+          from_url: window.location.href,
+          from_html: document.documentElement.outerHTML,
+          clicked_selector: sel,
+          clicked_href: href,
+          clicked_text: text,
+          search_input_value: inputVal,
+          timestamp: Date.now()
+        };
+
+        try {
+          sessionStorage.setItem('__pokko_last_nav', JSON.stringify(navData));
+        } catch(err) {}
+        window.__pokko_last_nav = navData;
+        window.__pokko_picked = sel;
+      } catch(err) {}
     }
-  }, true);
 
-  document.addEventListener('mouseout', function(e) {
-    if (e.target && e.target === activeEl) e.target.style.outline = '';
-  }, true);
+    document.addEventListener('mousedown', recordNavClick, true);
+    document.addEventListener('click', recordNavClick, true);
+  }
 
-  document.addEventListener('click', function(e) {
-    if (!window.__pokko_picker_active) return;
-    e.preventDefault();
-    e.stopPropagation();
-    var sel = suggestSelector(e.target);
-    window.__pokko_picked = sel;
-    window.__pokko_picker_active = false;
-    if (activeEl) activeEl.style.outline = '3px solid #4ade80';
-  }, true);
+  // 4. Optional Inspect Mode (Only active when explicitly triggered, e.g. for images)
+  if (!window.__pokko_picker_installed) {
+    window.__pokko_picker_installed = true;
+    window.__pokko_picked = null;
+
+    var activeEl = null;
+    document.addEventListener('mouseover', function(e) {
+      if (!window.__pokko_picker_active) return;
+      if (activeEl) activeEl.style.outline = '';
+      activeEl = e.target;
+      if (activeEl) {
+        activeEl.style.outline = '3px solid #818cf8';
+        activeEl.style.cursor = 'pointer';
+      }
+    }, true);
+
+    document.addEventListener('mouseout', function(e) {
+      if (e.target && e.target === activeEl) e.target.style.outline = '';
+    }, true);
+
+    document.addEventListener('click', function(e) {
+      if (!window.__pokko_picker_active) return;
+      var target = e.target;
+      var tag = target ? target.tagName.toLowerCase() : '';
+
+      // If user is clicking an image in inspect mode, preventDefault to pick it cleanly
+      if (tag === 'img' || target.closest('img')) {
+        e.preventDefault();
+        e.stopPropagation();
+        var img = tag === 'img' ? target : target.closest('img');
+        var sel = suggestSelector(img);
+        window.__pokko_picked = sel;
+        window.__pokko_picker_active = false;
+        if (activeEl) activeEl.style.outline = '3px solid #4ade80';
+        return;
+      }
+
+      var sel = suggestSelector(target);
+      window.__pokko_picked = sel;
+      window.__pokko_picker_active = false;
+      if (activeEl) activeEl.style.outline = '3px solid #4ade80';
+
+      // For links, let navigation proceed so user is never trapped!
+      if (!target.closest('a')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
+  }
 })();
-"#;
+"##;
     marionette_exec(
         "WebDriver:ExecuteScript",
         json!({"script": script, "args": []}),
@@ -1253,6 +1336,43 @@ pub fn lab_firefox_get_picked() -> Result<Option<String>, String> {
         return Ok(Some(val.to_string()));
     }
     Ok(None)
+}
+
+#[tauri::command]
+pub fn lab_firefox_get_last_nav() -> Result<Option<serde_json::Value>, String> {
+    let script = r#"
+var d = null;
+try {
+  var raw = sessionStorage.getItem('__pokko_last_nav');
+  if (raw) d = JSON.parse(raw);
+} catch(e) {}
+if (!d && window.__pokko_last_nav) d = window.__pokko_last_nav;
+return d ? JSON.stringify(d) : null;
+"#;
+    let resp = marionette_exec(
+        "WebDriver:ExecuteScript",
+        json!({"script": script, "args": []}),
+    )?;
+    if let Some(val) = resp["value"].as_str() {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(val) {
+            return Ok(Some(parsed));
+        }
+    }
+    Ok(None)
+}
+
+#[tauri::command]
+pub fn lab_firefox_clear_last_nav() -> Result<bool, String> {
+    let script = r#"
+try { sessionStorage.removeItem('__pokko_last_nav'); } catch(e) {}
+window.__pokko_last_nav = null;
+return true;
+"#;
+    let _ = marionette_exec(
+        "WebDriver:ExecuteScript",
+        json!({"script": script, "args": []}),
+    );
+    Ok(true)
 }
 
 #[tauri::command]
@@ -1292,23 +1412,118 @@ pub fn lab_firefox_status() -> Result<serde_json::Value, String> {
     }))
 }
 
+/// Heuristic search results detection: automatically identifies manga search results on a page
+#[tauri::command]
+pub fn lab_detect_search_results(html: String, _url: String) -> Result<serde_json::Value, String> {
+    let doc = scraper::Html::parse_document(&html);
+
+    let candidate_selectors = [
+        ".lc-card .lc-card-name",
+        "a.lc-card-name",
+        ".lc-search-results a",
+        "a.lc-sr-item",
+        ".lc-sr-item",
+        ".lc-card a",
+        ".manga-list a",
+        ".search-results a",
+        ".media-heading a",
+        ".post-title a",
+        ".entry-title a",
+        ".item-summary a",
+        "a.item-title",
+        "a.manga-title",
+        "a.series-title",
+        "a.comic-title",
+        "a[href*=\"/manga/\"]",
+        "a[href*=\"/comic/\"]",
+        "a[href*=\"/series/\"]",
+        "a[href*=\"/title/\"]",
+        "a[href*=\"/book/\"]",
+        ".book-item a",
+        ".story_name a",
+        ".list-manga a",
+    ];
+
+    for sel_str in candidate_selectors {
+        if let Ok(sel) = scraper::Selector::parse(sel_str) {
+            let mut sample_titles = Vec::new();
+            let mut count = 0;
+            let mut seen_urls = std::collections::HashSet::new();
+
+            for el in doc.select(&sel) {
+                let Some(href) = el.value().attr("href") else {
+                    continue;
+                };
+                if crate::sources::is_system_or_nav_link(&el, href) {
+                    continue;
+                }
+                if !seen_urls.insert(href.to_string()) {
+                    continue;
+                }
+                let title = el
+                    .value()
+                    .attr("title")
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| el.text().collect::<Vec<_>>().join(" ").trim().to_string());
+                if title.is_empty() {
+                    continue;
+                }
+                count += 1;
+                if sample_titles.len() < 10 {
+                    sample_titles.push(title);
+                }
+            }
+
+            if count >= 1 {
+                crate::logger::info(
+                    "lab",
+                    &format!(
+                        "Rilevati risultati di ricerca con selettore '{}': {} elementi",
+                        sel_str, count
+                    ),
+                );
+                return Ok(json!({
+                    "found": true,
+                    "selector": sel_str,
+                    "count": count,
+                    "sample_titles": sample_titles
+                }));
+            }
+        }
+    }
+
+    Ok(json!({
+        "found": false,
+        "selector": "",
+        "count": 0,
+        "sample_titles": []
+    }))
+}
+
 /// Heuristic chapter detection: automatically identifies chapter lists on a page
 #[tauri::command]
 pub fn lab_detect_chapters(html: String, _url: String) -> Result<serde_json::Value, String> {
     let doc = scraper::Html::parse_document(&html);
 
     let candidate_selectors = [
+        "a.lc-chapter-row",
+        "#chapterList a",
+        "a[href*=\"/leer/\"]",
         "table.table tbody tr td a",
         "table tr td a",
         "table.table a",
         "a.chap",
         "a.chapter-link",
+        "a.chapter-row",
         ".wp-manga-chapter a",
         ".chapter-list a",
         "ul.chapters a",
         ".chapter-name a",
         ".chapters-list a",
         ".chapter-item a",
+        ".chapters a",
+        ".chapter-links a",
+        ".ch-list a",
         ".listing-chapters_wrap a",
         "a.chapter-title",
         "a[href*=\"/chapter/\"]",
@@ -1321,7 +1536,15 @@ pub fn lab_detect_chapters(html: String, _url: String) -> Result<serde_json::Val
 
     for sel_str in candidate_selectors {
         if let Ok(sel) = scraper::Selector::parse(sel_str) {
-            let matches: Vec<_> = doc.select(&sel).collect();
+            let matches: Vec<_> = doc
+                .select(&sel)
+                .filter(|el| {
+                    el.value()
+                        .attr("href")
+                        .map(|h| !crate::sources::is_system_or_nav_link(el, h))
+                        .unwrap_or(false)
+                })
+                .collect();
             if matches.len() >= 2 {
                 let sample_titles: Vec<String> = matches
                     .iter()
@@ -1393,6 +1616,7 @@ pub fn lab_detect_chapters(html: String, _url: String) -> Result<serde_json::Val
     let patterns = [
         ("a[href*=\"/chapter/\"]", "/chapter/"),
         ("a[href*=\"/chapter-\"]", "/chapter-"),
+        ("a[href*=\"/leer/\"]", "/leer/"),
         ("a[href*=\"/read/\"]", "/read/"),
         ("a[href*=\"-chapter-\"]", "-chapter-"),
         ("a[href*=\"/ch-\"]", "/ch-"),
@@ -1404,6 +1628,9 @@ pub fn lab_detect_chapters(html: String, _url: String) -> Result<serde_json::Val
         let mut count = 0;
         for el in doc.select(&a_sel) {
             if let Some(href) = el.value().attr("href") {
+                if crate::sources::is_system_or_nav_link(&el, href) {
+                    continue;
+                }
                 if href.to_lowercase().contains(pattern) {
                     count += 1;
                     if sample_titles.len() < 10 {
@@ -1684,5 +1911,61 @@ mod tests {
         let sample_titles = detected["sample_titles"].as_array().unwrap();
         assert!(!sample_titles.is_empty());
         assert!(sample_titles[0].as_str().unwrap().contains("Berserk"));
+    }
+
+    #[test]
+    fn detect_search_results_and_chapters_leercapitulo() {
+        let search_html = r##"
+        <nav><a href="/">Inicio</a><a href="/contact/">Contacto</a></nav>
+        <a class="lc-skip" href="#contenido">Saltar al contenido</a>
+        <div class="row g-3">
+            <article class="lc-card">
+                <a class="lc-card-name d-block" href="/manga/psvkfbmjgo/one-piece/">One Piece</a>
+                <a class="lc-chapter-link d-block mt-1" href="/leer/psvkfbmjgo/one-piece/1197/">Capitulo 1197</a>
+            </article>
+            <article class="lc-card">
+                <a class="lc-card-name d-block" href="/manga/jdoggn1qix/one-piece-catala/">One Piece (Català)</a>
+            </article>
+        </div>
+        <footer><a href="/privacy-policy/">DMCA</a></footer>
+        "##;
+        let detected_search = lab_detect_search_results(
+            search_html.to_string(),
+            "https://www.leercapitulo.co".into(),
+        )
+        .unwrap();
+        assert_eq!(detected_search["found"], true);
+        assert!(detected_search["count"].as_u64().unwrap() >= 2);
+        assert!(detected_search["selector"]
+            .as_str()
+            .unwrap()
+            .contains("lc-card-name"));
+
+        let chapter_html = r##"
+        <nav><a href="/">Inicio</a></nav>
+        <a class="lc-skip" href="#contenido">Saltar al contenido</a>
+        <div id="chapterList">
+            <a class="lc-chapter-row" href="/leer/psvkfbmjgo/one-piece/1197/"><span class="n">Capitulo 1197</span></a>
+            <a class="lc-chapter-row" href="/leer/psvkfbmjgo/one-piece/1196/"><span class="n">Capitulo 1196</span></a>
+        </div>
+        <footer><a href="/privacy-policy/">DMCA</a></footer>
+        "##;
+        let detected_chap = lab_detect_chapters(
+            chapter_html.to_string(),
+            "https://www.leercapitulo.co/manga/psvkfbmjgo/one-piece/".into(),
+        )
+        .unwrap();
+        assert_eq!(detected_chap["found"], true);
+        assert_eq!(detected_chap["count"], 2);
+        assert!(
+            detected_chap["selector"]
+                .as_str()
+                .unwrap()
+                .contains("lc-chapter-row")
+                || detected_chap["selector"]
+                    .as_str()
+                    .unwrap()
+                    .contains("chapterList")
+        );
     }
 }

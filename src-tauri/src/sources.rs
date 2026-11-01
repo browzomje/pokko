@@ -287,6 +287,38 @@ pub async fn search(
     let result = generic_search(&html, &final_url, s)?;
     Ok(decorate(result, s))
 }
+
+pub fn is_system_or_nav_link(el: &scraper::ElementRef<'_>, href: &str) -> bool {
+    let href_trim = href.trim();
+    if href_trim.is_empty()
+        || href_trim.starts_with('#')
+        || href_trim.starts_with("javascript:")
+        || href_trim == "/"
+    {
+        return true;
+    }
+    let href_lower = href_trim.to_lowercase();
+    if href_lower.contains("/contact")
+        || href_lower.contains("/privacy")
+        || href_lower.contains("/dmca")
+        || href_lower.contains("/login")
+        || href_lower.contains("/register")
+        || href_lower.contains("/terms")
+        || href_lower.contains("/faq")
+        || href_lower.contains("/about")
+    {
+        return true;
+    }
+    el.ancestors()
+        .filter_map(scraper::ElementRef::wrap)
+        .any(|ancestor| {
+            let tag = ancestor.value().name();
+            tag.eq_ignore_ascii_case("nav")
+                || tag.eq_ignore_ascii_case("header")
+                || tag.eq_ignore_ascii_case("footer")
+        })
+}
+
 pub fn generic_search(html: &str, base: &str, s: &Source) -> Result<SearchResult, String> {
     let doc = Html::parse_document(html);
     if s.search_path.trim().is_empty() && s.result_selector.trim().is_empty() {
@@ -334,6 +366,9 @@ pub fn generic_search(html: &str, base: &str, s: &Source) -> Result<SearchResult
         let Some(href) = a.value().attr("href") else {
             continue;
         };
+        if is_system_or_nav_link(&a, href) {
+            continue;
+        }
         let title = a
             .value()
             .attr("title")
@@ -512,6 +547,9 @@ pub fn generic_detail(html: &str, mut manga: Manga, s: &Source) -> Result<Detail
                 let Some(href) = a.value().attr("href") else {
                     continue;
                 };
+                if is_system_or_nav_link(&a, href) {
+                    continue;
+                }
                 let url = provider::resolve(&manga.url, href)?;
                 if seen.insert(url.clone()) {
                     let label = get_chapter_label(a, &url);
@@ -540,6 +578,9 @@ pub fn generic_detail(html: &str, mut manga: Manga, s: &Source) -> Result<Detail
             let Some(href) = a.value().attr("href") else {
                 continue;
             };
+            if is_system_or_nav_link(&a, href) {
+                continue;
+            }
             let url = provider::resolve(&manga.url, href)?;
             if seen.insert(url.clone()) {
                 let label = get_chapter_label(a, &url);
