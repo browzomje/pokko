@@ -1,3 +1,9 @@
+## [1.3.0](https://github.com/browzomje/pokko/compare/v1.2.2...v1.3.0) (2026-11-01)
+
+### ✨ Features
+
+* ✨ split catalog sources into 3 sections, infer live-search form paths, eliminate duplicate Lab UI, and add Vesta yellow flash ([bfd9ef2](https://github.com/browzomje/pokko/commit/bfd9ef24c89dc11cb2d70949385c3cf51fce1bcb))
+
 ## [1.2.2](https://github.com/browzomje/pokko/compare/v1.2.1...v1.2.2) (2026-11-01)
 
 ### 🐛 Fixes
