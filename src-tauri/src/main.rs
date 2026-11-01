@@ -1732,6 +1732,12 @@ fn main() {
             sources_import_github,
             sources_export_file
         ])
+        .on_window_event(|_window, event| {
+            if let tauri::WindowEvent::Destroyed | tauri::WindowEvent::CloseRequested { .. } = event
+            {
+                crate::lab::close_firefox_companion();
+            }
+        })
         .run(tauri::generate_context!())
         .expect("Errore avvio applicazione");
 }

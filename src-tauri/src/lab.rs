@@ -1244,7 +1244,6 @@ pub fn lab_firefox_inject_picker() -> Result<(), String> {
           sessionStorage.setItem('__pokko_last_nav', JSON.stringify(navData));
         } catch(err) {}
         window.__pokko_last_nav = navData;
-        window.__pokko_picked = sel;
       } catch(err) {}
     }
 
@@ -1252,7 +1251,7 @@ pub fn lab_firefox_inject_picker() -> Result<(), String> {
     document.addEventListener('click', recordNavClick, true);
   }
 
-  // 4. Optional Inspect Mode (Only active when explicitly triggered, e.g. for images)
+  // 4. Dedicated Selection Mode (Only active when explicitly triggered by user)
   if (!window.__pokko_picker_installed) {
     window.__pokko_picker_installed = true;
     window.__pokko_picked = null;
@@ -1263,41 +1262,67 @@ pub fn lab_firefox_inject_picker() -> Result<(), String> {
       if (activeEl) activeEl.style.outline = '';
       activeEl = e.target;
       if (activeEl) {
-        activeEl.style.outline = '3px solid #818cf8';
-        activeEl.style.cursor = 'pointer';
+        activeEl.style.outline = '3px solid #eab308';
+        activeEl.style.cursor = 'crosshair';
       }
     }, true);
 
     document.addEventListener('mouseout', function(e) {
-      if (e.target && e.target === activeEl) e.target.style.outline = '';
+      if (e.target && e.target === activeEl) {
+        e.target.style.outline = '';
+        e.target.style.cursor = '';
+      }
     }, true);
 
     document.addEventListener('click', function(e) {
       if (!window.__pokko_picker_active) return;
+      // In selection mode, ALWAYS prevent navigation and stop propagation!
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
       var target = e.target;
       var tag = target ? target.tagName.toLowerCase() : '';
-
-      // If user is clicking an image in inspect mode, preventDefault to pick it cleanly
+      var el = target;
       if (tag === 'img' || target.closest('img')) {
-        e.preventDefault();
-        e.stopPropagation();
-        var img = tag === 'img' ? target : target.closest('img');
-        var sel = suggestSelector(img);
-        window.__pokko_picked = sel;
-        window.__pokko_picker_active = false;
-        if (activeEl) activeEl.style.outline = '3px solid #4ade80';
-        return;
+        el = tag === 'img' ? target : target.closest('img');
+      } else if (target.closest('a')) {
+        el = target.closest('a');
       }
 
-      var sel = suggestSelector(target);
-      window.__pokko_picked = sel;
-      window.__pokko_picker_active = false;
-      if (activeEl) activeEl.style.outline = '3px solid #4ade80';
+      var sel = suggestSelector(el);
+      var text = (el.textContent || '').trim().replace(/\s+/g, ' ');
+      var rawHref = el.getAttribute('href') || (el.closest('a') ? el.closest('a').getAttribute('href') : '') || '';
+      var fullHref = '';
+      if (rawHref && !rawHref.startsWith('#') && !rawHref.startsWith('javascript:')) {
+        try {
+          fullHref = new URL(rawHref, window.location.href).href;
+        } catch(err) {
+          fullHref = rawHref;
+        }
+      }
 
-      // For links, let navigation proceed so user is never trapped!
-      if (!target.closest('a')) {
-        e.preventDefault();
-        e.stopPropagation();
+      var pickedData = {
+        selector: sel,
+        text: text,
+        href: fullHref,
+        tag: (el.tagName || '').toLowerCase()
+      };
+
+      window.__pokko_picked = JSON.stringify(pickedData);
+      window.__pokko_picker_active = false;
+
+      var banner = document.getElementById('__pokko_picker_banner');
+      if (banner) banner.remove();
+
+      if (activeEl) {
+        activeEl.style.outline = '3px solid #22c55e';
+        setTimeout(function() {
+          if (activeEl) {
+            activeEl.style.outline = '';
+            activeEl.style.cursor = '';
+          }
+        }, 600);
       }
     }, true);
   }
@@ -1312,7 +1337,17 @@ pub fn lab_firefox_inject_picker() -> Result<(), String> {
 
 #[tauri::command]
 pub fn lab_firefox_start_picker() -> Result<(), String> {
-    let script = "window.__pokko_picker_active = true;";
+    let script = r#"
+window.__pokko_picker_active = true;
+var banner = document.getElementById('__pokko_picker_banner');
+if (!banner && document.body) {
+  banner = document.createElement('div');
+  banner.id = '__pokko_picker_banner';
+  banner.setAttribute('style', 'position:fixed;top:0;left:0;right:0;height:34px;background:#eab308;color:#000;font-family:system-ui,-apple-system,sans-serif;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;z-index:2147483647;box-shadow:0 2px 10px rgba(0,0,0,0.35);pointer-events:none;');
+  banner.textContent = '🎯 Modalità Selezione: Clicca sull\'elemento desiderato (la navigazione è in pausa per questo click)';
+  document.body.appendChild(banner);
+}
+"#;
     let _ = marionette_exec(
         "WebDriver:ExecuteScript",
         json!({"script": script, "args": []}),
@@ -1321,14 +1356,20 @@ pub fn lab_firefox_start_picker() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn lab_firefox_get_picked() -> Result<Option<String>, String> {
+pub fn lab_firefox_get_picked() -> Result<Option<serde_json::Value>, String> {
     let script = "var sel = window.__pokko_picked; window.__pokko_picked = null; return sel;";
     let resp = marionette_exec(
         "WebDriver:ExecuteScript",
         json!({"script": script, "args": []}),
     )?;
     if let Some(val) = resp["value"].as_str() {
-        return Ok(Some(val.to_string()));
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(val) {
+            return Ok(Some(parsed));
+        }
+        return Ok(Some(json!({ "selector": val })));
+    }
+    if resp["value"].is_object() {
+        return Ok(Some(resp["value"].clone()));
     }
     Ok(None)
 }
@@ -1370,19 +1411,23 @@ return true;
     Ok(true)
 }
 
-#[tauri::command]
-pub fn lab_firefox_close() -> Result<(), String> {
+pub fn close_firefox_companion() {
+    let _ = marionette_exec("Marionette:Quit", json!({}));
     if let Ok(mut guard) = FIREFOX_PROCESS.lock() {
         if let Some(mut child) = guard.take() {
             let _ = child.kill();
             let _ = child.wait();
         }
     }
-    let _ = marionette_exec("Marionette:Quit", json!({}));
     std::thread::sleep(std::time::Duration::from_millis(150));
     let profile_dir = firefox_profile_dir();
     clean_profile_locks(&profile_dir);
-    crate::logger::info("lab", "Firefox chiuso e lock di profilo rimossi");
+    crate::logger::info("lab", "Firefox companion chiuso e lock di profilo rimossi");
+}
+
+#[tauri::command]
+pub fn lab_firefox_close() -> Result<(), String> {
+    close_firefox_companion();
     Ok(())
 }
 
@@ -1848,7 +1893,7 @@ pub fn infer_search_path_from_html_form(
             }
 
             // Generic fallback
-            return Some((format!("/?s={{query}}"), None));
+            return Some(("/?s={query}".to_string(), None));
         }
     }
 

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "=========================================="
+echo "🛡️  Pokko Quality Gate: pre-push hook"
+echo "=========================================="
+
+echo "==> [1/5] Cargo fmt check..."
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
+echo "==> [2/5] Cargo clippy (deny warnings)..."
+cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+echo "==> [3/5] Cargo test..."
+cargo test --manifest-path src-tauri/Cargo.toml
+
+echo "==> [4/5] Svelte check..."
+npm run check
+
+echo "==> [5/5] NPM tests..."
+npm test
+
+echo "=========================================="
+echo "✅ All Pokko pre-push checks passed!"
+echo "=========================================="

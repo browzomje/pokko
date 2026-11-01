@@ -28,6 +28,9 @@
     FolderOpen,
     Info,
     AlertTriangle,
+    Crosshair,
+    FlaskConical,
+    Share2,
   } from "lucide-svelte";
   import SourceForm from "./SourceForm.svelte";
   import Select from "./Select.svelte";
@@ -322,10 +325,19 @@
     }
   }
 
+  interface PickedElementData {
+    selector: string;
+    text?: string;
+    href?: string;
+    tag?: string;
+  }
+
+  let pickedItem = $state<PickedElementData | null>(null);
+
   async function startFirefoxPicker() {
     try {
       await api("lab_firefox_start_picker");
-      status = t("lab.clickElementInPreview");
+      status = t("lab.pickerActiveHint");
     } catch (e) {
       failure = msg(e);
     }
@@ -360,13 +372,13 @@
         // Try injecting anti-popup & navigation helper
         void api("lab_firefox_inject_picker").catch(() => {});
 
-        // Check if an element was picked in Firefox (inspect mode)
-        const picked = await api<string | null>("lab_firefox_get_picked");
+        // Check if an element was picked in Firefox (selection mode)
+        const picked = await api<PickedElementData | string | null>("lab_firefox_get_picked");
         if (picked) {
           await applyPickedSelector(picked);
         }
 
-        // Check transparent last navigation data from user natural clicks in Firefox!
+        // Check transparent last navigation data from user natural clicks in Firefox
         const lastNav = await api<LastNav | null>("lab_firefox_get_last_nav");
         if (lastNav && lastNav.timestamp && lastNav.timestamp > lastProcessedNavTimestamp) {
           lastProcessedNavTimestamp = lastNav.timestamp;
@@ -405,7 +417,7 @@
         status = t("lab.mangaOpenedInFirefox", { title: lastNav.clicked_text || "Manga" });
       }
     } else if (kind === "detail") {
-      // User is on series page and clicked a chapter in Firefox!
+      // User navigated in Firefox while on series page - never auto-advance steps!
       const isChapterLink =
         lastNav.clicked_href?.includes("/leer/") ||
         lastNav.clicked_href?.includes("/chapter") ||
@@ -417,40 +429,43 @@
         currentUrl.includes("/ch-");
 
       if (isChapterLink && currentUrl !== lastNav.from_url) {
-        if (lastNav.clicked_selector) {
-          source = { ...source, chapter_selector: lastNav.clicked_selector };
-        }
-        chaptersConfirmed = true;
-        markStageCompleted("detail");
         selectedTestChapterUrl = currentUrl;
-        url = currentUrl;
-        status = t("lab.chapterOpenedInFirefox", { title: lastNav.clicked_text || "Capitolo" });
-        step("reader");
-        setTimeout(() => {
-          void onHereReader();
-        }, 500);
       }
     }
   }
 
-  async function applyPickedSelector(selector: string) {
-    if (!selector) return;
+  async function applyPickedSelector(picked: PickedElementData | string) {
+    if (!picked) return;
+    const data: PickedElementData = typeof picked === "string" ? { selector: picked } : picked;
+    if (!data.selector) return;
+
+    pickedItem = data;
+
     if (kind === "search") {
-      source = { ...source, result_selector: selector };
+      source = { ...source, result_selector: data.selector };
       if (!sample) await capture();
       await extract();
-      status = t("lab.detectedResults", { count: extraction?.items.length || 1 });
-      // Keep user on search step, showing the confirmation box so they decide when to proceed!
+      triggerCopilotFlash();
+      status = data.text
+        ? t("lab.youSelectedResult", { picked: data.text, count: extraction?.items.length || 1 })
+        : t("lab.detectedResults", { count: extraction?.items.length || 1 });
     } else if (kind === "detail") {
-      source = { ...source, chapter_selector: selector };
+      source = { ...source, chapter_selector: data.selector };
+      if (data.href) {
+        selectedTestChapterUrl = data.href;
+      }
       if (!sample) await capture();
       await extract();
-      status = t("lab.detectedChapters", { count: extraction?.items.length || 0 });
+      triggerCopilotFlash();
+      status = data.text
+        ? t("lab.youSelectedChapter", { picked: data.text, count: extraction?.items.length || 0 })
+        : t("lab.detectedChapters", { count: extraction?.items.length || 0 });
     } else if (kind === "reader") {
-      source = { ...source, image_selector: selector };
+      source = { ...source, image_selector: data.selector };
       if (!sample) await capture();
       await extract();
-      status = t("lab.detectedPages", { count: extraction?.items.length || 0 });
+      triggerCopilotFlash();
+      status = t("lab.youSelectedScan", { count: extraction?.items.length || 0 });
     }
   }
 
@@ -497,6 +512,7 @@
   }
 
   function step(value: string) {
+    pickedItem = null;
     if (sample) {
       stageSamples = {
         ...stageSamples,
@@ -768,7 +784,11 @@
     chaptersConfirmed = false;
     source.chapter_selector = "";
     extraction = null;
+    pickedItem = null;
     status = t("lab.clickAnotherChapter");
+    if (firefoxRunning) {
+      void startFirefoxPicker();
+    }
   }
 
   // Step 4: "Sono qui" on Reader page
@@ -887,7 +907,7 @@
   }
 
   async function confirmSearchResultAndGo(targetUrl?: string) {
-    const toOpen = targetUrl || extraction?.items[0]?.url;
+    const toOpen = targetUrl || pickedItem?.href || extraction?.items[0]?.url;
     if (!toOpen) return;
     markStageCompleted("search");
     stageUrls["detail"] = toOpen;
@@ -903,7 +923,7 @@
     chaptersConfirmed = true;
     markStageCompleted("detail");
     const toOpen =
-      chapterUrl || extraction?.items[0]?.url || detectedChapters[0]?.url;
+      chapterUrl || pickedItem?.href || selectedTestChapterUrl || extraction?.items[0]?.url || detectedChapters[0]?.url;
     if (toOpen) {
       selectedTestChapterUrl = toOpen;
       stageUrls["reader"] = toOpen;
@@ -1011,7 +1031,11 @@
     imagesConfirmed = false;
     source.image_selector = "";
     extraction = null;
+    pickedItem = null;
     status = t("lab.chooseAnother");
+    if (firefoxRunning) {
+      void startFirefoxPicker();
+    }
   }
 
   async function inspectElement(value: InspectedElement) {
@@ -1411,12 +1435,16 @@
 
           {#if extraction?.items.length}
             <div class="confirmation-box copilot-box" class:vesta-flash-yellow={copilotFlash}>
-              <h4>{t("lab.isValidResult")}</h4>
-              <p class="first-title-preview">🎯 <strong>{extraction.items[0]?.title}</strong></p>
+              {#if pickedItem?.text}
+                <h4>{t("lab.youSelectedResult", { picked: pickedItem.text, count: extraction.items.length })}</h4>
+              {:else}
+                <h4>{t("lab.isValidResult")}</h4>
+              {/if}
+              <p class="first-title-preview"><Crosshair size={15} /> <strong>{pickedItem?.text || extraction.items[0]?.title}</strong></p>
               <div class="confirmation-actions">
                 <button
                   class="primary"
-                  onclick={() => confirmSearchResultAndGo()}
+                  onclick={() => confirmSearchResultAndGo(pickedItem?.href || extraction?.items[0]?.url)}
                 >
                   <Check size={16} /> {t("lab.openMangaAndGo")}
                 </button>
@@ -1472,13 +1500,17 @@
 
           {#if extraction?.items.length}
             <div class="confirmation-box copilot-box" class:vesta-flash-yellow={copilotFlash}>
-              <h4>{t("lab.areTheseChapters", { count: extraction.items.length })}</h4>
+              {#if pickedItem?.text}
+                <h4>{t("lab.youSelectedChapter", { picked: pickedItem.text, count: extraction.items.length })}</h4>
+              {:else}
+                <h4>{t("lab.areTheseChapters", { count: extraction.items.length })}</h4>
+              {/if}
               <p class="first-title-preview">
-                📖 <strong>{extraction.items[0]?.title}</strong>
-                {#if extraction.items[1]}
+                <BookOpen size={15} /> <strong>{pickedItem?.text || extraction.items[0]?.title}</strong>
+                {#if extraction.items[1] && !pickedItem?.text}
                   <span class="sub-chapter">, {extraction.items[1]?.title}</span>
                 {/if}
-                {#if extraction.items.length > 2}
+                {#if extraction.items.length > 2 && !pickedItem?.text}
                   <span class="sub-chapter">…</span>
                 {/if}
               </p>
@@ -1486,7 +1518,7 @@
                 <button
                   class="primary"
                   disabled={chaptersConfirmed}
-                  onclick={() => confirmChaptersAndGo()}
+                  onclick={() => confirmChaptersAndGo(pickedItem?.href || selectedTestChapterUrl || extraction?.items[0]?.url)}
                 >
                   <Check size={16} /> {t("lab.openChapterAndGo")}
                 </button>
@@ -1537,7 +1569,11 @@
 
           {#if extraction?.items.length}
             <div class="confirmation-box copilot-box" class:vesta-flash-yellow={copilotFlash}>
-              <h4>{t("lab.isThisScan", { count: extraction.items.length })}</h4>
+              {#if pickedItem?.selector}
+                <h4>{t("lab.youSelectedScan", { count: extraction.items.length })}</h4>
+              {:else}
+                <h4>{t("lab.isThisScan", { count: extraction.items.length })}</h4>
+              {/if}
               {#if extraction.items[0]}
                 <div class="first-scan-preview-thumb">
                   <img
@@ -1749,7 +1785,7 @@
         <!-- Generalization Verification Card -->
         <div class="generalization-card">
           <div class="generalization-header">
-            <h4>🧪 {t("lab.generalizationTitle")}</h4>
+            <h4><FlaskConical size={16} /> {t("lab.generalizationTitle")}</h4>
             <p>{t("lab.generalizationDesc")}</p>
           </div>
 
@@ -1802,7 +1838,7 @@
 
         <!-- Share / Export / Import Connector Card moved to Right Studio -->
         <div class="export-import-card">
-          <h4>{t("lab.shareConnector")}</h4>
+          <h4><Share2 size={16} /> {t("lab.shareConnector")}</h4>
           <p class="export-hint">{t("lab.exportHint")}</p>
           <div class="export-import-buttons">
             <button type="button" onclick={exportConnector}>
@@ -2258,6 +2294,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 10px;
     padding: 8px 12px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border, #374151);
@@ -2266,7 +2303,8 @@
   }
 
   .verify-item strong {
-    width: 90px;
+    min-width: 95px;
+    flex-shrink: 0;
   }
 
   .verify-item span {
@@ -2294,6 +2332,9 @@
   }
 
   .export-import-card h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin: 0;
     font-size: 13px;
   }
@@ -2570,6 +2611,10 @@
   }
 
   .first-title-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
     font-size: 13px;
     color: var(--accent, #818cf8);
     margin: 0;
@@ -2779,6 +2824,9 @@
   }
 
   .generalization-header h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin: 0;
     font-size: 14px;
   }
