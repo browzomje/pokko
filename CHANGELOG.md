@@ -1,3 +1,9 @@
+## [1.2.2](https://github.com/browzomje/pokko/compare/v1.2.1...v1.2.2) (2026-11-01)
+
+### 🐛 Fixes
+
+* ✨ transparent Firefox navigation tracking, smart selector generation, and leercapitulo flow ([29c88ea](https://github.com/browzomje/pokko/commit/29c88ea9bb64a52687f8ddd23417f0035f162169))
+
 ## [1.2.1](https://github.com/browzomje/pokko/compare/v1.2.0...v1.2.1) (2026-10-31)
 
 ### 🐛 Fixes
