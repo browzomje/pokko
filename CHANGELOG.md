@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/browzomje/pokko/compare/v1.3.0...v1.3.1) (2026-11-01)
+
+### 🐛 Fixes
+
+* ✨ bypass pre-push hook in CI environments for automated releases ([d4f70db](https://github.com/browzomje/pokko/commit/d4f70db6853ceb249c7a65b073163875b2d29844))
+* ✨ resolve clippy error, add pre-push hook, auto-close Firefox companion, polish Point-and-Click Lab UX, and add 15-lang sidebar dropdown ([ff6cdbd](https://github.com/browzomje/pokko/commit/ff6cdbd7be16c6c5f04609f7fc38745daf3f9abb))
+
 ## [1.3.0](https://github.com/browzomje/pokko/compare/v1.2.2...v1.3.0) (2026-11-01)
 
 ### ✨ Features
