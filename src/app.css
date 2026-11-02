@@ -1990,3 +1990,34 @@ main.lab-main {
   cursor: pointer;
   padding: 4px 0;
 }
+
+/* Source Lab owns its scrolling area so navigation remains at the window edge. */
+main.lab-main {
+  padding-bottom: 0;
+  overflow: hidden;
+  min-height: 0;
+}
+main.lab-main .lab-workspace {
+  min-height: 0;
+  height: 100%;
+}
+.lab-scroll-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  padding-bottom: 24px;
+}
+main.lab-main .wizard-navigation {
+  position: static;
+  flex-shrink: 0;
+  margin-top: 0;
+  padding: 16px 0;
+  align-items: center;
+}
+
+main.lab-main .wizard-navigation > button,
+main.lab-main .wizard-navigation .flow-primary {
+  min-height: 44px;
+  margin: 0;
+}

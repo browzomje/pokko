@@ -1,79 +1,76 @@
-# <img src="public/pokko.svg" alt="pokko" height="42" align="absmiddle"> pokko
+# pokko
 
-[![Build](https://github.com/browzomje/pokko/actions/workflows/build.yml/badge.svg)](https://github.com/browzomje/pokko/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/browzomje/pokko)](https://github.com/browzomje/pokko/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+Download manga and comics to read offline. Available for Linux and Windows.
 
-Desktop manga and comic downloader built with Rust, Tauri 2, and Svelte 5.
+[Download the latest release](https://github.com/browzomje/pokko/releases/latest) · [Report a problem](https://github.com/browzomje/pokko/issues)
 
-## Features
+## Install
 
-- **100% Declarative JSON Connectors**: Universal `adapter: "generic"` architecture inspired by uBlock Origin filter rules — zero hardcoded site-specific Rust code. Supports `chapter_url_suffix`, `volume_selector`, `volume_title_selector`, `chapter_title_selector`, and `reader_next_selector`.
-- **Verified Official Catalog**: Preconfigured, tested connectors for Italian and English sources (`mangaworld`, `mangapill`, `mangatown`, `mangafreak`, `mangaread`).
-- **5-Step Source Lab Co-pilot**: Guided connector builder with isolated Firefox + uBlock Origin profile, automatic structural detection, live click-picker, and end-to-end test PDF download.
-- **Multilingual UI (15 Languages)**: Complete interface localization in English, Italian, Spanish, French, German, Portuguese, Russian, Japanese, Chinese, Korean, Arabic, Hindi, Dutch, Polish, and Turkish.
-- **Fast & Resilient Networking**: Default 500ms request interval, desktop User-Agent, automatic `Referer` headers, per-domain concurrency limits, jitter, and `Retry-After` backoff.
-- **Ordered PDF & Archive Exports**: Download chapters and volumes as ordered PDF, CBZ, CBR, or raw images.
-- **Safe Connector Sharing**: Import and export `.json` connectors from files, folders, or GitHub repositories (`connectors/<id>.json`). Archives (`.zip`, `.tar`, `.rar`) are strictly rejected.
-- **Structured Diagnostic Logs**: JSONL activity and selector logs at `<app_data_dir>/logs/pokko.log`.
+Choose the installer for your system from the release page:
 
-## Installation
-
-Download the latest package from [Releases](https://github.com/browzomje/pokko/releases/latest):
-
-| Platform | Package |
+| System | Package |
 | --- | --- |
-| Linux | `.AppImage`, `.deb`, `.rpm` |
-| Windows (x86_64) | `.exe`, `.msi` |
+| Linux | `.AppImage`, `.deb` or `.rpm` |
+| Windows | `.exe` or `.msi` |
 
-## Build from Source
+For AppImage, make the downloaded file executable before opening it.
 
-Requires Node.js 20+, Rust (stable), and WebKitGTK 4.1 on Linux (`firefox` recommended for the live Source Lab browser).
+Firefox is needed for guided source recording in Source Lab. Pokko uses a separate Firefox profile and installs uBlock Origin there.
+
+## Download chapters
+
+1. Open **Catalog Sources** and enable the sources you want to search.
+2. In **Explore**, search for a title or paste a series link from an enabled source.
+3. Open the series and select chapters or volumes.
+4. Choose your output folder and export format in **Settings**.
+5. Start the download. Follow progress and open completed files from **Downloads**.
+
+Export formats include PDF, CBZ, CBR and image folders.
+
+## Add a source
+
+Open **Source Lab** from the sidebar (`Ctrl+Shift+L`). Follow the instruction above each step and use the main button at the bottom right:
+
+1. **Site** — enter the website, source name and scan language; open the site.
+2. **Search** — search in Firefox, then detect and check the results. You can also start from an open series or skip search for a single-series site.
+3. **Series** — detect the chapter list and confirm a chapter to open.
+4. **Pages** — detect the scans and check the preview.
+5. **Verify** — try a chapter download, then save the connector. Enable it for catalog searches when ready.
+
+If detection needs correcting, expand **Other ways to complete this step** to select an element in Firefox. Manual selectors and other settings are under **Advanced configuration**.
+
+You can import and export JSON connectors from the source tools. See the [connector guide](connectors/README.md) for the schema and contribution instructions.
+
+## Troubleshooting
+
+- **A source stops working:** check its current address in Catalog Sources, then update its rules in Source Lab.
+- **Firefox does not connect:** close the Source Lab companion window and use **Next – open site** again. Your usual Firefox profile is separate.
+- **A download fails:** check the error in Downloads. Open **Settings → Diagnostics & Logs** for recent activity and the log file path.
+
+When reporting a problem, include the Pokko version, operating system, source URL and relevant error message.
+
+## Build from source
+
+Requires Node.js 22+, stable Rust and the [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites/). On Linux, install WebKitGTK 4.1 development packages. Install Firefox to use guided source recording.
 
 ```sh
 git clone https://github.com/browzomje/pokko.git
 cd pokko
-npm install
+npm ci
 npm run tauri dev
 ```
 
-Build a release binary:
+Create installers with `npm run tauri build`.
+
+Run checks with:
 
 ```sh
-npm run tauri build
+npm run check
+npm run check:i18n
+npm test
+cargo test --locked --manifest-path src-tauri/Cargo.toml
 ```
-
-## Connectors (`connectors/`)
-
-Pokko uses a 100% declarative JSON architecture (`adapter: "generic"`): no site-specific Rust code is required.
-
-Verified official connectors in [`connectors/`](connectors/):
-- `mangaworld` (`mw`): Italian catalog with volumes and chapter lists
-- `mangapill` (`mangapill`): English manga releases
-- `mangatown` (`mangatown`): English catalog with single-page paginated reader
-- `mangafreak` (`mf`): English manga catalog
-- `mangaread` (`mangaread`): English manga catalog
-
-### Source Lab Co-pilot (`Ctrl+L`)
-Build or update connectors using the 5-step guided wizard:
-1. **Site**: Base URL and general metadata
-2. **Search**: Search endpoint and card selector (or skip for single-series sites)
-3. **Series**: Chapter and volume grouping selectors (`volume_selector`, `volume_title_selector`, `chapter_title_selector`)
-4. **Pages**: Scan image selector, list-mode query suffix (`chapter_url_suffix`), or single-page reader next link (`reader_next_selector`)
-5. **Verify**: Field test with end-to-end test chapter PDF download and activation
-
-See [`connectors/README.md`](connectors/README.md) for complete schema documentation and contribution guidelines.
-
-## Diagnostics & Logs
-
-Runtime logs (HTTP requests, CSS selector match counts, Marionette events, and PDF assembly) are written to:
-
-```text
-<app_data_dir>/logs/pokko.log
-```
-
-You can view recent entries, copy the file path, or clear logs from **Settings → Diagnostics & Logs**.
 
 ## License
 
-[MIT](LICENSE) · Copyright © 2026 browzomje
+[MIT](LICENSE)

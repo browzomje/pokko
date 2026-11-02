@@ -691,6 +691,10 @@ pub fn lab_open_output(path: String) -> Result<(), String> {
 }
 
 static FIREFOX_PROCESS: std::sync::Mutex<Option<std::process::Child>> = std::sync::Mutex::new(None);
+// Serialize commands and retain one session instead of racing NewSession calls.
+static MARIONETTE_CONNECTION: std::sync::Mutex<Option<std::net::TcpStream>> =
+    std::sync::Mutex::new(None);
+static FIREFOX_LIFECYCLE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 static MARIONETTE_PORT: std::sync::Mutex<u16> = std::sync::Mutex::new(2828);
 
 fn firefox_profile_dir() -> PathBuf {
@@ -698,13 +702,7 @@ fn firefox_profile_dir() -> PathBuf {
 }
 
 fn clean_profile_locks(profile_dir: &Path) {
-    for lock in [
-        ".parentlock",
-        "parent.lock",
-        "lock",
-        "places.sqlite-wal",
-        "places.sqlite-shm",
-    ] {
+    for lock in [".parentlock", "parent.lock", "lock"] {
         let p = profile_dir.join(lock);
         if p.exists() {
             let _ = fs::remove_file(p);
@@ -735,8 +733,6 @@ pub async fn ensure_firefox_profile_with_ublock(port: u16) -> Result<PathBuf, St
     let profile_dir = firefox_profile_dir();
     let ext_dir = profile_dir.join("extensions");
     fs::create_dir_all(&ext_dir).map_err(|e| e.to_string())?;
-
-    clean_profile_locks(&profile_dir);
 
     // Download official uBlock Origin XPI if missing
     let xpi_path = ext_dir.join("uBlock0@raymondhill.net.xpi");
@@ -802,7 +798,7 @@ user_pref("network.cookie.lifetimePolicy", 2);
 user_pref("browser.sessionstore.resume_from_crash", false);
 "#
     );
-    let _ = fs::write(user_js, prefs);
+    fs::write(user_js, prefs).map_err(|e| format!("Impossibile configurare Firefox: {e}"))?;
 
     Ok(profile_dir)
 }
@@ -818,8 +814,8 @@ fn marionette_connect_with_retry(
             &addr.parse().unwrap(),
             std::time::Duration::from_millis(100),
         ) {
-            let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
-            let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(5)));
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(30)));
+            let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(30)));
             return Ok(stream);
         }
         std::thread::sleep(std::time::Duration::from_millis(wait_ms));
@@ -830,7 +826,7 @@ fn marionette_connect_with_retry(
 }
 
 fn marionette_connect() -> Result<std::net::TcpStream, String> {
-    marionette_connect_with_retry(2, 50)
+    marionette_connect_with_retry(10, 100)
 }
 
 fn marionette_read_packet(stream: &mut std::net::TcpStream) -> Result<Value, String> {
@@ -842,6 +838,9 @@ fn marionette_read_packet(stream: &mut std::net::TcpStream) -> Result<Value, Str
         if byte[0] == b':' {
             break;
         }
+        if !byte[0].is_ascii_digit() || header.len() >= 10 {
+            return Err("Intestazione Marionette non valida".into());
+        }
         header.push(byte[0]);
     }
     let length: usize = String::from_utf8(header)
@@ -849,6 +848,9 @@ fn marionette_read_packet(stream: &mut std::net::TcpStream) -> Result<Value, Str
         .parse()
         .map_err(|e: std::num::ParseIntError| e.to_string())?;
 
+    if length > 64 * 1024 * 1024 {
+        return Err("Risposta Marionette troppo grande".into());
+    }
     let mut body = vec![0u8; length];
     stream.read_exact(&mut body).map_err(|e| e.to_string())?;
     serde_json::from_slice(&body).map_err(|e| e.to_string())
@@ -866,24 +868,68 @@ fn marionette_send_cmd(
     stream
         .write_all(wire.as_bytes())
         .map_err(|e| e.to_string())?;
-    marionette_read_packet(stream)
+    marionette_response(marionette_read_packet(stream)?, id)
+}
+
+fn marionette_response(response: Value, id: u64) -> Result<Value, String> {
+    let arr = response
+        .as_array()
+        .filter(|a| a.len() == 4)
+        .ok_or("Risposta Marionette non valida")?;
+    if arr[0] != 1 || arr[1] != id {
+        return Err("Risposta Marionette fuori sequenza".into());
+    }
+    if !arr[2].is_null() {
+        return Err(format!(
+            "Firefox: {} ({})",
+            arr[2]["message"].as_str().unwrap_or("Comando non riuscito"),
+            arr[2]["error"].as_str().unwrap_or("unknown error")
+        ));
+    }
+    Ok(arr[3].clone())
+}
+
+fn marionette_session(stream: &mut std::net::TcpStream) -> Result<(), String> {
+    let greeting = marionette_read_packet(stream)?;
+    if greeting["applicationType"] != "gecko" || greeting["marionetteProtocol"] != 3 {
+        return Err("Il servizio sulla porta selezionata non è Marionette".into());
+    }
+    marionette_send_cmd(
+        stream,
+        1,
+        "WebDriver:NewSession",
+        json!({
+            "capabilities": {"alwaysMatch": {"timeouts": {"pageLoad": 20000, "script": 10000, "implicit": 0}}}
+        }),
+    )?;
+    Ok(())
+}
+
+fn reset_marionette_connection() {
+    if let Ok(mut connection) = MARIONETTE_CONNECTION.lock() {
+        *connection = None;
+    }
 }
 
 pub fn marionette_exec(name: &str, params: Value) -> Result<Value, String> {
-    let mut stream = marionette_connect()?;
-    let _ = marionette_read_packet(&mut stream)?;
-    let _ = marionette_send_cmd(&mut stream, 1, "WebDriver:NewSession", json!({}))?;
-    let resp = marionette_send_cmd(&mut stream, 2, name, params)?;
-    if let Some(arr) = resp.as_array() {
-        if arr.len() > 3 {
-            return Ok(arr[3].clone());
-        }
+    let mut connection = MARIONETTE_CONNECTION.lock().map_err(|e| e.to_string())?;
+    if connection.is_none() {
+        let mut stream = marionette_connect()?;
+        marionette_session(&mut stream)?;
+        *connection = Some(stream);
     }
-    Ok(resp)
+    let result = marionette_send_cmd(connection.as_mut().unwrap(), 2, name, params);
+    // Never replay navigation, scripts or downloads after an ambiguous transport failure.
+    // A subsequent user action will create a fresh connection.
+    if result.is_err() || name == "Marionette:Quit" {
+        *connection = None;
+    }
+    result
 }
 
 #[tauri::command]
 pub async fn lab_firefox_launch(url: String) -> Result<bool, String> {
+    let _lifecycle = FIREFOX_LIFECYCLE.lock().await;
     provider::site(&url)?;
     if !is_firefox_installed() {
         return Err("Firefox non è installato sul sistema. Puoi comunque incollare l'URL manualmente per continuare nel laboratorio.".into());
@@ -909,8 +955,8 @@ pub async fn lab_firefox_launch(url: String) -> Result<bool, String> {
         }
     }
 
-    // Try Marionette:Quit in case of lingering background daemon/zombie, wait, and clean locks
-    let _ = marionette_exec("Marionette:Quit", json!({}));
+    // Forget the old session before selecting a new port. Never contact an unowned port.
+    reset_marionette_connection();
     std::thread::sleep(std::time::Duration::from_millis(200));
     clean_profile_locks(&profile_dir);
 
@@ -940,10 +986,11 @@ pub async fn lab_firefox_launch(url: String) -> Result<bool, String> {
     let url_clone = url.clone();
     let profile_dir_clone = profile_dir.clone();
     tokio::task::spawn_blocking(move || {
-        let mut stream = marionette_connect_with_retry(35, 150)?;
-        let _ = marionette_read_packet(&mut stream)?;
-        let _ = marionette_send_cmd(&mut stream, 1, "WebDriver:NewSession", json!({}))?;
-        drop(stream);
+        let mut connection = MARIONETTE_CONNECTION.lock().map_err(|e| e.to_string())?;
+        let mut stream = marionette_connect_with_retry(100, 200)?;
+        marionette_session(&mut stream)?;
+        *connection = Some(stream);
+        drop(connection);
 
         let xpi_path = profile_dir_clone
             .join("extensions")
@@ -960,7 +1007,7 @@ pub async fn lab_firefox_launch(url: String) -> Result<bool, String> {
             std::thread::sleep(std::time::Duration::from_millis(1800));
         }
 
-        let _ = marionette_exec("WebDriver:Navigate", json!({"url": url_clone}));
+        marionette_exec("WebDriver:Navigate", json!({"url": url_clone}))?;
 
         // On initial launch with uBlock, refresh after 800ms so all initial requests pass through 100% compiled filters
         if ublock_installed {
@@ -1412,7 +1459,14 @@ return true;
 }
 
 pub fn close_firefox_companion() {
-    let _ = marionette_exec("Marionette:Quit", json!({}));
+    let owned = FIREFOX_PROCESS
+        .lock()
+        .map(|guard| guard.is_some())
+        .unwrap_or(false);
+    if owned {
+        let _ = marionette_exec("Marionette:Quit", json!({}));
+    }
+    reset_marionette_connection();
     if let Ok(mut guard) = FIREFOX_PROCESS.lock() {
         if let Some(mut child) = guard.take() {
             let _ = child.kill();
@@ -1948,6 +2002,139 @@ pub fn sanitize_html_adblock(raw: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore = "Requires a local Firefox installation; runs in an isolated headless profile"]
+    fn marionette_real_firefox_session() {
+        struct Browser {
+            child: std::process::Child,
+            profile: PathBuf,
+        }
+        impl Drop for Browser {
+            fn drop(&mut self) {
+                let _ = self.child.kill();
+                let _ = self.child.wait();
+                let _ = fs::remove_dir_all(&self.profile);
+            }
+        }
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let profile = std::env::temp_dir().join(format!("pokko-marionette-test-{}", id()));
+        fs::create_dir_all(&profile).unwrap();
+        fs::write(profile.join("user.js"), format!("user_pref(\"marionette.port\", {});\nuser_pref(\"browser.shell.checkDefaultBrowser\", false);", address.port())).unwrap();
+        drop(listener);
+        let child = std::process::Command::new("firefox")
+            .args([
+                "--headless",
+                "--no-remote",
+                "--new-instance",
+                "--marionette",
+                "--profile",
+            ])
+            .arg(&profile)
+            .arg("about:blank")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let mut browser = Browser { child, profile };
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(25);
+        let mut stream = loop {
+            if let Ok(stream) = std::net::TcpStream::connect_timeout(
+                &address,
+                std::time::Duration::from_millis(100),
+            ) {
+                break stream;
+            }
+            assert!(
+                browser.child.try_wait().unwrap().is_none(),
+                "Firefox exited before Marionette was ready"
+            );
+            assert!(
+                std::time::Instant::now() < deadline,
+                "Marionette startup timed out"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        };
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_secs(10)))
+            .unwrap();
+        marionette_session(&mut stream).unwrap();
+        for _ in 0..5 {
+            marionette_send_cmd(
+                &mut stream,
+                2,
+                "WebDriver:Navigate",
+                json!({"url": "about:blank"}),
+            )
+            .unwrap();
+            let url =
+                marionette_send_cmd(&mut stream, 2, "WebDriver:GetCurrentURL", json!({})).unwrap();
+            assert_eq!(url["value"], "about:blank");
+            let html =
+                marionette_send_cmd(&mut stream, 2, "WebDriver:GetPageSource", json!({})).unwrap();
+            assert!(html["value"].as_str().unwrap().contains("<html"));
+        }
+    }
+
+    #[test]
+    fn marionette_errors_are_not_successful_results() {
+        let error = marionette_response(
+            json!([1, 2, {"error": "invalid session id", "message": "Session closed"}, null]),
+            2,
+        )
+        .unwrap_err();
+        assert!(error.contains("Session closed"));
+        assert!(marionette_response(json!([1, 3, null, {}]), 2).is_err());
+        assert!(marionette_response(json!([0, 2, null, {}]), 2).is_err());
+        assert!(marionette_response(json!({}), 2).is_err());
+        assert_eq!(
+            marionette_response(json!([1, 2, null, {"value": "ok"}]), 2).unwrap(),
+            json!({"value": "ok"})
+        );
+    }
+
+    #[test]
+    fn marionette_reuses_session_and_reads_fragmented_unicode_packets() {
+        use std::io::Write;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let send = |stream: &mut std::net::TcpStream, value: Value| {
+                let body = value.to_string();
+                let packet = format!("{}:{}", body.len(), body);
+                for part in packet.as_bytes().chunks(3) {
+                    stream.write_all(part).unwrap();
+                }
+            };
+            send(
+                &mut stream,
+                json!({"applicationType": "gecko", "marionetteProtocol": 3}),
+            );
+            let session = marionette_read_packet(&mut stream).unwrap();
+            assert_eq!(session[2], "WebDriver:NewSession");
+            send(&mut stream, json!([1, 1, null, {"sessionId": "test"}]));
+            for command in ["WebDriver:GetCurrentURL", "WebDriver:GetPageSource"] {
+                let request = marionette_read_packet(&mut stream).unwrap();
+                assert_eq!(request[2], command);
+                send(
+                    &mut stream,
+                    json!([1, 2, null, {"value": "Capitolo 日本語"}]),
+                );
+            }
+        });
+        let mut stream = std::net::TcpStream::connect(address).unwrap();
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_secs(3)))
+            .unwrap();
+        marionette_session(&mut stream).unwrap();
+        for command in ["WebDriver:GetCurrentURL", "WebDriver:GetPageSource"] {
+            let result = marionette_send_cmd(&mut stream, 2, command, json!({})).unwrap();
+            assert_eq!(result["value"], "Capitolo 日本語");
+        }
+        server.join().unwrap();
+    }
+
     fn source() -> Source {
         Source {
             id: "fixture".into(),

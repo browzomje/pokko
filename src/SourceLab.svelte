@@ -112,6 +112,7 @@
   let downloaded = $state("");
   let stageSamples = $state<Record<string, Sample>>({});
   let stageUrls = $state<Record<string, string>>({});
+  let stageExtractions = $state<Record<string, Extraction>>({});
   let passed = $state<Record<string, { signature: string; count: number }>>({});
   let validTest = $derived(
     tested === stageSignature(source, kind, html, sample?.url || ""),
@@ -153,13 +154,21 @@
   }
 
   // Co-pilot states & field test
-  let detectedResults = $state<{ title: string; url: string; group?: string }[]>([]);
-  let detectedChapters = $state<{ title: string; url: string; group?: string }[]>([]);
+  let detectedResults = $state<
+    { title: string; url: string; group?: string }[]
+  >([]);
+  let detectedChapters = $state<
+    { title: string; url: string; group?: string }[]
+  >([]);
   let selectedTestChapterUrl = $state("");
   let generalizationQuery = $state("");
-  let generalizationResults = $state<{ title: string; url: string }[] | null>(null);
+  let generalizationResults = $state<{ title: string; url: string }[] | null>(
+    null,
+  );
   let generalizationBusy = $state(false);
-  let downloadSuccessInfo = $state<{ pages: number; path: string } | null>(null);
+  let downloadSuccessInfo = $state<{ pages: number; path: string } | null>(
+    null,
+  );
   let unlistenProgress: (() => void) | null = null;
 
   // Firefox companion status
@@ -184,7 +193,10 @@
     const norm = normalizeUrl(raw);
     try {
       const u = new URL(norm);
-      return (u.protocol === "https:" || u.protocol === "http:") && u.hostname.includes(".");
+      return (
+        (u.protocol === "https:" || u.protocol === "http:") &&
+        u.hostname.includes(".")
+      );
     } catch {
       return false;
     }
@@ -218,15 +230,76 @@
     source.name = (e.target as HTMLInputElement).value;
   }
 
-  let step1Ready = $derived(isValidSiteUrl(source.base_url));
-
-  let setupReady = $derived.by(() => {
-    return isValidSiteUrl(source.base_url);
-  });
-
-  let searchReady = $derived(
-    skipSearch || (!!source.result_selector && (extraction?.items.length || 0) > 0),
+  let mangaNavDetected = $state<{
+    title: string;
+    selector: string;
+    url: string;
+  } | null>(null);
+  let setupAttempted = $state(false);
+  let actionPending = $state(false);
+  let hasDetection = $derived((extraction?.items.length || 0) > 0);
+  let primaryLabel = $derived(
+    kind === "setup"
+      ? t("lab.flowOpen")
+      : kind === "review"
+        ? t("lab.saveConnector")
+        : kind === "search"
+          ? hasDetection
+            ? t("lab.flowSeries")
+            : mangaNavDetected
+              ? t("lab.flowUseSeries")
+              : t("lab.flowDetectResults")
+          : kind === "detail"
+            ? hasDetection
+              ? t("lab.flowChapter")
+              : t("lab.flowDetectChapters")
+            : hasDetection
+              ? t("lab.flowVerify")
+              : t("lab.flowDetectPages"),
   );
+  let flowHint = $derived(
+    kind === "setup"
+      ? t("lab.flowSetupHint")
+      : kind === "review"
+        ? t("lab.flowReviewHint")
+        : hasDetection
+          ? t("lab.flowConfirmHint")
+          : kind === "search"
+            ? t("lab.flowSearchHint")
+            : kind === "detail"
+              ? t("lab.flowChapterHint")
+              : t("lab.flowPagesHint"),
+  );
+
+  async function primaryAction() {
+    if (busy || actionPending) return;
+    actionPending = true;
+    try {
+      if (kind === "setup") {
+        setupAttempted = true;
+        if (
+          !isValidSiteUrl(source.base_url) ||
+          !source.name.trim() ||
+          !source.category ||
+          !source.language
+        )
+          return;
+        await startRecording();
+      } else if (kind === "search") {
+        if (hasDetection) await confirmSearchResultAndGo();
+        else if (mangaNavDetected) await onOpenedMangaInFirefox();
+        else await onSearched();
+      } else if (kind === "detail") {
+        if (hasDetection) await confirmChaptersAndGo();
+        else await onHereSeries();
+      } else if (kind === "reader") {
+        if (hasDetection) confirmImagesAndGo();
+        else await onHereReader();
+      } else await saveSource();
+    } finally {
+      actionPending = false;
+    }
+  }
 
   let allPassed = $derived(
     ["detail", "reader"].every((k) => {
@@ -236,16 +309,18 @@
         passed[k]?.count > 0 &&
         passed[k].signature === stageSignature(source, k, s.html, s.url)
       );
-    }) && (skipSearch || (passed["search"]?.count || 0) > 0),
+    }) &&
+      (skipSearch || (passed["search"]?.count || 0) > 0),
   );
 
   // Template pre-compilation
   let templateOptions = $derived.by(() => {
-    const builtIns = sources.filter((s) =>
-      builtInIds.includes(s.id),
-    );
+    const builtIns = sources.filter((s) => builtInIds.includes(s.id));
     const customs = sources.filter(
-      (s) => s.adapter === "generic" && !builtInIds.includes(s.id) && s.id !== source.id,
+      (s) =>
+        s.adapter === "generic" &&
+        !builtInIds.includes(s.id) &&
+        s.id !== source.id,
     );
 
     const list: { value: string; label: string; disabled?: boolean }[] = [
@@ -253,14 +328,22 @@
     ];
 
     if (builtIns.length > 0) {
-      list.push({ value: "--group-builtin", label: t("lab.builtinGroup"), disabled: true });
+      list.push({
+        value: "--group-builtin",
+        label: t("lab.builtinGroup"),
+        disabled: true,
+      });
       for (const s of builtIns) {
         list.push({ value: s.id, label: s.name });
       }
     }
 
     if (customs.length > 0) {
-      list.push({ value: "--group-custom", label: t("lab.customGroup"), disabled: true });
+      list.push({
+        value: "--group-custom",
+        label: t("lab.customGroup"),
+        disabled: true,
+      });
       for (const s of customs) {
         list.push({ value: s.id, label: s.name });
       }
@@ -300,9 +383,11 @@
   // Firefox companion integration with Marionette & uBlock Origin
   async function checkFirefoxStatus() {
     try {
-      const s = await api<{ installed: boolean; running: boolean; ublock_installed: boolean }>(
-        "lab_firefox_status",
-      );
+      const s = await api<{
+        installed: boolean;
+        running: boolean;
+        ublock_installed: boolean;
+      }>("lab_firefox_status");
       firefoxInstalled = s.installed;
       firefoxRunning = s.running;
       ublockInstalled = s.ublock_installed;
@@ -311,18 +396,22 @@
 
   async function launchFirefox(targetUrl?: string) {
     const toOpen = targetUrl || url || source.base_url;
-    if (!toOpen || !toOpen.startsWith("http")) return;
+    if (!toOpen || !toOpen.startsWith("http")) return false;
     try {
       status = t("lab.startingFirefox");
-      const launched = await api<boolean>("lab_firefox_launch", { url: toOpen });
+      const launched = await api<boolean>("lab_firefox_launch", {
+        url: toOpen,
+      });
       if (launched) {
         firefoxRunning = true;
         startFirefoxPolling();
         status = t("lab.firefoxActive");
+        return true;
       }
     } catch (e) {
       failure = msg(e);
     }
+    return false;
   }
 
   interface PickedElementData {
@@ -354,7 +443,6 @@
   }
 
   let firefoxLiveUrl = $state("");
-  let mangaNavDetected = $state<{ title: string; selector: string; url: string } | null>(null);
   let lastProcessedNavTimestamp = 0;
 
   function startFirefoxPolling() {
@@ -373,14 +461,20 @@
         void api("lab_firefox_inject_picker").catch(() => {});
 
         // Check if an element was picked in Firefox (selection mode)
-        const picked = await api<PickedElementData | string | null>("lab_firefox_get_picked");
+        const picked = await api<PickedElementData | string | null>(
+          "lab_firefox_get_picked",
+        );
         if (picked) {
           await applyPickedSelector(picked);
         }
 
         // Check transparent last navigation data from user natural clicks in Firefox
         const lastNav = await api<LastNav | null>("lab_firefox_get_last_nav");
-        if (lastNav && lastNav.timestamp && lastNav.timestamp > lastProcessedNavTimestamp) {
+        if (
+          lastNav &&
+          lastNav.timestamp &&
+          lastNav.timestamp > lastProcessedNavTimestamp
+        ) {
           lastProcessedNavTimestamp = lastNav.timestamp;
           await handleFirefoxNavEvent(lastNav, current || url);
         }
@@ -414,7 +508,9 @@
         if (lastNav.clicked_selector && !source.result_selector) {
           source = { ...source, result_selector: lastNav.clicked_selector };
         }
-        status = t("lab.mangaOpenedInFirefox", { title: lastNav.clicked_text || "Manga" });
+        status = t("lab.mangaOpenedInFirefox", {
+          title: lastNav.clicked_text || "Manga",
+        });
       }
     } else if (kind === "detail") {
       // User navigated in Firefox while on series page - never auto-advance steps!
@@ -436,7 +532,8 @@
 
   async function applyPickedSelector(picked: PickedElementData | string) {
     if (!picked) return;
-    const data: PickedElementData = typeof picked === "string" ? { selector: picked } : picked;
+    const data: PickedElementData =
+      typeof picked === "string" ? { selector: picked } : picked;
     if (!data.selector) return;
 
     pickedItem = data;
@@ -447,7 +544,10 @@
       await extract();
       triggerCopilotFlash();
       status = data.text
-        ? t("lab.youSelectedResult", { picked: data.text, count: extraction?.items.length || 1 })
+        ? t("lab.youSelectedResult", {
+            picked: data.text,
+            count: extraction?.items.length || 1,
+          })
         : t("lab.detectedResults", { count: extraction?.items.length || 1 });
     } else if (kind === "detail") {
       source = { ...source, chapter_selector: data.selector };
@@ -458,14 +558,19 @@
       await extract();
       triggerCopilotFlash();
       status = data.text
-        ? t("lab.youSelectedChapter", { picked: data.text, count: extraction?.items.length || 0 })
+        ? t("lab.youSelectedChapter", {
+            picked: data.text,
+            count: extraction?.items.length || 0,
+          })
         : t("lab.detectedChapters", { count: extraction?.items.length || 0 });
     } else if (kind === "reader") {
       source = { ...source, image_selector: data.selector };
       if (!sample) await capture();
       await extract();
       triggerCopilotFlash();
-      status = t("lab.youSelectedScan", { count: extraction?.items.length || 0 });
+      status = t("lab.youSelectedScan", {
+        count: extraction?.items.length || 0,
+      });
     }
   }
 
@@ -512,6 +617,7 @@
   }
 
   function step(value: string) {
+    if (extraction) stageExtractions[kind] = $state.snapshot(extraction);
     pickedItem = null;
     if (sample) {
       stageSamples = {
@@ -522,7 +628,7 @@
     }
     kind = value;
     selectorField = fieldForStep(value);
-    extraction = null;
+    extraction = stageExtractions[value] || null;
     tested = "";
     inspected = null;
     sample = stageSamples[value] || null;
@@ -531,7 +637,9 @@
     url =
       stageUrls[value] ||
       source.workflow?.find((s) => s.kind === value)?.url ||
-      (firefoxLiveUrl && firefoxLiveUrl.startsWith("http") ? firefoxLiveUrl : "");
+      (firefoxLiveUrl && firefoxLiveUrl.startsWith("http")
+        ? firefoxLiveUrl
+        : "");
     triggerStepFlash();
   }
 
@@ -554,6 +662,7 @@
     if (lastOpenedBaseUrl && lastOpenedBaseUrl !== normalized) {
       completedStages = ["setup"];
       stageSamples = {};
+      stageExtractions = {};
       extraction = null;
       sample = null;
       sampleId = "";
@@ -571,7 +680,7 @@
     lastOpenedBaseUrl = normalized;
 
     if (firefoxInstalled) {
-      void launchFirefox(source.base_url);
+      if (!(await launchFirefox(source.base_url))) return;
     }
     step(skipSearch ? "detail" : "search");
   }
@@ -625,15 +734,17 @@
       // Check if current page is already a series page with chapters!
       if (html) {
         try {
-          const autoChap = await api<{ found: boolean; selector: string; count: number; sample_titles: string[] }>(
-            "lab_detect_chapters",
-            { html, url },
-          );
+          const autoChap = await api<{
+            found: boolean;
+            selector: string;
+            count: number;
+            sample_titles: string[];
+          }>("lab_detect_chapters", { html, url });
           if (autoChap.found && autoChap.count >= 2) {
             if (lastNav?.clicked_selector) {
               source = { ...source, result_selector: lastNav.clicked_selector };
             } else if (url.includes("/manga/")) {
-              source = { ...source, result_selector: "a[href*=\"/manga/\"]" };
+              source = { ...source, result_selector: 'a[href*="/manga/"]' };
             }
             source = { ...source, chapter_selector: autoChap.selector };
             markStageCompleted("search");
@@ -649,10 +760,12 @@
       // If on search page, detect search results automatically!
       if (!source.result_selector && html) {
         try {
-          const autoRes = await api<{ found: boolean; selector: string; count: number; sample_titles: string[] }>(
-            "lab_detect_search_results",
-            { html, url },
-          );
+          const autoRes = await api<{
+            found: boolean;
+            selector: string;
+            count: number;
+            sample_titles: string[];
+          }>("lab_detect_search_results", { html, url });
           if (autoRes.found && autoRes.count >= 1) {
             source = { ...source, result_selector: autoRes.selector };
           }
@@ -707,7 +820,7 @@
       if (lastNav?.clicked_selector && !source.result_selector) {
         source = { ...source, result_selector: lastNav.clicked_selector };
       } else if (!source.result_selector && url.includes("/manga/")) {
-        source = { ...source, result_selector: "a[href*=\"/manga/\"]" };
+        source = { ...source, result_selector: 'a[href*="/manga/"]' };
       }
 
       markStageCompleted("search");
@@ -742,7 +855,10 @@
             if (inferred) {
               source = { ...source, search_path: inferred.searchPath };
               if (inferred.resultSelector && !source.result_selector) {
-                source = { ...source, result_selector: inferred.resultSelector };
+                source = {
+                  ...source,
+                  result_selector: inferred.resultSelector,
+                };
               }
             }
           }
@@ -756,10 +872,12 @@
       // Run automatic heuristic detection for chapters
       if (html) {
         try {
-          const auto = await api<{ found: boolean; selector: string; count: number; sample_titles: string[] }>(
-            "lab_detect_chapters",
-            { html, url },
-          );
+          const auto = await api<{
+            found: boolean;
+            selector: string;
+            count: number;
+            sample_titles: string[];
+          }>("lab_detect_chapters", { html, url });
           if (auto.found && auto.count >= 2) {
             source = { ...source, chapter_selector: auto.selector };
             await extract();
@@ -776,7 +894,9 @@
   function confirmChapters() {
     chaptersConfirmed = true;
     markStageCompleted("detail");
-    status = t("lab.detectedChapters", { count: extraction?.items.length || 0 });
+    status = t("lab.detectedChapters", {
+      count: extraction?.items.length || 0,
+    });
     setTimeout(() => step("reader"), 600);
   }
 
@@ -843,14 +963,21 @@
       const matches = doc.querySelectorAll(sel);
       if (matches.length >= 2) return sel;
     }
-    const lazyImages = doc.querySelectorAll("img[data-src], img[data-original], img[data-lazy-src]");
+    const lazyImages = doc.querySelectorAll(
+      "img[data-src], img[data-original], img[data-lazy-src]",
+    );
     if (lazyImages.length >= 2) {
       const first = lazyImages[0];
       if (first.className) {
         const cls = first.className
           .trim()
           .split(/\s+/)
-          .find((c) => !/^(lazy|lazyload|dracula|darkreader|img-fluid|img-responsive)/i.test(c));
+          .find(
+            (c) =>
+              !/^(lazy|lazyload|dracula|darkreader|img-fluid|img-responsive)/i.test(
+                c,
+              ),
+          );
         if (cls) return `img.${cls}`;
       }
       return "img[data-src]";
@@ -860,13 +987,27 @@
     const parentCounts = new Map<string, number>();
     const allImgs = Array.from(doc.querySelectorAll("img"));
     for (const img of allImgs) {
-      if (img.closest("header, nav, footer, aside, .sidebar, .comments, .widget")) continue;
-      const src = (img.getAttribute("data-src") || img.getAttribute("src") || "").toLowerCase();
-      if (!src || /(logo|icon|avatar|banner|ads|pixel|1x1|\.svg)/i.test(src)) continue;
+      if (
+        img.closest("header, nav, footer, aside, .sidebar, .comments, .widget")
+      )
+        continue;
+      const src = (
+        img.getAttribute("data-src") ||
+        img.getAttribute("src") ||
+        ""
+      ).toLowerCase();
+      if (!src || /(logo|icon|avatar|banner|ads|pixel|1x1|\.svg)/i.test(src))
+        continue;
       const classes = (img.className || "")
         .trim()
         .split(/\s+/)
-        .filter((c) => c && !/^(lazy|lazyload|dracula|darkreader|img-fluid|img-responsive|__pokko)/i.test(c));
+        .filter(
+          (c) =>
+            c &&
+            !/^(lazy|lazyload|dracula|darkreader|img-fluid|img-responsive|__pokko)/i.test(
+              c,
+            ),
+        );
       if (classes[0]) {
         const sel = `img.${classes[0]}`;
         classCounts.set(sel, (classCounts.get(sel) || 0) + 1);
@@ -876,7 +1017,10 @@
         const pCls = parent.className
           .trim()
           .split(/\s+/)
-          .find((c) => c && !/^(dracula|darkreader|__pokko|row|col|container)/i.test(c));
+          .find(
+            (c) =>
+              c && !/^(dracula|darkreader|__pokko|row|col|container)/i.test(c),
+          );
         if (pCls) {
           const pSel = `.${pCls} img`;
           parentCounts.set(pSel, (parentCounts.get(pSel) || 0) + 1);
@@ -923,7 +1067,11 @@
     chaptersConfirmed = true;
     markStageCompleted("detail");
     const toOpen =
-      chapterUrl || pickedItem?.href || selectedTestChapterUrl || extraction?.items[0]?.url || detectedChapters[0]?.url;
+      chapterUrl ||
+      pickedItem?.href ||
+      selectedTestChapterUrl ||
+      extraction?.items[0]?.url ||
+      detectedChapters[0]?.url;
     if (toOpen) {
       selectedTestChapterUrl = toOpen;
       stageUrls["reader"] = toOpen;
@@ -944,10 +1092,15 @@
       let targetSample = stageSamples["reader"] || sample;
       let targetHtml = targetSample?.html || html;
 
-      if (selectedTestChapterUrl && targetSample?.url !== selectedTestChapterUrl) {
+      if (
+        selectedTestChapterUrl &&
+        targetSample?.url !== selectedTestChapterUrl
+      ) {
         progress = "Caricamento capitolo selezionato…";
         if (firefoxRunning) {
-          await api("lab_firefox_navigate", { url: selectedTestChapterUrl }).catch(() => {});
+          await api("lab_firefox_navigate", {
+            url: selectedTestChapterUrl,
+          }).catch(() => {});
         }
         const s = await api<Sample>("lab_capture", {
           url: selectedTestChapterUrl,
@@ -960,7 +1113,9 @@
       }
 
       if (!targetSample) {
-        throw new Error("Nessun capitolo disponibile per il download di prova.");
+        throw new Error(
+          "Nessun capitolo disponibile per il download di prova.",
+        );
       }
 
       progress = "Download scan in corso…";
@@ -1054,18 +1209,28 @@
     }
 
     if (kind === "detail") {
-      source = { ...source, chapter_selector: value.linkSelector || value.selector };
+      source = {
+        ...source,
+        chapter_selector: value.linkSelector || value.selector,
+      };
       await extract();
-      status = t("lab.detectedChapters", { count: extraction?.items.length || 0 });
+      status = t("lab.detectedChapters", {
+        count: extraction?.items.length || 0,
+      });
       return;
     }
 
     if (kind === "search") {
-      source = { ...source, result_selector: value.linkSelector || value.selector };
+      source = {
+        ...source,
+        result_selector: value.linkSelector || value.selector,
+      };
       await extract();
       markStageCompleted("search");
-      status = t("lab.detectedResults", { count: extraction?.items.length || 0 });
-      setTimeout(() => step("detail"), 800);
+      status = t("lab.detectedResults", {
+        count: extraction?.items.length || 0,
+      });
+
       return;
     }
 
@@ -1180,8 +1345,14 @@
         const file = input.files?.[0];
         if (!file) return;
         const name = file.name.toLowerCase();
-        if (name.endsWith(".zip") || name.endsWith(".rar") || name.endsWith(".tar") || name.endsWith(".cbz")) {
-          failure = "I file archivio (ZIP, RAR, TAR, CBZ) non sono consentiti per motivi di sicurezza. Importa solo file connettore .json.";
+        if (
+          name.endsWith(".zip") ||
+          name.endsWith(".rar") ||
+          name.endsWith(".tar") ||
+          name.endsWith(".cbz")
+        ) {
+          failure =
+            "I file archivio (ZIP, RAR, TAR, CBZ) non sono consentiti per motivi di sicurezza. Importa solo file connettore .json.";
           return;
         }
         const text = await file.text();
@@ -1253,771 +1424,1070 @@
 </script>
 
 <div class="lab-workspace">
-<!-- Top Row: Left = 5 step tabs, Right = Template select + Save draft button (Zero wasted space above tabs) -->
-<div class="lab-topbar">
-  <div class="lab-topbar-tabs">
-    <LabGuide {kind} onStep={step} {completedStages} />
-  </div>
-  <div class="lab-topbar-actions">
-    <div class="template-selector-wrap">
-      <Select
-        label={t("lab.templatePlaceholder")}
-        value=""
-        options={templateOptions}
-        onchange={loadFromTemplate}
-        disabled={!!busy}
-      />
-    </div>
-    <button class="primary" disabled={!!busy} onclick={saveSource}>
-      {source.enabled ? t("lab.save") : t("lab.saveDraft")}
-    </button>
-  </div>
-</div>
-
-<!-- Strictly Horizontal Side-by-Side Layout (Left: Wizard 380px, Right: Interactive Preview flex:1) -->
-<div class="lab-layout" class:lab-review={kind === "review"}>
-  <!-- Left Column: Single-Path Guided Step Wizard -->
-  <section class="lab-config" aria-label="Passo guidato">
-    {#if kind === "setup"}
-      <div class="wizard-card step-card" class:vesta-flash-yellow={stepFlash}>
-        <div class="step-badge">{t("lab.step1Badge")}</div>
-        <h2>{t("lab.step1Title")}</h2>
-
-        <div class="step-fields">
-          <label>
-            <FieldLabel text={t("lab.url")} icon={Globe} help={t("lab.urlHelp")} />
-            <input
-              type="text"
-              class="url-placeholder-input"
-              value={source.base_url}
-              oninput={onUrlInput}
-              placeholder="https://example.com"
-              required
-            />
-          </label>
-
-          <label>
-            <FieldLabel text={t("lab.name")} icon={Search} help={t("lab.nameHelp")} />
-            <input
-              value={source.name}
-              oninput={onNameInput}
-              placeholder={t("lab.namePlaceholder")}
-              required
-            />
-          </label>
-
-          <div class="source-field">
-            <FieldLabel text={t("lab.catalog")} icon={Layers} help={t("lab.catalogHelp")} />
-            <Select
-              label={t("lab.catalog")}
-              bind:value={source.category}
-              options={[
-                { value: "manga", label: t("catalog.manga") },
-                { value: "comics", label: t("catalog.comics") },
-              ]}
-            />
-          </div>
-
-          <div class="source-field">
-            <FieldLabel text={t("lab.language")} icon={Globe} help={t("lab.languageHelp")} />
-            <LanguageSelect bind:value={source.language} />
-          </div>
-
-          {#if firefoxInstalled}
-            <div class="firefox-shield-banner">
-              <Shield size={16} class="shield-green" />
-              <span>{t("lab.firefoxShieldBanner")}</span>
-            </div>
-          {:else}
-            <div class="firefox-warning-banner">
-              <AlertTriangle size={16} class="shield-amber" />
-              <div class="firefox-warning-content">
-                <span>{t("lab.firefoxMissingBanner")}</span>
-                <a
-                  href="https://www.mozilla.org/firefox/new/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="firefox-download-link"
-                >
-                  <Download size={14} />
-                  <span>{t("lab.downloadFirefoxBtn")}</span>
-                </a>
-              </div>
-            </div>
-          {/if}
-
-          <button
-            type="button"
-            class="primary start-btn"
-            disabled={!step1Ready || !!busy}
-            title={!step1Ready ? t("lab.step1DisabledTooltip") : ""}
-            onclick={startRecording}
-          >
-            {t("lab.openSite")}
-          </button>
-        </div>
+  <div class="lab-scroll-content">
+    <!-- Top Row: Left = 5 step tabs, Right = Template select + Save draft button (Zero wasted space above tabs) -->
+    <div class="lab-topbar">
+      <div class="lab-topbar-tabs">
+        <LabGuide {kind} onStep={step} {completedStages} />
       </div>
-
-    {:else if kind === "search"}
-      <div class="wizard-card step-card" class:vesta-flash-yellow={stepFlash}>
-        <div class="step-badge">{t("lab.step2Badge")}</div>
-        <h2>{t("lab.step2CopilotTitle")}</h2>
-
-        <div class="animated-hint">
-          <Search size={16} class="pulse-icon" />
-          <div class="hint-lines">
-            <div>{t("lab.step2Instruction1")}</div>
-            <small>{t("lab.step2Instruction2")}</small>
-          </div>
-        </div>
-
-        {#if mangaNavDetected}
-          <div class="confirmation-box copilot-box" class:vesta-flash-yellow={copilotFlash} style="margin-bottom: 0.75rem;">
-            <h4>{t("lab.mangaOpenedInFirefox", { title: mangaNavDetected.title || "Manga" })}</h4>
-            <div class="confirmation-actions">
-              <button class="primary" onclick={onOpenedMangaInFirefox}>
-                <Check size={16} /> {t("lab.alreadyOpenedManga")}
-              </button>
-            </div>
-          </div>
-        {/if}
-
-        <div class="step-fields">
-          <button
-            class="primary single-cta"
+      <div class="lab-topbar-actions">
+        <div class="template-selector-wrap">
+          <Select
+            label={t("lab.templatePlaceholder")}
+            value=""
+            options={templateOptions}
+            onchange={loadFromTemplate}
             disabled={!!busy}
-            onclick={onSearched}
-          >
-            <Search size={16} /> {t("lab.detectResults")}
-          </button>
-
-          {#if firefoxRunning}
-            <button
-              type="button"
-              class="subtle-btn picker-action-btn"
-              disabled={!!busy}
-              onclick={onOpenedMangaInFirefox}
-            >
-              <BookOpen size={15} /> {t("lab.alreadyOpenedManga")}
-            </button>
-            <button
-              type="button"
-              class="subtle-btn picker-action-btn"
-              disabled={!!busy}
-              onclick={startFirefoxPicker}
-            >
-              <MousePointerClick size={15} /> {t("lab.pickResultInFirefox")}
-            </button>
-          {/if}
-
-          <button
-            type="button"
-            class="text-link-btn"
-            onclick={() => {
-              skipSearch = true;
-              step("detail");
-            }}
-          >
-            {t("lab.skipSearchExplanation")}
-          </button>
-
-          {#if source.search_path}
-            <div class="status-badge success">
-              <span>{t("lab.searchPatternBadge")}</span><code>{source.search_path}</code>
-            </div>
-          {/if}
-
-          {#if source.result_selector}
-            <div class="status-badge success">
-              <span>{t("lab.resultSelectorBadge")}</span><code>{source.result_selector}</code>
-            </div>
-          {/if}
-
-          {#if extraction?.items.length}
-            <div class="confirmation-box copilot-box" class:vesta-flash-yellow={copilotFlash}>
-              {#if pickedItem?.text}
-                <h4>{t("lab.youSelectedResult", { picked: pickedItem.text, count: extraction.items.length })}</h4>
-              {:else}
-                <h4>{t("lab.isValidResult")}</h4>
-              {/if}
-              <p class="first-title-preview"><Crosshair size={15} /> <strong>{pickedItem?.text || extraction.items[0]?.title}</strong></p>
-              <div class="confirmation-actions">
-                <button
-                  class="primary"
-                  onclick={() => confirmSearchResultAndGo(pickedItem?.href || extraction?.items[0]?.url)}
-                >
-                  <Check size={16} /> {t("lab.openMangaAndGo")}
-                </button>
-                <button type="button" onclick={startFirefoxPicker}>
-                  <RotateCcw size={16} /> {t("lab.pickDifferentResult")}
-                </button>
-              </div>
-            </div>
-          {/if}
+          />
         </div>
-      </div>
-
-    {:else if kind === "detail"}
-      <div class="wizard-card step-card" class:vesta-flash-yellow={stepFlash}>
-        <div class="step-badge">{t("lab.step3Badge")}</div>
-        <h2>{t("lab.step3CopilotTitle")}</h2>
-
-        <div class="animated-hint">
-          <BookOpen size={16} class="pulse-icon" />
-          <span>{t("lab.step3Instruction")}</span>
-        </div>
-
-        <div class="step-fields">
-          <button
-            class="primary single-cta"
-            disabled={!!busy}
-            onclick={onHereSeries}
-          >
-            <BookOpen size={16} /> {t("lab.detectChaptersAuto")}
-          </button>
-
-          {#if firefoxRunning}
-            <button
-              type="button"
-              class="subtle-btn picker-action-btn"
-              disabled={!!busy}
-              onclick={startFirefoxPicker}
-            >
-              <MousePointerClick size={15} /> {t("lab.pickChapterInFirefox")}
-            </button>
-          {/if}
-
-          <details class="expand-list-accordion">
-            <summary>{t("lab.expandChaptersHint")}</summary>
-            <p>{t("lab.expandChaptersDesc")}</p>
-          </details>
-
-          {#if source.chapter_selector}
-            <div class="status-badge success">
-              <span>{t("lab.chapterSelectorBadge")}</span><code>{source.chapter_selector}</code>
-            </div>
-          {/if}
-
-          {#if extraction?.items.length}
-            <div class="confirmation-box copilot-box" class:vesta-flash-yellow={copilotFlash}>
-              {#if pickedItem?.text}
-                <h4>{t("lab.youSelectedChapter", { picked: pickedItem.text, count: extraction.items.length })}</h4>
-              {:else}
-                <h4>{t("lab.areTheseChapters", { count: extraction.items.length })}</h4>
-              {/if}
-              <p class="first-title-preview">
-                <BookOpen size={15} /> <strong>{pickedItem?.text || extraction.items[0]?.title}</strong>
-                {#if extraction.items[1] && !pickedItem?.text}
-                  <span class="sub-chapter">, {extraction.items[1]?.title}</span>
-                {/if}
-                {#if extraction.items.length > 2 && !pickedItem?.text}
-                  <span class="sub-chapter">…</span>
-                {/if}
-              </p>
-              <div class="confirmation-actions">
-                <button
-                  class="primary"
-                  disabled={chaptersConfirmed}
-                  onclick={() => confirmChaptersAndGo(pickedItem?.href || selectedTestChapterUrl || extraction?.items[0]?.url)}
-                >
-                  <Check size={16} /> {t("lab.openChapterAndGo")}
-                </button>
-                <button type="button" onclick={retryChapters}>
-                  <RotateCcw size={16} /> {t("lab.pickDifferentChapter")}
-                </button>
-              </div>
-            </div>
-          {/if}
-        </div>
-      </div>
-
-    {:else if kind === "reader"}
-      <div class="wizard-card step-card" class:vesta-flash-yellow={stepFlash}>
-        <div class="step-badge">{t("lab.step4Badge")}</div>
-        <h2>{t("lab.step4CopilotTitle")}</h2>
-
-        <div class="animated-hint">
-          <Images size={16} class="pulse-icon" />
-          <span>{t("lab.step4Instruction")}</span>
-        </div>
-
-        <div class="step-fields">
-          <button
-            class="primary single-cta"
-            disabled={!!busy}
-            onclick={onHereReader}
-          >
-            <Images size={16} /> {t("lab.detectScansAuto")}
-          </button>
-
-          {#if firefoxRunning}
-            <button
-              type="button"
-              class="subtle-btn picker-action-btn"
-              disabled={!!busy}
-              onclick={startFirefoxPicker}
-            >
-              <MousePointerClick size={15} /> {t("lab.pickScanInFirefox")}
-            </button>
-          {/if}
-
-          {#if source.image_selector}
-            <div class="status-badge success">
-              <span>{t("lab.imageSelectorBadge")}</span><code>{source.image_selector}</code>
-            </div>
-          {/if}
-
-          {#if extraction?.items.length}
-            <div class="confirmation-box copilot-box" class:vesta-flash-yellow={copilotFlash}>
-              {#if pickedItem?.selector}
-                <h4>{t("lab.youSelectedScan", { count: extraction.items.length })}</h4>
-              {:else}
-                <h4>{t("lab.isThisScan", { count: extraction.items.length })}</h4>
-              {/if}
-              {#if extraction.items[0]}
-                <div class="first-scan-preview-thumb">
-                  <img
-                    src={sample?.resources[extraction.items[0].url] || extraction.items[0].url}
-                    alt="Scan 1"
-                    referrerpolicy="no-referrer"
-                    onerror={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                </div>
-              {/if}
-
-              {#if extraction.items.length === 1}
-                <div class="single-page-alert">
-                  <p>{t("lab.singlePageDetected")}</p>
-                  <button type="button" class="subtle-btn" onclick={startFirefoxPicker}>
-                    {t("lab.clickNextInFirefox")}
-                  </button>
-                </div>
-              {/if}
-
-              <div class="confirmation-actions">
-                <button
-                  class="primary"
-                  disabled={imagesConfirmed}
-                  onclick={confirmImagesAndGo}
-                >
-                  <Check size={16} /> {t("lab.confirmScansAndVerify")}
-                </button>
-                <button type="button" onclick={retryImages}>
-                  <RotateCcw size={16} /> {t("lab.pickDifferentScan")}
-                </button>
-              </div>
-            </div>
-          {/if}
-        </div>
-      </div>
-
-    {:else if kind === "review"}
-      <div class="wizard-card step-card" class:vesta-flash-yellow={stepFlash}>
-        <div class="step-badge">{t("lab.step5Badge")}</div>
-        <h2>{t("lab.step5Title")}</h2>
-        <p class="step-instruction">{t("lab.step5Desc")}</p>
-
-        <div class="verify-checklist">
-          <div class="verify-item">
-            <strong>{t("lab.url")}</strong>
-            <span>{source.name} ({source.base_url})</span>
-            <Check size={16} class="check-green" />
-          </div>
-
-          <div class="verify-item">
-            <strong>{t("lab.language")}</strong>
-            <span>{getLanguageLabel(getLanguage(source.language) || { code: source.language, name: source.language, nameEn: source.language, flag: flag(source.language) })}</span>
-            <Check size={16} class="check-green" />
-          </div>
-
-          <div class="verify-item">
-            <strong>{t("nav.explore")}</strong>
-            <span>{skipSearch ? t("lab.step2Skip") : source.search_path || "✓"}</span>
-            <Check size={16} class="check-green" />
-          </div>
-
-          <div class="verify-item">
-            <strong>{t("lab.summaryChapters")}</strong>
-            <span>{source.chapter_selector || "✓"}</span>
-            <Check size={16} class="check-green" />
-          </div>
-
-          <div class="verify-item">
-            <strong>{t("lab.summaryPages")}</strong>
-            <span>{source.image_selector || "✓"}</span>
-            <Check size={16} class="check-green" />
-          </div>
-        </div>
-
-        <div class="enable-catalog-box">
-          <label class="checkbox enable-checkbox" title={t("sources.enabled")}>
-            <input type="checkbox" bind:checked={source.enabled} />
-            <strong>{t("lab.enableInCatalog")}</strong>
-            <span class="info-pill" title={t("lab.step5Desc")}>
-              <Info size={14} />
-            </span>
-          </label>
-        </div>
-
-        <button
-          class="primary save-full-btn"
-          disabled={!allPassed && source.enabled}
-          onclick={saveSource}
-        >
-          <FileCheck size={16} /> {t("lab.saveConnector")}
+        <button disabled={!!busy || actionPending} onclick={saveSource}>
+          {source.enabled ? t("lab.save") : t("lab.saveDraft")}
         </button>
       </div>
-    {/if}
+    </div>
 
-    <!-- Collapsed Advanced Manual Section -->
-    <details class="lab-advanced">
-      <summary>
-        <SlidersHorizontal size={14} /> {t("lab.advanced")}
-      </summary>
-      <div class="advanced-content">
-        <SourceForm
-          bind:source
-          stage={kind}
-          onPick={(field) => {
-            selectorField = field;
-            status = t("lab.clickElementInPreview");
-          }}
-        />
-        {#if html}
-          <div class="advanced-html-wrap">
-            <label>
-              <span>{t("lab.viewDom")}</span>
-              <textarea
-                class="lab-code"
-                bind:value={html}
-                disabled={!!busy}
-                spellcheck="false"
-              ></textarea>
-            </label>
-          </div>
-        {/if}
-      </div>
-    </details>
-  </section>
+    <!-- Strictly Horizontal Side-by-Side Layout (Left: Wizard 380px, Right: Interactive Preview flex:1) -->
+    <div class="flow-brief" aria-live="polite">
+      <span class="flow-number">{stepOrder.indexOf(kind) + 1} / 5</span>
+      <p>{flowHint}</p>
+      {#if hasDetection}<span class="flow-ready"
+          ><CheckCircle2 size={15} /> {t("lab.flowReady")}</span
+        >{/if}
+    </div>
+    <div class="lab-layout" class:lab-review={kind === "review"}>
+      <!-- Left Column: Single-Path Guided Step Wizard -->
+      <section class="lab-config" aria-label="Passo guidato">
+        {#if kind === "setup"}
+          <div
+            class="wizard-card step-card"
+            class:vesta-flash-yellow={stepFlash}
+          >
+            <div class="step-badge">{t("lab.step1Badge")}</div>
+            <h2>{t("lab.step1Title")}</h2>
 
-  <!-- Right Column: Interactive Sanitized Preview & Live Element Picker -->
-  <section class="lab-panel" aria-label="Preview">
-    {#if kind === "review"}
-      <!-- Step 5 Studio: Prova sul campo (Live Test & Download) & Generalizzazione -->
-      <div class="review-stage-studio">
-        <!-- Live Test & Download Hero Card -->
-        <div class="hero-live-card">
-          <div class="hero-live-header">
-            <div class="hero-live-title">
-              <Sparkles size={22} class="sparkle-icon" />
-              <div>
-                <h3>{t("lab.step5LiveTestTitle")}</h3>
-                <p class="hero-sub">{t("lab.step5LiveTestPrompt")}</p>
-              </div>
-            </div>
-          </div>
+            <div class="step-fields">
+              <label>
+                <FieldLabel
+                  text={t("lab.url")}
+                  icon={Globe}
+                  help={t("lab.urlHelp")}
+                />
+                <input
+                  type="text"
+                  class="url-placeholder-input"
+                  class:field-invalid={setupAttempted &&
+                    !isValidSiteUrl(source.base_url)}
+                  aria-invalid={setupAttempted &&
+                    !isValidSiteUrl(source.base_url)}
+                  aria-describedby={setupAttempted &&
+                  !isValidSiteUrl(source.base_url)
+                    ? "lab-url-error"
+                    : undefined}
+                  value={source.base_url}
+                  oninput={onUrlInput}
+                  placeholder="https://example.com"
+                  required
+                />
+                {#if setupAttempted && !isValidSiteUrl(source.base_url)}<small
+                    id="lab-url-error"
+                    class="field-error">{t("lab.flowUrlError")}</small
+                  >{/if}
+              </label>
 
-          <div class="live-test-form">
-            {#if detectedChapters.length > 0}
-              <div class="source-field">
-                <span>{t("lab.selectChapterToTest")}</span>
+              <label>
+                <FieldLabel
+                  text={t("lab.name")}
+                  icon={Search}
+                  help={t("lab.nameHelp")}
+                />
+                <input
+                  class:field-invalid={setupAttempted && !source.name.trim()}
+                  aria-invalid={setupAttempted && !source.name.trim()}
+                  value={source.name}
+                  oninput={onNameInput}
+                  placeholder={t("lab.namePlaceholder")}
+                  required
+                />
+                {#if setupAttempted && !source.name.trim()}<small
+                    class="field-error">{t("lab.flowNameError")}</small
+                  >{/if}
+              </label>
+
+              <div
+                class="source-field"
+                class:field-invalid={setupAttempted && !source.category}
+              >
+                <FieldLabel
+                  text={t("lab.catalog")}
+                  icon={Layers}
+                  help={t("lab.catalogHelp")}
+                />
                 <Select
-                  label={t("lab.selectChapterToTest")}
-                  bind:value={selectedTestChapterUrl}
-                  options={detectedChapters.map((chap) => ({ value: chap.url, label: chap.title }))}
-                  disabled={!!busy}
+                  label={t("lab.catalog")}
+                  bind:value={source.category}
+                  options={[
+                    { value: "manga", label: t("catalog.manga") },
+                    { value: "comics", label: t("catalog.comics") },
+                  ]}
                 />
               </div>
-            {:else}
-              <label class="chapter-picker-label">
-                <span>{t("lab.selectChapterToTest")}</span>
-                <input bind:value={selectedTestChapterUrl} placeholder="https://..." disabled={!!busy} />
-              </label>
+
+              <div
+                class="source-field"
+                class:field-invalid={setupAttempted && !source.language}
+              >
+                <FieldLabel
+                  text={t("lab.language")}
+                  icon={Globe}
+                  help={t("lab.languageHelp")}
+                />
+                <LanguageSelect bind:value={source.language} />
+              </div>
+
+              {#if firefoxInstalled}
+                <div class="firefox-shield-banner">
+                  <Shield size={16} class="shield-green" />
+                  <span>{t("lab.firefoxShieldBanner")}</span>
+                </div>
+              {:else}
+                <div class="firefox-warning-banner">
+                  <AlertTriangle size={16} class="shield-amber" />
+                  <div class="firefox-warning-content">
+                    <span>{t("lab.firefoxMissingBanner")}</span>
+                    <a
+                      href="https://www.mozilla.org/firefox/new/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="firefox-download-link"
+                    >
+                      <Download size={14} />
+                      <span>{t("lab.downloadFirefoxBtn")}</span>
+                    </a>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {:else if kind === "search"}
+          <div
+            class="wizard-card step-card"
+            class:vesta-flash-yellow={stepFlash}
+          >
+            <div class="step-badge">{t("lab.step2Badge")}</div>
+            <h2>{t("lab.step2CopilotTitle")}</h2>
+
+            <div class="animated-hint">
+              <Search size={16} class="pulse-icon" />
+              <div class="hint-lines">
+                <div>
+                  {hasDetection
+                    ? t("lab.flowConfirmHint")
+                    : t("lab.step2Instruction1")}
+                </div>
+                {#if !hasDetection}<small>{t("lab.step2Instruction2")}</small
+                  >{/if}
+              </div>
+            </div>
+
+            {#if mangaNavDetected && !hasDetection}
+              <div class="status-badge success">
+                {t("lab.mangaOpenedInFirefox", {
+                  title: mangaNavDetected.title || "Manga",
+                })}
+              </div>
             {/if}
 
-            <button
-              type="button"
-              class="primary live-download-cta"
-              disabled={!!busy}
-              onclick={runLiveTestDownload}
-            >
-              {#if busy}
-                <LoaderCircle size={18} class="spin" />
-                <span>{progress || t("lab.waiting")}</span>
-              {:else}
-                <Download size={18} />
-                <span>{t("lab.downloadTestChapterBtn")}</span>
-              {/if}
-            </button>
-          </div>
+            <div class="step-fields">
+              <details class="flow-alternatives">
+                <summary>{t("lab.flowAlternatives")}</summary>
+                <div class="alternative-actions">
+                  {#if hasDetection}
+                    <button
+                      type="button"
+                      disabled={!!busy || actionPending}
+                      onclick={onSearched}
+                      ><RotateCcw size={15} />
+                      {t("lab.flowDetectAgain")}</button
+                    >
+                  {/if}
+                  {#if firefoxRunning}
+                    <button
+                      type="button"
+                      class="subtle-btn picker-action-btn"
+                      disabled={!!busy}
+                      onclick={onOpenedMangaInFirefox}
+                    >
+                      <BookOpen size={15} />
+                      {t("lab.alreadyOpenedManga")}
+                    </button>
+                    <button
+                      type="button"
+                      class="subtle-btn picker-action-btn"
+                      disabled={!!busy}
+                      onclick={startFirefoxPicker}
+                    >
+                      <MousePointerClick size={15} />
+                      {t("lab.pickResultInFirefox")}
+                    </button>
+                  {/if}
 
-          {#if downloadSuccessInfo}
-            <div class="download-success-banner">
-              <div class="success-banner-heading">
-                <CheckCircle2 size={24} class="check-green" />
-                <div>
-                  <h4>{t("lab.downloadSuccessTitle", { count: downloadSuccessInfo.pages })}</h4>
-                  <p>{t("lab.downloadSuccessDesc")}</p>
+                  <button
+                    type="button"
+                    class="text-link-btn"
+                    onclick={() => {
+                      skipSearch = true;
+                      step("detail");
+                    }}
+                  >
+                    {t("lab.skipSearchExplanation")}
+                  </button>
+
+                  <details class="technical-details">
+                    <summary>{t("lab.flowRules")}</summary>
+                    {#if source.search_path}
+                      <div class="status-badge success">
+                        <span>{t("lab.searchPatternBadge")}</span><code
+                          >{source.search_path}</code
+                        >
+                      </div>
+                    {/if}
+
+                    {#if source.result_selector}
+                      <div class="status-badge success">
+                        <span>{t("lab.resultSelectorBadge")}</span><code
+                          >{source.result_selector}</code
+                        >
+                      </div>
+                    {/if}
+                  </details>
+                </div>
+              </details>
+
+              {#if extraction?.items.length}
+                <div
+                  class="confirmation-box copilot-box"
+                  class:vesta-flash-yellow={copilotFlash}
+                >
+                  {#if pickedItem?.text}
+                    <h4>
+                      {t("lab.youSelectedResult", {
+                        picked: pickedItem.text,
+                        count: extraction.items.length,
+                      })}
+                    </h4>
+                  {:else}
+                    <h4>{t("lab.isValidResult")}</h4>
+                  {/if}
+                  <p class="first-title-preview">
+                    <Crosshair size={15} />
+                    <strong
+                      >{pickedItem?.text || extraction.items[0]?.title}</strong
+                    >
+                  </p>
+                  <div class="confirmation-actions">
+                    <button type="button" onclick={startFirefoxPicker}>
+                      <RotateCcw size={16} />
+                      {t("lab.pickDifferentResult")}
+                    </button>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {:else if kind === "detail"}
+          <div
+            class="wizard-card step-card"
+            class:vesta-flash-yellow={stepFlash}
+          >
+            <div class="step-badge">{t("lab.step3Badge")}</div>
+            <h2>{t("lab.step3CopilotTitle")}</h2>
+
+            <div class="animated-hint">
+              <BookOpen size={16} class="pulse-icon" />
+              <span
+                >{hasDetection
+                  ? t("lab.flowConfirmHint")
+                  : t("lab.step3Instruction")}</span
+              >
+            </div>
+
+            <div class="step-fields">
+              <details class="flow-alternatives">
+                <summary>{t("lab.flowAlternatives")}</summary>
+                <div class="alternative-actions">
+                  {#if hasDetection}
+                    <button
+                      type="button"
+                      disabled={!!busy || actionPending}
+                      onclick={onHereSeries}
+                      ><RotateCcw size={15} />
+                      {t("lab.flowDetectAgain")}</button
+                    >
+                  {/if}
+                  {#if firefoxRunning}
+                    <button
+                      type="button"
+                      class="subtle-btn picker-action-btn"
+                      disabled={!!busy}
+                      onclick={startFirefoxPicker}
+                    >
+                      <MousePointerClick size={15} />
+                      {t("lab.pickChapterInFirefox")}
+                    </button>
+                  {/if}
+
+                  <details class="expand-list-accordion">
+                    <summary>{t("lab.expandChaptersHint")}</summary>
+                    <p>{t("lab.expandChaptersDesc")}</p>
+                  </details>
+
+                  <details class="technical-details">
+                    <summary>{t("lab.flowRules")}</summary>
+                    {#if source.chapter_selector}
+                      <div class="status-badge success">
+                        <span>{t("lab.chapterSelectorBadge")}</span><code
+                          >{source.chapter_selector}</code
+                        >
+                      </div>
+                    {/if}
+                  </details>
+                </div>
+              </details>
+
+              {#if extraction?.items.length}
+                <div
+                  class="confirmation-box copilot-box"
+                  class:vesta-flash-yellow={copilotFlash}
+                >
+                  {#if pickedItem?.text}
+                    <h4>
+                      {t("lab.youSelectedChapter", {
+                        picked: pickedItem.text,
+                        count: extraction.items.length,
+                      })}
+                    </h4>
+                  {:else}
+                    <h4>
+                      {t("lab.areTheseChapters", {
+                        count: extraction.items.length,
+                      })}
+                    </h4>
+                  {/if}
+                  <p class="first-title-preview">
+                    <BookOpen size={15} />
+                    <strong
+                      >{pickedItem?.text || extraction.items[0]?.title}</strong
+                    >
+                    {#if extraction.items[1] && !pickedItem?.text}
+                      <span class="sub-chapter"
+                        >, {extraction.items[1]?.title}</span
+                      >
+                    {/if}
+                    {#if extraction.items.length > 2 && !pickedItem?.text}
+                      <span class="sub-chapter">…</span>
+                    {/if}
+                  </p>
+                  <div class="confirmation-actions">
+                    <button type="button" onclick={retryChapters}>
+                      <RotateCcw size={16} />
+                      {t("lab.pickDifferentChapter")}
+                    </button>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {:else if kind === "reader"}
+          <div
+            class="wizard-card step-card"
+            class:vesta-flash-yellow={stepFlash}
+          >
+            <div class="step-badge">{t("lab.step4Badge")}</div>
+            <h2>{t("lab.step4CopilotTitle")}</h2>
+
+            <div class="animated-hint">
+              <Images size={16} class="pulse-icon" />
+              <span
+                >{hasDetection
+                  ? t("lab.flowConfirmHint")
+                  : t("lab.step4Instruction")}</span
+              >
+            </div>
+
+            <div class="step-fields">
+              <details class="flow-alternatives">
+                <summary>{t("lab.flowAlternatives")}</summary>
+                <div class="alternative-actions">
+                  {#if hasDetection}
+                    <button
+                      type="button"
+                      disabled={!!busy || actionPending}
+                      onclick={onHereReader}
+                      ><RotateCcw size={15} />
+                      {t("lab.flowDetectAgain")}</button
+                    >
+                  {/if}
+                  {#if firefoxRunning}
+                    <button
+                      type="button"
+                      class="subtle-btn picker-action-btn"
+                      disabled={!!busy}
+                      onclick={startFirefoxPicker}
+                    >
+                      <MousePointerClick size={15} />
+                      {t("lab.pickScanInFirefox")}
+                    </button>
+                  {/if}
+
+                  <details class="technical-details">
+                    <summary>{t("lab.flowRules")}</summary>
+                    {#if source.image_selector}
+                      <div class="status-badge success">
+                        <span>{t("lab.imageSelectorBadge")}</span><code
+                          >{source.image_selector}</code
+                        >
+                      </div>
+                    {/if}
+                  </details>
+                </div>
+              </details>
+
+              {#if extraction?.items.length}
+                <div
+                  class="confirmation-box copilot-box"
+                  class:vesta-flash-yellow={copilotFlash}
+                >
+                  {#if pickedItem?.selector}
+                    <h4>
+                      {t("lab.youSelectedScan", {
+                        count: extraction.items.length,
+                      })}
+                    </h4>
+                  {:else}
+                    <h4>
+                      {t("lab.isThisScan", { count: extraction.items.length })}
+                    </h4>
+                  {/if}
+                  {#if extraction.items[0]}
+                    <div class="first-scan-preview-thumb">
+                      <img
+                        src={sample?.resources[extraction.items[0].url] ||
+                          extraction.items[0].url}
+                        alt="Scan 1"
+                        referrerpolicy="no-referrer"
+                        onerror={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display =
+                            "none";
+                        }}
+                      />
+                    </div>
+                  {/if}
+
+                  {#if extraction.items.length === 1}
+                    <div class="single-page-alert">
+                      <p>{t("lab.singlePageDetected")}</p>
+                      <button
+                        type="button"
+                        class="subtle-btn"
+                        onclick={startFirefoxPicker}
+                      >
+                        {t("lab.clickNextInFirefox")}
+                      </button>
+                    </div>
+                  {/if}
+
+                  <div class="confirmation-actions">
+                    <button type="button" onclick={retryImages}>
+                      <RotateCcw size={16} />
+                      {t("lab.pickDifferentScan")}
+                    </button>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {:else if kind === "review"}
+          <div
+            class="wizard-card step-card"
+            class:vesta-flash-yellow={stepFlash}
+          >
+            <div class="step-badge">{t("lab.step5Badge")}</div>
+            <h2>{t("lab.step5Title")}</h2>
+            <p class="step-instruction">{t("lab.step5Desc")}</p>
+
+            <div class="verify-checklist">
+              <div class="verify-item">
+                <strong>{t("lab.url")}</strong>
+                <span>{source.name} ({source.base_url})</span>
+                <Check size={16} class="check-green" />
+              </div>
+
+              <div class="verify-item">
+                <strong>{t("lab.language")}</strong>
+                <span
+                  >{getLanguageLabel(
+                    getLanguage(source.language) || {
+                      code: source.language,
+                      name: source.language,
+                      nameEn: source.language,
+                      flag: flag(source.language),
+                    },
+                  )}</span
+                >
+                <Check size={16} class="check-green" />
+              </div>
+
+              <div class="verify-item">
+                <strong>{t("nav.explore")}</strong>
+                <span
+                  >{skipSearch
+                    ? t("lab.step2Skip")
+                    : source.search_path || "✓"}</span
+                >
+                <Check size={16} class="check-green" />
+              </div>
+
+              <div class="verify-item">
+                <strong>{t("lab.summaryChapters")}</strong>
+                <span>{source.chapter_selector || "✓"}</span>
+                <Check size={16} class="check-green" />
+              </div>
+
+              <div class="verify-item">
+                <strong>{t("lab.summaryPages")}</strong>
+                <span>{source.image_selector || "✓"}</span>
+                <Check size={16} class="check-green" />
+              </div>
+            </div>
+
+            <div class="enable-catalog-box">
+              <label
+                class="checkbox enable-checkbox"
+                title={t("sources.enabled")}
+              >
+                <input type="checkbox" bind:checked={source.enabled} />
+                <strong>{t("lab.enableInCatalog")}</strong>
+                <span class="info-pill" title={t("lab.step5Desc")}>
+                  <Info size={14} />
+                </span>
+              </label>
+            </div>
+          </div>
+        {/if}
+
+        <!-- Collapsed Advanced Manual Section -->
+        <details class="lab-advanced">
+          <summary>
+            <SlidersHorizontal size={14} />
+            {t("lab.advanced")}
+          </summary>
+          <div class="advanced-content">
+            <SourceForm
+              bind:source
+              stage={kind}
+              onPick={(field) => {
+                selectorField = field;
+                status = t("lab.clickElementInPreview");
+              }}
+            />
+            {#if html}
+              <div class="advanced-html-wrap">
+                <label>
+                  <span>{t("lab.viewDom")}</span>
+                  <textarea
+                    class="lab-code"
+                    bind:value={html}
+                    disabled={!!busy}
+                    spellcheck="false"></textarea>
+                </label>
+              </div>
+            {/if}
+          </div>
+        </details>
+      </section>
+
+      <!-- Right Column: Interactive Sanitized Preview & Live Element Picker -->
+      <section class="lab-panel" aria-label="Preview">
+        {#if kind === "review"}
+          <!-- Step 5 Studio: Prova sul campo (Live Test & Download) & Generalizzazione -->
+          <div class="review-stage-studio">
+            <!-- Live Test & Download Hero Card -->
+            <div class="hero-live-card">
+              <div class="hero-live-header">
+                <div class="hero-live-title">
+                  <Sparkles size={22} class="sparkle-icon" />
+                  <div>
+                    <h3>{t("lab.step5LiveTestTitle")}</h3>
+                    <p class="hero-sub">{t("lab.step5LiveTestPrompt")}</p>
+                  </div>
                 </div>
               </div>
-              <div class="success-actions">
+
+              <div class="live-test-form">
+                {#if detectedChapters.length > 0}
+                  <div class="source-field">
+                    <span>{t("lab.selectChapterToTest")}</span>
+                    <Select
+                      label={t("lab.selectChapterToTest")}
+                      bind:value={selectedTestChapterUrl}
+                      options={detectedChapters.map((chap) => ({
+                        value: chap.url,
+                        label: chap.title,
+                      }))}
+                      disabled={!!busy}
+                    />
+                  </div>
+                {:else}
+                  <label class="chapter-picker-label">
+                    <span>{t("lab.selectChapterToTest")}</span>
+                    <input
+                      bind:value={selectedTestChapterUrl}
+                      placeholder="https://..."
+                      disabled={!!busy}
+                    />
+                  </label>
+                {/if}
+
                 <button
                   type="button"
-                  class="open-pdf-btn"
-                  onclick={() => {
-                    if (downloadSuccessInfo?.path) {
-                      void api("lab_open_output", { path: downloadSuccessInfo.path }).catch((e) => (failure = msg(e)));
-                    }
-                  }}
+                  class="live-download-cta"
+                  disabled={!!busy}
+                  onclick={runLiveTestDownload}
                 >
-                  <FolderOpen size={16} /> {t("lab.openDownloadedChapter")}
+                  {#if busy}
+                    <LoaderCircle size={18} class="spin" />
+                    <span>{progress || t("lab.waiting")}</span>
+                  {:else}
+                    <Download size={18} />
+                    <span>{t("lab.downloadTestChapterBtn")}</span>
+                  {/if}
                 </button>
-                <button type="button" class="primary save-enable-btn" onclick={saveAndEnable}>
-                  <Check size={16} /> {t("lab.saveAndEnableBtn")}
+              </div>
+
+              {#if downloadSuccessInfo}
+                <div class="download-success-banner">
+                  <div class="success-banner-heading">
+                    <CheckCircle2 size={24} class="check-green" />
+                    <div>
+                      <h4>
+                        {t("lab.downloadSuccessTitle", {
+                          count: downloadSuccessInfo.pages,
+                        })}
+                      </h4>
+                      <p>{t("lab.downloadSuccessDesc")}</p>
+                    </div>
+                  </div>
+                  <div class="success-actions">
+                    <button
+                      type="button"
+                      class="open-pdf-btn"
+                      onclick={() => {
+                        if (downloadSuccessInfo?.path) {
+                          void api("lab_open_output", {
+                            path: downloadSuccessInfo.path,
+                          }).catch((e) => (failure = msg(e)));
+                        }
+                      }}
+                    >
+                      <FolderOpen size={16} />
+                      {t("lab.openDownloadedChapter")}
+                    </button>
+                    <button
+                      type="button"
+                      class="primary save-enable-btn"
+                      onclick={saveAndEnable}
+                    >
+                      <Check size={16} />
+                      {t("lab.saveAndEnableBtn")}
+                    </button>
+                  </div>
+                </div>
+              {/if}
+            </div>
+
+            <!-- Generalization Verification Card -->
+            <div class="generalization-card">
+              <div class="generalization-header">
+                <h4>
+                  <FlaskConical size={16} />
+                  {t("lab.generalizationTitle")}
+                </h4>
+                <p>{t("lab.generalizationDesc")}</p>
+              </div>
+
+              <div class="gen-search-form">
+                <input
+                  type="text"
+                  bind:value={generalizationQuery}
+                  placeholder={t("lab.generalizationPlaceholder")}
+                  disabled={generalizationBusy}
+                  onkeydown={(e) => {
+                    if (e.key === "Enter") void testGeneralization();
+                  }}
+                />
+                <button
+                  type="button"
+                  class="primary"
+                  disabled={generalizationBusy || !generalizationQuery.trim()}
+                  onclick={testGeneralization}
+                >
+                  {#if generalizationBusy}
+                    <LoaderCircle size={14} class="spin" />
+                  {:else}
+                    <Search size={14} /> {t("lab.testGeneralizationBtn")}
+                  {/if}
+                </button>
+              </div>
+
+              {#if generalizationResults !== null}
+                <div class="gen-results-box">
+                  {#if generalizationResults.length > 0}
+                    <div class="status-badge success">
+                      <Check size={14} />
+                      {t("lab.detectedResults", {
+                        count: generalizationResults.length,
+                      })}
+                    </div>
+                    <div class="lab-result-list">
+                      {#each generalizationResults.slice(0, 5) as item}
+                        <div class="extraction-item">
+                          <strong>{item.title}</strong>
+                          <small class="item-url">{item.url}</small>
+                        </div>
+                      {/each}
+                    </div>
+                  {:else}
+                    <div class="status-badge">
+                      <span>{t("catalog.noResults")}</span>
+                    </div>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+
+            <!-- Share / Export / Import Connector Card moved to Right Studio -->
+            <div class="export-import-card">
+              <h4><Share2 size={16} /> {t("lab.shareConnector")}</h4>
+              <p class="export-hint">{t("lab.exportHint")}</p>
+              <div class="export-import-buttons">
+                <button type="button" onclick={exportConnector}>
+                  <Download size={15} />
+                  {t("lab.exportConnector")}
+                </button>
+                <button type="button" onclick={importConnector}>
+                  <Upload size={15} />
+                  {t("lab.importConnector")}
                 </button>
               </div>
             </div>
-          {/if}
-        </div>
-
-        <!-- Generalization Verification Card -->
-        <div class="generalization-card">
-          <div class="generalization-header">
-            <h4><FlaskConical size={16} /> {t("lab.generalizationTitle")}</h4>
-            <p>{t("lab.generalizationDesc")}</p>
+          </div>
+        {:else}
+          <!-- Live Status Line (Single status line, no duplicate Firefox buttons) -->
+          <div class="status-bar" role="status">
+            <span class="status-text">{status}</span>
+            {#if busy}
+              <span class="status-busy"
+                ><LoaderCircle size={14} class="spin" /> {busy}…</span
+              >
+            {/if}
           </div>
 
-          <div class="gen-search-form">
-            <input
-              type="text"
-              bind:value={generalizationQuery}
-              placeholder={t("lab.generalizationPlaceholder")}
-              disabled={generalizationBusy}
-              onkeydown={(e) => {
-                if (e.key === "Enter") void testGeneralization();
-              }}
-            />
-            <button
-              type="button"
-              class="primary"
-              disabled={generalizationBusy || !generalizationQuery.trim()}
-              onclick={testGeneralization}
+          <!-- Prominent Detected Elements Preview Card (Shows extracted chapters, results or pages) -->
+          {#if extraction && extraction.items.length > 0}
+            <div
+              class="extraction-card detected-primary-card"
+              class:vesta-flash-yellow={copilotFlash}
             >
-              {#if generalizationBusy}
-                <LoaderCircle size={14} class="spin" />
-              {:else}
-                <Search size={14} /> {t("lab.testGeneralizationBtn")}
-              {/if}
-            </button>
-          </div>
-
-          {#if generalizationResults !== null}
-            <div class="gen-results-box">
-              {#if generalizationResults.length > 0}
-                <div class="status-badge success">
-                  <Check size={14} /> {t("lab.detectedResults", { count: generalizationResults.length })}
+              <div class="extraction-card-header">
+                <div>
+                  <h4>
+                    <Check size={16} class="check-green" />
+                    {#if kind === "detail"}
+                      {t("lab.detectedChapters", {
+                        count: extraction.items.length,
+                      })}
+                    {:else if kind === "reader"}
+                      {t("lab.detectedPages", {
+                        count: extraction.items.length,
+                      })}
+                    {:else}
+                      {t("lab.detectedResults", {
+                        count: extraction.items.length,
+                      })}
+                    {/if}
+                  </h4>
+                  {#if kind === "detail" && source.chapter_selector}
+                    <small class="selector-tag"
+                      ><code>{source.chapter_selector}</code></small
+                    >
+                  {:else if kind === "search" && source.result_selector}
+                    <small class="selector-tag"
+                      ><code>{source.result_selector}</code></small
+                    >
+                  {:else if kind === "reader" && source.image_selector}
+                    <small class="selector-tag"
+                      ><code>{source.image_selector}</code></small
+                    >
+                  {/if}
                 </div>
+              </div>
+
+              {#if kind === "reader"}
+                <div class="lab-result-list scan-pages-list">
+                  {#each extraction.items.slice(0, 8) as item, i}
+                    <div class="extraction-item scan-list-row">
+                      <div class="scan-row-meta">
+                        <strong>{item.title || `#${i + 1}`}</strong>
+                        <small class="item-url">{item.url}</small>
+                      </div>
+                    </div>
+                  {/each}
+                  {#if extraction.items.length > 8}
+                    <div class="more-items-notice">
+                      {t("lab.moreItems", {
+                        count: extraction.items.length - 8,
+                      })}
+                    </div>
+                  {/if}
+                </div>
+              {:else}
                 <div class="lab-result-list">
-                  {#each generalizationResults.slice(0, 5) as item}
+                  {#each extraction.items.slice(0, 10) as item}
                     <div class="extraction-item">
                       <strong>{item.title}</strong>
+                      {#if item.group}<small>{item.group}</small>{/if}
                       <small class="item-url">{item.url}</small>
                     </div>
                   {/each}
-                </div>
-              {:else}
-                <div class="status-badge">
-                  <span>{t("catalog.noResults")}</span>
+                  {#if extraction.items.length > 10}
+                    <div class="more-items-notice">
+                      {t("lab.moreItems", {
+                        count: extraction.items.length - 10,
+                      })}
+                    </div>
+                  {/if}
                 </div>
               {/if}
             </div>
           {/if}
-        </div>
 
-        <!-- Share / Export / Import Connector Card moved to Right Studio -->
-        <div class="export-import-card">
-          <h4><Share2 size={16} /> {t("lab.shareConnector")}</h4>
-          <p class="export-hint">{t("lab.exportHint")}</p>
-          <div class="export-import-buttons">
-            <button type="button" onclick={exportConnector}>
-              <Download size={15} /> {t("lab.exportConnector")}
-            </button>
-            <button type="button" onclick={importConnector}>
-              <Upload size={15} /> {t("lab.importConnector")}
-            </button>
-          </div>
-        </div>
-      </div>
-    {:else}
-      <!-- Live Status Line (Single status line, no duplicate Firefox buttons) -->
-      <div class="status-bar" role="status">
-        <span class="status-text">{status}</span>
-        {#if busy}
-          <span class="status-busy"><LoaderCircle size={14} class="spin" /> {busy}…</span>
+          <!-- Firefox Companion Active Banner when nothing is extracted yet or during navigation -->
+          {#if firefoxRunning && (!extraction || extraction.items.length === 0)}
+            <div class="firefox-companion-card">
+              <div class="firefox-companion-header">
+                <span class="firefox-pill">
+                  <span class="live-indicator"></span>
+                  {t("lab.firefoxActive")}
+                </span>
+                <small
+                  class="firefox-url truncate"
+                  title={firefoxLiveUrl || url}>{firefoxLiveUrl || url}</small
+                >
+              </div>
+              <p class="firefox-hint">{t("lab.flowCompanionHint")}</p>
+            </div>
+          {/if}
+
+          <!-- Single Sanitized Interactive DOM Preview (with Inspector if sample present) -->
+          {#if sample && html}
+            <details
+              class="preview-dom-accordion"
+              open={!extraction || extraction.items.length === 0}
+            >
+              <summary>
+                <Layers size={14} />
+                {t("lab.viewDom")}
+              </summary>
+              <div class="preview-stage-container">
+                <SampleBrowser
+                  {html}
+                  {sample}
+                  onInspect={inspectElement}
+                  onReady={(value) => (inspector = value)}
+                />
+              </div>
+              <SampleInspector
+                {inspected}
+                stage={kind}
+                bind:selectorField
+                generic={source.adapter === "generic"}
+                {busy}
+                onApply={(exact) => {
+                  if (!inspected || source.adapter !== "generic") return;
+                  const sel = exact ? inspected.exact : inspected.selector;
+                  source = { ...source, [selectorField]: sel };
+                  inspector?.highlight(sel);
+                }}
+                onParent={() => inspector?.parent()}
+              />
+            </details>
+          {:else if !firefoxRunning}
+            <div class="preview-stage-container">
+              <div class="preview-placeholder">
+                <Globe size={40} class="placeholder-icon" />
+                <p>{t("lab.previewPlaceholder")}</p>
+                <p class="placeholder-sub">{t("lab.previewSub")}</p>
+              </div>
+            </div>
+          {/if}
         {/if}
-      </div>
 
-      <!-- Prominent Detected Elements Preview Card (Shows extracted chapters, results or pages) -->
-      {#if extraction && extraction.items.length > 0}
-        <div class="extraction-card detected-primary-card" class:vesta-flash-yellow={copilotFlash}>
-          <div class="extraction-card-header">
-            <div>
-              <h4>
-                <Check size={16} class="check-green" />
-                {#if kind === "detail"}
-                  {t("lab.detectedChapters", { count: extraction.items.length })}
-                {:else if kind === "reader"}
-                  {t("lab.detectedPages", { count: extraction.items.length })}
-                {:else}
-                  {t("lab.detectedResults", { count: extraction.items.length })}
-                {/if}
-              </h4>
-              {#if kind === "detail" && source.chapter_selector}
-                <small class="selector-tag"><code>{source.chapter_selector}</code></small>
-              {:else if kind === "search" && source.result_selector}
-                <small class="selector-tag"><code>{source.result_selector}</code></small>
-              {:else if kind === "reader" && source.image_selector}
-                <small class="selector-tag"><code>{source.image_selector}</code></small>
-              {/if}
-            </div>
-          </div>
-
-          {#if kind === "reader"}
-            <div class="lab-result-list scan-pages-list">
-              {#each extraction.items.slice(0, 8) as item, i}
-                <div class="extraction-item scan-list-row">
-                  <div class="scan-row-meta">
-                    <strong>{item.title || `#${i + 1}`}</strong>
-                    <small class="item-url">{item.url}</small>
-                  </div>
-                </div>
-              {/each}
-              {#if extraction.items.length > 8}
-                <div class="more-items-notice">
-                  {t("lab.moreItems", { count: extraction.items.length - 8 })}
-                </div>
-              {/if}
-            </div>
-          {:else}
-            <div class="lab-result-list">
-              {#each extraction.items.slice(0, 10) as item}
-                <div class="extraction-item">
-                  <strong>{item.title}</strong>
-                  {#if item.group}<small>{item.group}</small>{/if}
-                  <small class="item-url">{item.url}</small>
-                </div>
-              {/each}
-              {#if extraction.items.length > 10}
-                <div class="more-items-notice">
-                  {t("lab.moreItems", { count: extraction.items.length - 10 })}
-                </div>
-              {/if}
-            </div>
-          {/if}
-        </div>
-      {/if}
-
-      <!-- Firefox Companion Active Banner when nothing is extracted yet or during navigation -->
-      {#if firefoxRunning && (!extraction || extraction.items.length === 0)}
-        <div class="firefox-companion-card">
-          <div class="firefox-companion-header">
-            <span class="firefox-pill">
-              <span class="live-indicator"></span>
-              {t("lab.firefoxActive")}
-            </span>
-            <small class="firefox-url truncate" title={firefoxLiveUrl || url}>{firefoxLiveUrl || url}</small>
-          </div>
-          <p class="firefox-hint">{t("lab.firefoxCompanionHint")}</p>
-        </div>
-      {/if}
-
-      <!-- Single Sanitized Interactive DOM Preview (with Inspector if sample present) -->
-      {#if sample && html}
-        <details class="preview-dom-accordion" open={!extraction || extraction.items.length === 0}>
-          <summary>
-            <Layers size={14} /> {t("lab.viewDom")}
-          </summary>
-          <div class="preview-stage-container">
-            <SampleBrowser
-              {html}
-              {sample}
-              onInspect={inspectElement}
-              onReady={(value) => (inspector = value)}
-            />
-          </div>
-          <SampleInspector
-            {inspected}
-            stage={kind}
-            bind:selectorField
-            generic={source.adapter === "generic"}
-            {busy}
-            onApply={(exact) => {
-              if (!inspected || source.adapter !== "generic") return;
-              const sel = exact ? inspected.exact : inspected.selector;
-              source = { ...source, [selectorField]: sel };
-              inspector?.highlight(sel);
-            }}
-            onParent={() => inspector?.parent()}
-          />
-        </details>
-      {:else if !firefoxRunning}
-        <div class="preview-stage-container">
-          <div class="preview-placeholder">
-            <Globe size={40} class="placeholder-icon" />
-            <p>{t("lab.previewPlaceholder")}</p>
-            <p class="placeholder-sub">{t("lab.previewSub")}</p>
-          </div>
-        </div>
-      {/if}
-    {/if}
-
-    <!-- Notifications & feedback -->
-    {#if failure}<p class="alert error" role="alert">{failure}</p>{/if}
-    {#if downloaded}
-      <button
-        onclick={() =>
-          void api("lab_open_output", { path: downloaded }).catch(
-            (e) => (failure = msg(e)),
-          )}
-      >
-        {t("lab.openTestPdf")}
-      </button>
-    {/if}
-  </section>
-</div>
-
-<!-- Secondary Navigation (Bottom) -->
-<div class="wizard-navigation">
-  <button
-    type="button"
-    disabled={kind === "setup" || !!busy}
-    onclick={() => {
-      const idx = stepOrder.indexOf(kind);
-      if (idx > 0) step(stepOrder[idx - 1]);
-    }}
-  >
-    <ChevronLeft size={15} /> {t("lab.prevStep")}
-  </button>
-
-  {#if kind !== "review"}
+        <!-- Notifications & feedback -->
+        {#if failure}<p class="alert error" role="alert">{failure}</p>{/if}
+        {#if downloaded}
+          <button
+            onclick={() =>
+              void api("lab_open_output", { path: downloaded }).catch(
+                (e) => (failure = msg(e)),
+              )}
+          >
+            {t("lab.openTestPdf")}
+          </button>
+        {/if}
+      </section>
+    </div>
+  </div>
+  <!-- Secondary Navigation (Bottom) -->
+  <div class="wizard-navigation">
     <button
       type="button"
-      class="primary"
-      disabled={(kind === "setup" && !setupReady) || (kind === "search" && !searchReady) || (kind === "detail" && !chaptersConfirmed) || (kind === "reader" && !imagesConfirmed) || !!busy}
+      disabled={kind === "setup" || !!busy || actionPending}
       onclick={() => {
         const idx = stepOrder.indexOf(kind);
-        if (idx < stepOrder.length - 1) step(stepOrder[idx + 1]);
+        if (idx > 0) step(stepOrder[idx - 1]);
       }}
     >
-      {t("lab.nextStep")} <ChevronRight size={15} />
+      <ChevronLeft size={15} />
+      {t("lab.prevStep")}
     </button>
-  {/if}
-</div>
+
+    <div class="flow-navigation-action">
+      <small
+        >{busy ||
+          (kind === "setup" && !source.base_url.trim()
+            ? t("lab.flowUrlError")
+            : t("lab.flowActionHint"))}</small
+      >
+      <button
+        type="button"
+        class="primary flow-primary"
+        disabled={!!busy ||
+          actionPending ||
+          (kind === "setup" && !source.base_url.trim()) ||
+          (kind === "review" && !allPassed && source.enabled)}
+        onclick={primaryAction}
+      >
+        {#if busy || actionPending}<LoaderCircle size={16} class="spin" />{/if}
+        {primaryLabel}
+        <ChevronRight size={16} />
+      </button>
+    </div>
+  </div>
 </div>
 
 <style>
+  .flow-brief {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    margin: 4px 0 22px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel, var(--bg));
+  }
+  .flow-brief p {
+    flex: 1;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .flow-number {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .flow-ready {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #4ade80;
+    font-size: 12px;
+  }
+  .flow-alternatives {
+    order: 2;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    margin-top: 8px;
+  }
+  .flow-alternatives summary,
+  .technical-details summary {
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 0;
+  }
+  .alternative-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 12px;
+  }
+  .technical-details .status-badge {
+    margin-top: 8px;
+    overflow-wrap: anywhere;
+  }
+  .flow-navigation-action {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-left: auto;
+  }
+  .flow-navigation-action small {
+    color: var(--muted);
+    font-size: 12px;
+    max-width: 260px;
+  }
+  .flow-primary {
+    min-width: 190px;
+    max-width: 360px;
+    margin: 0;
+    width: auto;
+  }
+  .field-invalid {
+    border-color: #f87171 !important;
+    outline: 2px solid rgba(248, 113, 113, 0.25);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  .field-error {
+    color: #f87171;
+    font-size: 12px;
+  }
+  .wizard-navigation {
+    gap: 16px;
+    padding-bottom: 16px;
+  }
+  @media (max-width: 800px) {
+    .flow-navigation-action {
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .flow-ready {
+      display: none;
+    }
+    .flow-primary {
+      min-width: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(.pulse-icon) {
+      animation: none;
+    }
+  }
+
   .lab-topbar {
     display: flex;
     justify-content: space-between;
@@ -2086,8 +2556,15 @@
   }
 
   @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(1.15); }
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.15);
+    }
   }
 
   .firefox-shield-banner {
@@ -2202,12 +2679,11 @@
     margin-top: 4px;
   }
 
-  .start-btn,
-  .single-cta {
+  .flow-primary {
     width: 100%;
     padding: 12px;
     font-weight: 600;
-    margin-top: 6px;
+    margin-top: 0;
   }
 
   .status-badge {
@@ -2359,17 +2835,6 @@
     padding: 7px 12px;
   }
 
-  .save-full-btn {
-    width: 100%;
-    margin-top: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 12px;
-    font-size: 14px;
-  }
-
   .lab-advanced {
     margin-top: 16px;
     border: 1px solid var(--border, #374151);
@@ -2476,7 +2941,8 @@
   }
 
   @keyframes pulse-dot {
-    0%, 100% {
+    0%,
+    100% {
       opacity: 1;
       transform: scale(1);
     }

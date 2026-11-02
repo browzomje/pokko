@@ -44,27 +44,27 @@
           "types": [
             {
               "type": "feat",
-              "section": "\u2728 Features"
+              "section": "Features"
             },
             {
               "type": "fix",
-              "section": "\ud83d\udc1b Fixes"
+              "section": "Fixes"
             },
             {
               "type": "perf",
-              "section": "\u26a1 Performance"
+              "section": "Performance"
             },
             {
               "type": "refactor",
-              "section": "\u267b\ufe0f Refactoring"
+              "section": "Refactoring"
             },
             {
               "type": "build",
-              "section": "\ud83d\udce6 Build"
+              "section": "Build"
             },
             {
               "type": "docs",
-              "section": "\ud83d\udcdd Documentation",
+              "section": "Documentation",
               "hidden": true
             },
             {

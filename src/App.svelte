@@ -13,7 +13,7 @@
   import DownloadsPage from "./pages/DownloadsPage.svelte";
   import { api, message } from "./lib/api";
   import { newSource } from "./lib/source-config";
-  import { formats, getFormats } from "./lib/presentation";
+  import { formats } from "./lib/presentation";
   import { t } from "./lib/i18n";
   import type { MangaPage } from "./types";
 
@@ -239,17 +239,12 @@
           : current?.volumeFilter === "issues"),
     ) || [],
   );
-  let pending = $derived(
-    jobs.filter((j) => ["queued", "running", "paused"].includes(j.status))
-      .length,
-  );
   async function goSearch() {
     explorerRoute = "results";
     active = "search";
     await tick();
     searchInput?.focus({ preventScroll: true });
   }
-  let running = $derived(jobs.find((j) => j.status === "running"));
   $effect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("mw-theme", theme);
@@ -657,17 +652,7 @@
           />
         {/if}
       </main>
-      <footer>
-        <span
-          ><span class="dot"></span>{running
-            ? `${t("downloads.footerDownloading")}: ${running.volume.title}`
-            : t("downloads.footerReady")}
-        </span><span
-          >{t("downloads.footerQueued", { count: pending })} <span class="footer-separator">|</span>
-          {getFormats().find((f) => f.value === settings.export_format)?.label ||
-            t("format.pdf")}
-        </span>
-      </footer>
+
     </div>
   </div>
 </div>
