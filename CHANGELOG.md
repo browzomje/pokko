@@ -1,3 +1,9 @@
+## [1.3.2](https://github.com/browzomje/pokko/compare/v1.3.1...v1.3.2) (2026-11-02)
+
+### Fixes
+
+* simplify Source Lab and stabilize the Firefox companion ([3f1a3d7](https://github.com/browzomje/pokko/commit/3f1a3d7bf84b97a2eef84889f9e614fa6ad2faee))
+
 ## [1.3.1](https://github.com/browzomje/pokko/compare/v1.3.0...v1.3.1) (2026-11-01)
 
 ### 🐛 Fixes
