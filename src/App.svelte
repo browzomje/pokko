@@ -67,7 +67,14 @@
         j.status === "paused",
     );
     if (!pendingJobs.length) {
-      return { isDownloading: false, progress: 0, current: 0, total: 0 };
+      return {
+        isDownloading: false,
+        progress: 0,
+        current: 0,
+        total: 0,
+        cover: "",
+        title: "",
+      };
     }
     const runningJob =
       pendingJobs.find((j) => j.status === "running") || pendingJobs[0];
@@ -82,6 +89,8 @@
       progress,
       current: currentIdx,
       total: totalCount,
+      cover: runningJob?.manga?.cover || "",
+      title: runningJob?.manga?.title || "",
     };
   });
   let settings = $state<Settings>({

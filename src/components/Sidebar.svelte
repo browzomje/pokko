@@ -26,7 +26,14 @@
     onTheme,
     onShortcuts,
     onLab,
-    downloadStats = { isDownloading: false, progress: 0, current: 0, total: 0 },
+    downloadStats = {
+      isDownloading: false,
+      progress: 0,
+      current: 0,
+      total: 0,
+      cover: "",
+      title: "",
+    },
   }: {
     active: string;
     navigate: (section: string) => void;
@@ -39,6 +46,8 @@
       progress: number;
       current: number;
       total: number;
+      cover?: string;
+      title?: string;
     };
   } = $props();
 
@@ -83,36 +92,41 @@
     <Search size={18} />
     {t("nav.explore")} <kbd>Ctrl K</kbd>
   </button>
-  <button class:chosen={active === "queue"} onclick={() => navigate("queue")}>
+  <button
+    class="sidebar-queue-btn"
+    class:chosen={active === "queue"}
+    class:is-downloading={downloadStats?.isDownloading}
+    onclick={() => navigate("queue")}
+    title={downloadStats?.isDownloading
+      ? `${downloadStats.title ? downloadStats.title + ' · ' : ''}${downloadStats.current}/${downloadStats.total} (${downloadStats.progress}%)`
+      : t("nav.downloads")}
+  >
+    {#if downloadStats?.isDownloading}
+      <div
+        class="sidebar-progress-fill"
+        style="width: {Math.max(0, Math.min(100, downloadStats.progress))}%;"
+        aria-hidden="true"
+      ></div>
+      <div
+        class="sidebar-progress-bottom-bar"
+        style="width: {Math.max(0, Math.min(100, downloadStats.progress))}%;"
+        aria-hidden="true"
+      ></div>
+    {/if}
     <div class="sidebar-icon-wrapper">
-      {#if downloadStats?.isDownloading}
-        <svg
-          class="progress-ring"
-          viewBox="0 0 24 24"
-          width="24"
-          height="24"
-          aria-hidden="true"
-        >
-          <circle class="ring-bg" cx="12" cy="12" r="9" stroke-width="2.5" />
-          <circle
-            class="ring-bar"
-            cx="12"
-            cy="12"
-            r="9"
-            stroke-width="2.5"
-            stroke-dasharray={2 * Math.PI * 9}
-            stroke-dashoffset={2 *
-              Math.PI *
-              9 *
-              (1 - Math.max(0, Math.min(100, downloadStats.progress)) / 100)}
-          />
-        </svg>
-        <Download size={13} class="icon-downloading" />
+      {#if downloadStats?.isDownloading && downloadStats.cover}
+        <img
+          src={downloadStats.cover}
+          alt={downloadStats.title || ""}
+          class="sidebar-download-cover"
+        />
+      {:else if downloadStats?.isDownloading}
+        <Download size={18} class="icon-downloading" />
       {:else}
         <Download size={18} />
       {/if}
     </div>
-    <span>{t("nav.downloads")}</span>
+    <span class="sidebar-label">{t("nav.downloads")}</span>
     {#if downloadStats?.isDownloading}
       <span
         class="download-badge"
@@ -353,34 +367,52 @@
     color: var(--accent, #818cf8);
     flex-shrink: 0;
   }
+  .sidebar-queue-btn {
+    position: relative;
+    overflow: hidden;
+  }
+  .sidebar-progress-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: color-mix(in srgb, var(--accent, #6366f1) 22%, transparent);
+    pointer-events: none;
+    border-radius: inherit;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 0;
+  }
+  .sidebar-progress-bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--accent, #6366f1);
+    pointer-events: none;
+    border-radius: 0 2px 2px 0;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+  }
+  .sidebar-queue-btn > *:not(.sidebar-progress-fill):not(.sidebar-progress-bottom-bar) {
+    position: relative;
+    z-index: 2;
+  }
   .sidebar-icon-wrapper {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    min-height: 22px;
     margin-right: 2px;
     flex-shrink: 0;
   }
-  .progress-ring {
-    position: absolute;
-    top: -2px;
-    left: -2px;
-    width: 24px;
+  .sidebar-download-cover {
+    width: 20px;
     height: 24px;
-    transform: rotate(-90deg);
-    pointer-events: none;
-  }
-  .ring-bg {
-    fill: none;
-    stroke: color-mix(in srgb, var(--accent, #6366f1) 20%, transparent);
-  }
-  .ring-bar {
-    fill: none;
-    stroke: var(--accent, #6366f1);
-    stroke-linecap: round;
-    transition: stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    object-fit: cover;
+    border-radius: 3px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 45%, transparent);
+    display: block;
   }
   .sidebar-icon-wrapper :global(.icon-downloading) {
     color: var(--accent, #6366f1);

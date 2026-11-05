@@ -693,6 +693,49 @@ footer button {
   background: var(--hover);
   color: var(--accent);
   flex-shrink: 0;
+  position: relative;
+}
+.job-icon.has-cover {
+  width: 42px;
+  height: 58px;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.job-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.job-cover-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.job-cover-badge.running {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.job-cover-badge.completed {
+  color: #65ba91;
+  border-color: color-mix(in srgb, #65ba91 55%, transparent);
+}
+.job-cover-badge.error {
+  color: #ef9292;
+  border-color: color-mix(in srgb, #ef9292 55%, transparent);
 }
 .job-title {
   flex: 1;

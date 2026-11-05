@@ -31,13 +31,30 @@
 
 <article class="job" class:finished={job.status === "completed"}>
   <div class="job-top">
-    <div class="job-icon">
-      {#if job.status === "completed"}<Check
-          size={22}
-        />{:else if job.status === "running"}<LoaderCircle
-          class="spin"
-          size={22}
-        />{:else}<BookOpen size={22} />{/if}
+    <div class="job-icon" class:has-cover={Boolean(job.manga?.cover)}>
+      {#if job.manga?.cover}
+        <img
+          src={job.manga.cover}
+          alt={job.manga.title}
+          class="job-cover-img"
+          loading="lazy"
+        />
+        <div class="job-cover-badge {job.status}">
+          {#if job.status === "completed"}
+            <Check size={12} strokeWidth={3} />
+          {:else if job.status === "running"}
+            <LoaderCircle class="spin" size={12} strokeWidth={3} />
+          {:else}
+            <BookOpen size={12} />
+          {/if}
+        </div>
+      {:else if job.status === "completed"}
+        <Check size={22} />
+      {:else if job.status === "running"}
+        <LoaderCircle class="spin" size={22} />
+      {:else}
+        <BookOpen size={22} />
+      {/if}
     </div>
     <div class="job-title">
       <h3>{job.manga.title}</h3>
