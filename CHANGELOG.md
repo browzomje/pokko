@@ -1,3 +1,9 @@
+## [1.8.0](https://github.com/browzomje/pokko/compare/v1.7.1...v1.8.0) (2026-11-05)
+
+### Features
+
+* add standalone command line interface and headless runner ([f3c29dd](https://github.com/browzomje/pokko/commit/f3c29dd74596db48896cb26d052cfe40b9b67a14))
+
 ## [1.7.1](https://github.com/browzomje/pokko/compare/v1.7.0...v1.7.1) (2026-11-05)
 
 ### Fixes
