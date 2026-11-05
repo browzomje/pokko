@@ -60,6 +60,12 @@ struct Job {
     message: String,
     output: String,
     settings: Settings,
+    #[serde(default)]
+    phase: String,
+    #[serde(default)]
+    export_done: usize,
+    #[serde(default)]
+    export_total: usize,
 }
 #[derive(Serialize, Deserialize, Default)]
 struct Saved {
@@ -84,6 +90,15 @@ fn adopt_download_preferences(saved: &mut Saved) {
             settings.delay_ms = 500;
         }
         saved.download_preferences_version = 2;
+    }
+    if saved.download_preferences_version < 3 {
+        if let Some(settings) = &mut saved.settings {
+            let p = Path::new(&settings.output);
+            if p.file_name().is_some_and(|name| name == "Downloads") {
+                settings.output = p.join("Pokko").display().to_string();
+            }
+        }
+        saved.download_preferences_version = 3;
     }
 }
 struct Engine {
@@ -755,6 +770,9 @@ async fn enqueue(
             message: "In attesa".into(),
             output: String::new(),
             settings: settings.clone(),
+            phase: "queued".into(),
+            export_done: 0,
+            export_total: 0,
         };
         let _ = app.emit("job-update", job.clone());
         saved.jobs.push(job);
@@ -954,6 +972,7 @@ async fn download(
     engine
         .update(app, &job.id, |j| {
             j.status = "running".into();
+            j.phase = "downloading".into();
             j.output = dir.display().to_string();
             j.chapters_done = 0;
             j.bytes = 0;
@@ -1204,6 +1223,9 @@ async fn download(
     if format != "images" {
         engine
             .update(app, &job.id, |j| {
+                j.phase = "exporting".into();
+                j.export_done = 0;
+                j.export_total = total_pages;
                 j.message = format!(
                     "Creazione {} · {} pagine verificate",
                     format.to_uppercase(),
@@ -1272,6 +1294,7 @@ async fn download(
                     .filter(|p| p.is_dir())
                     .collect::<Vec<_>>();
                 dirs.sort();
+                let mut files_to_write = Vec::new();
                 for d in dirs {
                     let mut files = std::fs::read_dir(d)
                         .map_err(|e| e.to_string())?
@@ -1288,23 +1311,26 @@ async fn download(
                         })
                         .collect::<Vec<_>>();
                     files.sort();
-                    for f in files {
-                        match controls.blocking_lock().get(&job_id).map(String::as_str) {
-                            Some("cancel") => return Err("Annullato".into()),
-                            Some("pause") => return Err("In pausa".into()),
-                            _ => {}
-                        }
-                        zip.start_file(
-                            f.strip_prefix(&source)
-                                .unwrap()
-                                .to_string_lossy()
-                                .replace('\\', "/"),
-                            options,
-                        )
-                        .map_err(|e| e.to_string())?;
-                        zip.write_all(&std::fs::read(f).map_err(|e| e.to_string())?)
-                            .map_err(|e| e.to_string())?;
+                    files_to_write.extend(files);
+                }
+                let total_files = files_to_write.len();
+                for (idx, f) in files_to_write.iter().enumerate() {
+                    match controls.blocking_lock().get(&job_id).map(String::as_str) {
+                        Some("cancel") => return Err("Annullato".into()),
+                        Some("pause") => return Err("In pausa".into()),
+                        _ => {}
                     }
+                    let _ = progress_tx.send((idx + 1, total_files));
+                    zip.start_file(
+                        f.strip_prefix(&source)
+                            .unwrap()
+                            .to_string_lossy()
+                            .replace('\\', "/"),
+                        options,
+                    )
+                    .map_err(|e| e.to_string())?;
+                    zip.write_all(&std::fs::read(f).map_err(|e| e.to_string())?)
+                        .map_err(|e| e.to_string())?;
                 }
                 zip.finish().map_err(|e| e.to_string())?;
                 std::fs::rename(temporary, &destination).map_err(|e| e.to_string())?;
@@ -1328,10 +1354,14 @@ async fn download(
                 integrity::save_export_proof(&destination, "cbz", total_pages)?;
                 Ok(destination.display().to_string())
             });
+        let fmt_upper = format.to_uppercase();
         while let Some((curr, total)) = progress_rx.recv().await {
             engine
                 .update(app, &job.id, |j| {
-                    j.message = format!("Creazione PDF · pagina {} di {}", curr, total);
+                    j.phase = "exporting".into();
+                    j.export_done = curr;
+                    j.export_total = total;
+                    j.message = format!("Creazione {} · pagina {} di {}", fmt_upper, curr, total);
                 })
                 .await;
         }
@@ -1358,6 +1388,9 @@ async fn download(
     engine
         .update(app, &job.id, |j| {
             j.status = "completed".into();
+            j.phase = "completed".into();
+            j.export_done = total_pages;
+            j.export_total = total_pages;
             j.verification.state = "verified".into();
             j.message = format!(
                 "Completo · {total_pages}/{total_pages} pagine verificate · {} riparate",
@@ -2090,6 +2123,9 @@ mod tests {
                 user_agent: None,
                 sources: sources::defaults(),
             },
+            phase: "queued".into(),
+            export_done: 0,
+            export_total: 0,
         };
         engine.saved.lock().await.jobs.push(job.clone());
         download(&engine, None, &job).await.unwrap();
@@ -2138,6 +2174,9 @@ mod tests {
                 user_agent: None,
                 sources: sources::defaults(),
             },
+            phase: "queued".into(),
+            export_done: 0,
+            export_total: 0,
         };
         engine.saved.lock().await.jobs.push(job);
         engine.remove("delete").await.unwrap();

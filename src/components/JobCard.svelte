@@ -13,6 +13,7 @@
     flag,
     jobLabels as labels,
     jobProgress as progress,
+    formatJobMessage,
   } from "../lib/presentation";
   import { t } from "../lib/i18n";
   import type { Job } from "../types";
@@ -62,10 +63,14 @@
         >{flag(job.manga.language)}
         {job.manga.source_name || "MangaWorld"} · {job.volume.title} · {job
           .volume.chapters.length}
-        {job.volume.chapters.length === 1 ? "capitolo" : "capitoli"}</span
+        {job.volume.chapters.length === 1
+          ? t("downloads.chapter")
+          : t("downloads.chapters")}</span
       >
     </div>
-    <span class={`status ${job.status}`}>{t(`downloads.status.${job.status}`) || labels[job.status]}</span>
+    <span class={`status ${job.status}`}
+      >{t(`downloads.status.${job.status}`) || labels[job.status]}</span
+    >
     <div class="job-actions">
       <button
         class="icon"
@@ -84,28 +89,39 @@
         >{/if}<button
         class="icon danger"
         title={t("downloads.cancel")}
-        aria-label={`Elimina ${job.manga.title} ${job.volume.title} dalla coda`}
+        aria-label={`${t("downloads.cancel")} ${job.manga.title} ${job.volume.title}`}
         onclick={() => removeJob(job)}><Trash2 size={19} /></button
       >
     </div>
   </div>
   {#if job.status !== "completed"}<div class="progress-label">
-      <span
-        >{job.chapter || "In attesa di iniziare"} · {job.pages_done}/{job.pages_total ||
-          "—"} pagine</span
-      ><strong>{progress(job)}%</strong>
+      {#if job.phase === "exporting" || (job.export_done && job.export_done > 0)}
+        <span
+          >{t("downloads.exportProgress", {
+            format: job.settings.export_format.toUpperCase(),
+          })} · {job.export_done || job.pages_done}/{job.export_total ||
+            job.pages_total} {t("downloads.pages")}</span
+        >
+      {:else}
+        <span
+          >{job.chapter || t("downloads.waitingToStart")} · {job.pages_done}/{job.pages_total ||
+            "—"} {t("downloads.pages")}</span
+        >
+      {/if}<strong>{progress(job)}%</strong>
     </div>
     <progress
       value={progress(job)}
       max="100"
-      aria-label={`Progresso ${job.volume.title}`}
+      aria-label={`${t("downloads.title")} ${job.volume.title}`}
     ></progress>
     <div class="job-meta">
       <span
         >{job.chapters_done}/{job.volume.chapters.length}
-        {job.volume.chapters.length === 1 ? "capitolo" : "capitoli"} completati ·
+        {job.volume.chapters.length === 1
+          ? t("downloads.chapter")
+          : t("downloads.chapters")} completati ·
         {job.settings.export_format.toUpperCase()}</span
-      ><span>{(job.bytes / 1024 / 1024).toFixed(1)} MB ricevuti</span>
+      ><span>{t("downloads.receivedMb", { mb: (job.bytes / 1024 / 1024).toFixed(1) })}</span>
     </div>
     <div
       class="verification"
@@ -114,21 +130,28 @@
       role="status"
     >
       <ShieldCheck size={15} />
-      {#if job.verification?.state === "verified"}Verificato · {job.verification
-          .verified}/{job.verification.total} pagine
-      {:else if job.verification?.state === "repairing"}Riparazione automatica · {job
-          .verification.verified}/{job.verification.total} pagine
-      {:else if job.verification?.state === "failed"}Verifica incompleta ·
-        riprendi per riprovare
-      {:else if job.verification?.state === "checking"}Verifica pagine · {job
-          .verification.verified}/{job.verification.total || "—"}
-      {:else}Da verificare{/if}
+      {#if job.verification?.state === "verified"}{t("downloads.verification.verified", {
+          verified: job.verification.verified,
+          total: job.verification.total,
+        })}
+      {:else if job.verification?.state === "repairing"}{t("downloads.verification.repairing", {
+          verified: job.verification.verified,
+          total: job.verification.total,
+        })}
+      {:else if job.verification?.state === "failed"}{t("downloads.verification.failed")}
+      {:else if job.verification?.state === "checking"}{t("downloads.verification.checking", {
+          verified: job.verification.verified,
+          total: job.verification.total || "—",
+        })}
+      {:else}{t("downloads.verification.toVerify")}{/if}
       {#if job.verification?.repaired}<span
-          >· {job.verification.repaired} riparate</span
+          >{t("downloads.verification.repaired", {
+            count: job.verification.repaired,
+          })}</span
         >{/if}
     </div>
   {/if}
-  <p class:failure={job.status === "error"}>{job.message}</p>
+  <p class:failure={job.status === "error"}>{formatJobMessage(job.message)}</p>
   {#if job.output}<div class="output-path" title={job.output}>
       <FolderOpen size={14} /><span>{job.output}</span>
     </div>{/if}

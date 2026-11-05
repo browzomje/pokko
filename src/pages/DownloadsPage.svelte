@@ -71,13 +71,13 @@
         class:chosen={queueFilter === "active"}
         onclick={() => (queueFilter = "active")}
       >
-        In corso ({pending})
+        {t("downloads.active")} ({pending})
       </button>
       <button
         class:chosen={queueFilter === "completed"}
         onclick={() => (queueFilter = "completed")}
       >
-        Completati ({completed})
+        {t("downloads.completed")} ({completed})
       </button>
     </div>
 

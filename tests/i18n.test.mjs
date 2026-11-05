@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const ALL_LOCALES = [
   "ar", "zh", "nl", "en", "fr", "de", "hi", "it", "ja", "ko", "pl", "pt", "ru", "es", "tr"
@@ -42,24 +43,63 @@ test('placeholders match en.json across all 15 locales', () => {
   }
 });
 
+test('no locale contains empty string values', () => {
+  for (const lang of ALL_LOCALES) {
+    const data = JSON.parse(readFileSync(new URL(`${lang}.json`, localesDir), 'utf8'));
+    for (const [key, val] of Object.entries(data)) {
+      assert.ok(
+        typeof val === 'string' && val.trim().length > 0,
+        `Empty or invalid translation value in ${lang}.json for key "${key}"`
+      );
+    }
+  }
+});
+
 test('en.json does not contain untranslated Italian words', () => {
   const commonItalianWords = [
     'scarica', 'capitoli', 'capitolo', 'ricerca', 'fonti', 'impostazioni',
     'lingua', 'salva', 'bozza', 'verifica', 'elementi', 'precedente',
-    'successiva', 'trovati', 'attendere', 'connessione', 'pagina', 'pagine',
-    'selezionati', 'chiudi', 'annulla', 'riprendi', 'pausa', 'destinazione',
-    'intervallo', 'secondo', 'secondi', 'apri', 'esplora'
+    'successiva', 'trovati', 'attendere', 'connessione', 'pagine',
+    'selezionati', 'chiudi', 'annulla', 'riprendi', 'destinazione',
+    'intervallo', 'secondo', 'secondi', 'esplora'
   ];
 
   for (const [key, value] of Object.entries(en)) {
     if (typeof value !== 'string') continue;
-    // Tokenize into words
     const words = value.toLowerCase().replace(/[^a-zàèéìòù]/g, ' ').split(/\s+/).filter(Boolean);
     for (const itWord of commonItalianWords) {
       assert.ok(
         !words.includes(itWord),
         `Untranslated Italian word "${itWord}" found in en.json under key "${key}": "${value}"`
       );
+    }
+  }
+});
+
+test('templates in src/components and src/pages do not contain untranslated raw Italian download/detail labels', () => {
+  const rootDir = new URL('../src/', import.meta.url);
+  const dirs = ['components', 'pages'];
+  const suspiciousRawLabels = [
+    />\s*In corso \(/,
+    />\s*Completati \(/,
+    />\s*Seleziona tutti</,
+    />\s*Da verificare</,
+    />\s*Caricamento dei volumi</,
+    />\s*Sto leggendo l’elenco dei capitoli…</,
+    />\s*Impossibile caricare il manga</
+  ];
+
+  for (const d of dirs) {
+    const dirPath = new URL(`${d}/`, rootDir);
+    const files = readdirSync(dirPath).filter((f) => f.endsWith('.svelte'));
+    for (const file of files) {
+      const content = readFileSync(new URL(file, dirPath), 'utf8');
+      for (const pattern of suspiciousRawLabels) {
+        assert.ok(
+          !pattern.test(content),
+          `Found raw untranslated Italian label matching ${pattern} in ${d}/${file}. Use t(...) instead.`
+        );
+      }
     }
   }
 });

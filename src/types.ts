@@ -50,6 +50,9 @@ export interface Job {
   message: string;
   output: string;
   settings: Settings;
+  phase?: string;
+  export_done?: number;
+  export_total?: number;
 }
 
 export interface Source {

@@ -68,8 +68,8 @@
   }
   function pageTotal(volume: Volume) {
     return volume.chapters.every((c) => c.page_count != null)
-      ? `${volume.chapters.reduce((n, c) => n + (c.page_count || 0), 0)} pagine`
-      : "Pagine da verificare";
+      ? `${volume.chapters.reduce((n, c) => n + (c.page_count || 0), 0)} ${t("downloads.pages")}`
+      : t("detail.pagesPending");
   }
 </script>
 
@@ -78,12 +78,12 @@
 >
 {#if current.loading}<div class="empty">
     <LoaderCircle size={32} class="spin" />
-    <h2>Caricamento dei volumi</h2>
-    <p>Sto leggendo l’elenco dei capitoli…</p>
+    <h2>{t("detail.loadingVolumes")}</h2>
+    <p>{t("detail.loadingChapters")}</p>
   </div>{:else if current.error}<div class="empty">
-    <h2>Impossibile caricare il manga</h2>
+    <h2>{t("detail.cannotLoad")}</h2>
     <p>{current.error}</p>
-    <button onclick={() => loadDetail(current!.manga)}>Riprova</button>
+    <button onclick={() => loadDetail(current!.manga)}>{t("detail.retry")}</button>
   </div>{:else if current.detail}
   <div class="detail-heading">
     <div class="detail-cover">
@@ -98,10 +98,10 @@
         {current.detail.manga.source_name || "MangaWorld"} · {current.detail.volumes.reduce(
           (n, v) => n + v.chapters.length,
           0,
-        )} CAPITOLI
+        )} {t("detail.chapters").toUpperCase()}
         {#if !hasUngrouped}
           · {current.detail.volumes.length}
-          {current.catalog === "comics" ? "ELEMENTI" : "VOLUMI"}{/if}
+          {current.catalog === "comics" ? "COMICS" : t("detail.volumes").toUpperCase()}{/if}
       </div>
       <h1>{current.title}</h1>
       <p class="description">{current.detail.description}</p>
@@ -111,7 +111,7 @@
       class="queue-filters"
       aria-label="Raccolte e albi comics"
     >
-      {#each [{ value: "collections", label: "Volumi / raccolte" }, { value: "issues", label: "Singoli albi" }, { value: "all", label: "Tutti gli elementi" }] as filter}<button
+      {#each [{ value: "collections", label: t("detail.collections") }, { value: "issues", label: t("detail.issues") }, { value: "all", label: t("detail.allElements") }] as filter}<button
           class:chosen={current.volumeFilter === filter.value}
           aria-pressed={current.volumeFilter === filter.value}
           onclick={() => {
@@ -132,58 +132,59 @@
     </div>{/if}
   <div class="download-destination">
     <FolderOpen size={16} /><span title={settings.output}
-      >{settings.output || "Scegli una cartella al primo download"}</span
-    ><button onclick={onSettings}>{formatLabel} · Modifica</button>
+      >{settings.output || t("detail.destinationNotice")}</span
+    ><button onclick={onSettings}>{formatLabel} · {t("detail.edit")}</button>
   </div>
   {#if hasUngrouped}<p class="grouping-note">
-      La fonte non indica i volumi per {current.detail.volumes
-        .filter(unknownVolume)
-        .reduce((n, v) => n + v.chapters.length, 0)} capitoli. Sono elencati singolarmente.
+      {t("detail.ungroupedNote", {
+        count: current.detail.volumes
+          .filter(unknownVolume)
+          .reduce((n, v) => n + v.chapters.length, 0),
+      })}
     </p>{/if}
   <div class="export-choice">
-    <span>Organizza i file</span><Select
-      label="Organizzazione dei download"
+    <span>{t("detail.organizeFiles")}</span><Select
+      label={t("detail.organizeFiles")}
       bind:value={exportMode}
       options={[
         {
           value: "items",
           label: hasUngrouped
-            ? "Un file per capitolo / volume disponibile"
-            : "Un file per volume / albo",
+            ? t("detail.modeAvailable")
+            : t("detail.onePerVolume"),
         },
         {
           value: "chapters",
-          label: "Un file per capitolo",
+          label: t("detail.onePerChapter"),
           disabled: !canSplit,
         },
         {
           value: "combined",
-          label: "Un unico file per la selezione",
+          label: t("detail.singleFile"),
         },
       ]}
     />
     <small
       >{exportMode === "combined"
-        ? "I capitoli selezionati saranno uniti, nell’ordine mostrato."
-        : "Ogni elemento verrà salvato separatamente."} Formato: {formatLabel}.</small
+        ? t("detail.combinedDesc", { format: formatLabel })
+        : t("detail.separateDesc", { format: formatLabel })}</small
     >
   </div>
   {#if !canSplit && current.catalog === "comics"}<p class="grouping-note">
-      Ogni elemento ha un solo lettore nella fonte. Le raccolte non espongono i
-      singoli capitoli: puoi scaricarle intere o unirle.
+      {t("detail.comicsSingleReaderNote")}
     </p>{/if}
   <div class="output-preview" aria-live="polite">
     <strong
       >{selection.length
-        ? `${selection.length} elementi → ${output.length} file`
-        : "Seleziona gli elementi per vedere i file che verranno creati"}</strong
+        ? t("detail.selectionPreview", { selection: selection.length, output: output.length })
+        : t("detail.selectionPrompt")}</strong
     >{#if output.length}<ul>
         {#each output.slice(0, 3) as file}<li>
             {file.title} · {file.chapters.length}
-            {file.chapters.length === 1 ? "capitolo" : "capitoli"}
+            {file.chapters.length === 1 ? t("downloads.chapter") : t("downloads.chapters")}
           </li>{/each}
       </ul>
-      {#if output.length > 3}<small>… e altri {output.length - 3} file</small
+      {#if output.length > 3}<small>{t("detail.moreFiles", { count: output.length - 3 })}</small
         >{/if}{/if}
   </div>
   <div class="volume-toolbar">
@@ -201,7 +202,7 @@
                 ? []
                 : visibleVolumes.map((v) => v.title);
         }}
-      /> Seleziona tutti</label
+      /> {t("detail.selectAll")}</label
     >
     <div>
       <button
@@ -234,12 +235,12 @@
               onchange={() => toggle(volume)}
             /><BookOpen size={19} /><strong>{volume.title}</strong><span
               >{volume.chapters.length > 1
-                ? `${volume.chapters.length} capitoli · `
+                ? `${volume.chapters.length} ${t("downloads.chapters")} · `
                 : ""}{pageTotal(volume)}</span
             ></label
           >{#if volume.chapters.length > 1}<button
               class="icon"
-              aria-label={`Mostra capitoli di ${volume.title}`}
+              aria-label={t("detail.showChapters", { title: volume.title })}
               aria-expanded={current.expanded.includes(volume.title)}
               onclick={() =>
                 (current!.expanded = current!.expanded.includes(volume.title)
@@ -251,13 +252,13 @@
               /></button
             >{/if}<button
             class="icon"
-            title="Conta le pagine senza scaricare le scan"
+            title={t("detail.countPages")}
             disabled={volume.chapters.some((c) => counting.includes(c.url))}
             onclick={() => countPages(volume)}><Search size={17} /></button
           ><button
             class="icon"
-            aria-label={`Scarica ${volume.title}`}
-            title={`Scarica ${volume.title}`}
+            aria-label={t("detail.downloadVolume", { title: volume.title })}
+            title={t("detail.downloadVolume", { title: volume.title })}
             disabled={queueing}
             onclick={() => enqueue([volume])}
             ><ArrowDownToLine size={19} /></button
@@ -267,12 +268,12 @@
             {#each volume.chapters as chapter}<div>
                 <span>{chapter.title}</span><span
                   >{chapter.page_count != null
-                    ? `${chapter.page_count} pagine`
-                    : "— pagine"}</span
+                    ? `${chapter.page_count} ${t("downloads.pages")}`
+                    : `— ${t("downloads.pages")}`}</span
                 >
                 <button
                   class="icon"
-                  title="Conta pagine"
+                  title={t("detail.countPages")}
                   disabled={counting.includes(chapter.url)}
                   onclick={() =>
                     countPages({
