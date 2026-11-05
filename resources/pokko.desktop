@@ -1,6 +1,7 @@
 [Desktop Entry]
 Name=pokko
-Comment=Ricerca manga e download organizzati per volume
+Comment=Download manga and comics organized by chapter and volume
+Comment[it]=Ricerca manga e download organizzati per volume
 Exec=pokko
 Icon=pokko
 Type=Application

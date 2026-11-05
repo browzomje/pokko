@@ -1,8 +1,15 @@
+# Dependencies & build outputs
 node_modules/
 dist/
-src-tauri/target/
 target/
-.directory
-*.part
+src-tauri/target/
 src-tauri/gen/
+
+# Environment and OS files
+.directory
+
+# Temporary files
+*.part
+
+# Python cache
 __pycache__/

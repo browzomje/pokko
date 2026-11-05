@@ -1,6 +1,6 @@
 # Pokko Connectors Catalog
 
-Pokko connectors use a **100% declarative JSON** specification (`adapter: "generic"`), functioning similarly to uBlock Origin rule lists. No site-specific Rust code is required or permitted.
+Pokko connectors use a **100% declarative JSON** specification (`adapter: "generic"`), functioning similarly to adblock rule lists. No site-specific Rust code is required or permitted.
 
 ## Verified Official Connectors
 

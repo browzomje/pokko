@@ -4,54 +4,40 @@ Download manga and comics to read offline. Available for Linux and Windows.
 
 [Download the latest release](https://github.com/browzomje/pokko/releases/latest) · [Report a problem](https://github.com/browzomje/pokko/issues)
 
-## Install
+## Features
 
-Choose the installer for your system from the release page:
+- **Multiple export formats**: Save series as PDF, CBZ, CBR, or image folders.
+- **Granular chapter selection**: Select entire series, specific volumes, or individual chapters.
+- **Calibrated progress & verification**: Two-phase live progress tracking (downloads + format building) with image verification and automatic corrupt-file repair.
+- **Multi-language interface**: Full localization across 15 languages.
+- **Source Lab**: Built-in 5-step visual co-pilot with a sandboxed Firefox + uBlock Origin profile to create and test custom declarative connectors without writing code.
 
-| System | Package |
+## Installation
+
+Download the installer for your platform from the [Releases](https://github.com/browzomje/pokko/releases/latest) page:
+
+| Platform | Packages |
 | --- | --- |
-| Linux | `.AppImage`, `.deb` or `.rpm` |
-| Windows | `.exe` or `.msi` |
+| **Linux** | `.AppImage`, `.deb`, `.rpm` |
+| **Windows** | `.exe`, `.msi` |
 
-For AppImage, make the downloaded file executable before opening it.
+*Note for Linux AppImage*: run `chmod +x pokko-*.AppImage` before running. Firefox is required only if you want to record custom connectors in Source Lab.
 
-Firefox is needed for guided source recording in Source Lab. Pokko uses a separate Firefox profile and installs uBlock Origin there.
+## Quick Start
 
-## Download chapters
+1. **Catalog Sources**: Enable desired sources from the sidebar.
+2. **Explore**: Search for a manga or paste a series URL.
+3. **Select**: Choose volumes or specific chapters, then click **Download**.
+4. **Settings**: Configure output folder (`~/Downloads/Pokko` by default), request delay, and format.
+5. **Downloads**: Follow live download and packing progress, or open output folders.
 
-1. Open **Catalog Sources** and enable the sources you want to search.
-2. In **Explore**, search for a title or paste a series link from an enabled source.
-3. Open the series and select chapters or volumes.
-4. Choose your output folder and export format in **Settings**.
-5. Start the download. Follow progress and open completed files from **Downloads**.
+## Custom Sources
 
-Export formats include PDF, CBZ, CBR and image folders.
+Pokko uses 100% declarative JSON connectors (`adapter: "generic"`). You can create new connectors visually via **Source Lab** (`Ctrl+Shift+L` or `Ctrl+L`) or import community presets. See the [connector guide](connectors/README.md) for details.
 
-## Add a source
+## Build from Source
 
-Open **Source Lab** from the sidebar (`Ctrl+Shift+L`). Follow the instruction above each step and use the main button at the bottom right:
-
-1. **Site** — enter the website, source name and scan language; open the site.
-2. **Search** — search in Firefox, then detect and check the results. You can also start from an open series or skip search for a single-series site.
-3. **Series** — detect the chapter list and confirm a chapter to open.
-4. **Pages** — detect the scans and check the preview.
-5. **Verify** — try a chapter download, then save the connector. Enable it for catalog searches when ready.
-
-If detection needs correcting, expand **Other ways to complete this step** to select an element in Firefox. Manual selectors and other settings are under **Advanced configuration**.
-
-You can import and export JSON connectors from the source tools. See the [connector guide](connectors/README.md) for the schema and contribution instructions.
-
-## Troubleshooting
-
-- **A source stops working:** check its current address in Catalog Sources, then update its rules in Source Lab.
-- **Firefox does not connect:** close the Source Lab companion window and use **Next – open site** again. Your usual Firefox profile is separate.
-- **A download fails:** check the error in Downloads. Open **Settings → Diagnostics & Logs** for recent activity and the log file path.
-
-When reporting a problem, include the Pokko version, operating system, source URL and relevant error message.
-
-## Build from source
-
-Requires Node.js 22+, stable Rust and the [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites/). On Linux, install WebKitGTK 4.1 development packages. Install Firefox to use guided source recording.
+Prerequisites: Node.js 22+, stable Rust toolchain, and [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ```sh
 git clone https://github.com/browzomje/pokko.git
@@ -60,15 +46,19 @@ npm ci
 npm run tauri dev
 ```
 
-Create installers with `npm run tauri build`.
+Build release packages:
 
-Run checks with:
+```sh
+npm run tauri build
+```
+
+Run test suite:
 
 ```sh
 npm run check
 npm run check:i18n
 npm test
-cargo test --locked --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 ## License

@@ -7,7 +7,7 @@ if [ "${CI:-}" = "true" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
 fi
 
 echo "=========================================="
-echo "🛡️  Pokko Quality Gate: pre-push hook"
+echo "Pokko Quality Gate: pre-push hook"
 echo "=========================================="
 
 echo "==> [1/5] Cargo fmt check..."
@@ -26,5 +26,5 @@ echo "==> [5/5] NPM tests..."
 npm test
 
 echo "=========================================="
-echo "✅ All Pokko pre-push checks passed!"
+echo "All Pokko pre-push checks passed successfully."
 echo "=========================================="

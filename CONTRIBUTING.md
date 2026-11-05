@@ -17,7 +17,7 @@ pokko uses [Conventional Commits](https://www.conventionalcommits.org/) to autom
 
 ### Rules
 
-1. **No emojis in commit messages**: Commit messages must use plain text prefixes only (e.g. `feat: ...`, `fix: ...`). Do **not** prefix the description with emojis like `✨` or `🐛`. Emojis are reserved for section headings in the automatically generated release changelogs.
+1. **No emojis in commit messages or release notes**: Commit messages must use plain text prefixes only (e.g. `feat: ...`, `fix: ...`). Do not use emojis in commit subjects, commit bodies, or release notes.
 2. **Imperative mood**: Use "add", "fix", "update", not "added", "fixed", "updates".
 3. **No trailing period**: Keep the summary line clean and concise.
 
@@ -59,8 +59,9 @@ Before submitting changes, ensure all checks pass:
 
 ```sh
 npm run check
+npm run check:i18n
 npm test
-npm run build
-cargo check --manifest-path src-tauri/Cargo.toml
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
