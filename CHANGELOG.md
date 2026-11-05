@@ -1,3 +1,9 @@
+## [1.7.0](https://github.com/browzomje/pokko/compare/v1.6.0...v1.7.0) (2026-11-05)
+
+### Features
+
+* parallelize page downloads and localize catalog and inspector UI ([792a4dc](https://github.com/browzomje/pokko/commit/792a4dc6e76c898fd091452d6f89b88a188a19b2))
+
 ## [1.6.0](https://github.com/browzomje/pokko/compare/v1.5.0...v1.6.0) (2026-11-05)
 
 ### Features
