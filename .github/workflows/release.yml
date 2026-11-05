@@ -81,9 +81,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p installers
-          for extension in exe msi deb rpm AppImage; do
+          for extension in exe msi deb rpm AppImage tar.gz zip; do
             mapfile -t files < <(find release-assets -type f -name "*.$extension")
-            test "${#files[@]}" -gt 0 || { echo "Missing $extension installer"; exit 1; }
+            test "${#files[@]}" -gt 0 || { echo "Missing $extension archive or installer"; exit 1; }
             cp "${files[@]}" installers/
           done
           (cd installers && sha256sum * > SHA256SUMS.txt)

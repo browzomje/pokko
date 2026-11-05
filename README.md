@@ -16,10 +16,10 @@ Download manga and comics to read offline. Available for Linux and Windows.
 
 Download the installer for your platform from the [Releases](https://github.com/browzomje/pokko/releases/latest) page:
 
-| Platform | Packages |
-| --- | --- |
-| **Linux** | `.AppImage`, `.deb`, `.rpm` |
-| **Windows** | `.exe`, `.msi` |
+| Platform | Packages | Standalone CLI |
+| --- | --- | --- |
+| **Linux** | `.AppImage`, `.deb`, `.rpm` | `pokko-cli-linux-x86_64.tar.gz` |
+| **Windows** | `.exe`, `.msi` | `pokko-cli-windows-x64.zip` |
 
 *Note for Linux AppImage*: run `chmod +x pokko-*.AppImage` before running. Firefox is required only if you want to record custom connectors in Source Lab.
 
@@ -39,8 +39,9 @@ Pokko can also run entirely from the terminal (both as `pokko` with arguments an
 # Search manga across sources
 pokko search "Berserk" --source mw
 
-# Inspect series metadata and chapters
+# Inspect series metadata and chapters (supports local custom connector JSON)
 pokko info "https://www.mangaworld.mx/manga/2278/berserk"
+pokko info "https://example.com/manga/1" --connector my-source.json
 
 # Download specific chapters or ranges (PDF, CBZ, CBR, images)
 pokko download "https://www.mangaworld.mx/manga/2278/berserk" --chapters 1-5 --format cbz
@@ -48,6 +49,10 @@ pokko download "https://www.mangaworld.mx/manga/2278/berserk" --chapters 1-5 --f
 # List and test catalog sources
 pokko sources list
 pokko sources test mw
+pokko sources test my-source.json
+
+# Shell auto-completions (bash, zsh, fish, powershell, elvish)
+pokko completions bash > ~/.local/share/bash-completion/completions/pokko
 ```
 
 ## Custom Sources

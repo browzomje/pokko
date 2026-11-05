@@ -4,9 +4,10 @@ use crate::{
     sources::{self, Source},
     Engine, Job, Settings, Verification,
 };
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{generate, Shell};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -44,6 +45,9 @@ pub enum Commands {
         /// Explicit source ID (optional if URL matches a known source)
         #[arg(short, long)]
         source: Option<String>,
+        /// Path to custom connector JSON file
+        #[arg(short = 'C', long)]
+        connector: Option<PathBuf>,
     },
     /// Download chapters or entire volumes
     Download {
@@ -64,11 +68,20 @@ pub enum Commands {
         /// Explicit source ID
         #[arg(short, long)]
         source: Option<String>,
+        /// Path to custom connector JSON file
+        #[arg(short = 'C', long)]
+        connector: Option<PathBuf>,
     },
     /// Manage and inspect catalog sources
     Sources {
         #[command(subcommand)]
         action: Option<SourcesAction>,
+    },
+    /// Generate shell auto-completions
+    Completions {
+        /// Target shell
+        #[arg(value_enum)]
+        shell: Shell,
     },
 }
 
@@ -90,7 +103,16 @@ pub fn is_cli_invocation(args: &[String]) -> bool {
     }
     matches!(
         args[1].as_str(),
-        "search" | "info" | "download" | "sources" | "help" | "--help" | "-h" | "--version" | "-V"
+        "search"
+            | "info"
+            | "download"
+            | "sources"
+            | "completions"
+            | "help"
+            | "--help"
+            | "-h"
+            | "--version"
+            | "-V"
     )
 }
 
@@ -139,7 +161,11 @@ pub async fn run_cli() -> Result<(), String> {
             language,
             limit,
         } => handle_search(&query, source.as_deref(), language.as_deref(), limit).await,
-        Commands::Info { target, source } => handle_info(&target, source.as_deref()).await,
+        Commands::Info {
+            target,
+            source,
+            connector,
+        } => handle_info(&target, source.as_deref(), connector.as_deref()).await,
         Commands::Download {
             url,
             format,
@@ -147,6 +173,7 @@ pub async fn run_cli() -> Result<(), String> {
             chapters,
             delay,
             source,
+            connector,
         } => {
             handle_download(
                 &url,
@@ -155,6 +182,7 @@ pub async fn run_cli() -> Result<(), String> {
                 chapters.as_deref(),
                 delay,
                 source.as_deref(),
+                connector.as_deref(),
             )
             .await
         }
@@ -162,6 +190,11 @@ pub async fn run_cli() -> Result<(), String> {
             SourcesAction::List => handle_sources_list().await,
             SourcesAction::Test { target } => handle_sources_test(&target).await,
         },
+        Commands::Completions { shell } => {
+            let mut cmd = Cli::command();
+            generate(shell, &mut cmd, "pokko", &mut std::io::stdout());
+            Ok(())
+        }
     }
 }
 
@@ -242,6 +275,15 @@ async fn handle_search(
     Ok(())
 }
 
+/// Load a custom declarative connector from a local JSON file.
+async fn load_connector(path: &Path) -> Result<Source, String> {
+    let content = tokio::fs::read_to_string(path)
+        .await
+        .map_err(|e| format!("Cannot read connector file '{}': {}", path.display(), e))?;
+    serde_json::from_str::<Source>(&content)
+        .map_err(|e| format!("Invalid connector schema in '{}': {}", path.display(), e))
+}
+
 fn resolve_source(
     sources: &[Source],
     url: &str,
@@ -273,7 +315,11 @@ fn resolve_source(
         .ok_or_else(|| "Could not match URL to a catalog source. Specify --source <id>.".into())
 }
 
-async fn handle_info(target: &str, source_override: Option<&str>) -> Result<(), String> {
+async fn handle_info(
+    target: &str,
+    source_override: Option<&str>,
+    connector_file: Option<&Path>,
+) -> Result<(), String> {
     let engine = Engine::headless(None);
     let all_sources = {
         let saved = engine.saved.lock().await;
@@ -284,7 +330,11 @@ async fn handle_info(target: &str, source_override: Option<&str>) -> Result<(), 
             .unwrap_or_else(sources::defaults)
     };
 
-    let source = resolve_source(&all_sources, target, source_override)?;
+    let source = if let Some(conn_path) = connector_file {
+        load_connector(conn_path).await?
+    } else {
+        resolve_source(&all_sources, target, source_override)?
+    };
     let manga = Manga {
         authors: Vec::new(),
         title: target.to_string(),
@@ -410,6 +460,7 @@ async fn handle_download(
     chapters_spec: Option<&str>,
     delay_override: Option<u64>,
     source_override: Option<&str>,
+    connector_file: Option<&Path>,
 ) -> Result<(), String> {
     let valid_formats = ["pdf", "cbz", "cbr", "images"];
     let format = format.to_lowercase();
@@ -426,7 +477,7 @@ async fn handle_download(
         .unwrap_or_else(crate::default_download_dir);
 
     let engine = Engine::headless(Some(out_dir.clone()));
-    let all_sources = {
+    let mut all_sources = {
         let saved = engine.saved.lock().await;
         saved
             .settings
@@ -435,7 +486,14 @@ async fn handle_download(
             .unwrap_or_else(sources::defaults)
     };
 
-    let source = resolve_source(&all_sources, url, source_override)?;
+    let source = if let Some(conn_path) = connector_file {
+        let custom = load_connector(conn_path).await?;
+        all_sources.retain(|s| s.id != custom.id);
+        all_sources.insert(0, custom.clone());
+        custom
+    } else {
+        resolve_source(&all_sources, url, source_override)?
+    };
     let delay = delay_override.unwrap_or(source.min_delay_ms);
 
     println!("Resolving series metadata from {}…", source.name);
@@ -602,11 +660,7 @@ async fn handle_sources_list() -> Result<(), String> {
 async fn handle_sources_test(target: &str) -> Result<(), String> {
     let engine = Engine::headless(None);
     let source = if target.ends_with(".json") {
-        let content = tokio::fs::read_to_string(target)
-            .await
-            .map_err(|e| format!("Cannot read file '{}': {}", target, e))?;
-        serde_json::from_str::<sources::Source>(&content)
-            .map_err(|e| format!("Invalid connector schema: {}", e))?
+        load_connector(Path::new(target)).await?
     } else {
         let sources = {
             let saved = engine.saved.lock().await;
@@ -661,6 +715,7 @@ mod tests {
         assert!(is_cli_invocation(&["pokko".into(), "info".into()]));
         assert!(is_cli_invocation(&["pokko".into(), "download".into()]));
         assert!(is_cli_invocation(&["pokko".into(), "sources".into()]));
+        assert!(is_cli_invocation(&["pokko".into(), "completions".into()]));
         assert!(is_cli_invocation(&["pokko".into(), "--help".into()]));
         assert!(is_cli_invocation(&["pokko".into(), "-h".into()]));
         assert!(is_cli_invocation(&["pokko".into(), "--version".into()]));
@@ -669,6 +724,17 @@ mod tests {
             "pokko".into(),
             "--some-tauri-flag".into()
         ]));
+    }
+
+    #[test]
+    fn test_completions_generation() {
+        let mut cmd = Cli::command();
+        let mut buf = Vec::new();
+        clap_complete::generate(clap_complete::Shell::Bash, &mut cmd, "pokko", &mut buf);
+        let script = String::from_utf8(buf).expect("valid utf-8 shell script");
+        assert!(script.contains("pokko"));
+        assert!(script.contains("download"));
+        assert!(script.contains("completions"));
     }
 
     #[test]
