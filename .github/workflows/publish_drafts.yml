@@ -12,13 +12,14 @@ jobs:
   publish-drafts:
     runs-on: ubuntu-22.04
     steps:
+      - uses: actions/checkout@v6
       - name: Publish all drafts and ensure v1.3.2 is latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for tag in v1.1.0 v1.1.1 v1.2.0 v1.2.1 v1.2.2 v1.3.0; do
             echo "Publishing $tag..."
-            gh release edit "$tag" --draft=false || echo "Skipping $tag"
+            gh release edit "$tag" -R browzomje/pokko --draft=false || echo "Skipping $tag"
           done
           echo "Setting v1.3.2 as latest..."
-          gh release edit "v1.3.2" --latest
+          gh release edit "v1.3.2" -R browzomje/pokko --latest
