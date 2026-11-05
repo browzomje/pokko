@@ -1,3 +1,9 @@
+## [1.6.0](https://github.com/browzomje/pokko/compare/v1.5.0...v1.6.0) (2026-11-05)
+
+### Features
+
+* support granular chapter selection and publish releases without lingering drafts ([34db2f9](https://github.com/browzomje/pokko/commit/34db2f9f72d1370133e376a3d1636dcdc06571a5))
+
 ## [1.5.0](https://github.com/browzomje/pokko/compare/v1.4.0...v1.5.0) (2026-11-05)
 
 ### Features
