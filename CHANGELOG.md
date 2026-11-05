@@ -1,3 +1,9 @@
+## [1.8.1](https://github.com/browzomje/pokko/compare/v1.8.0...v1.8.1) (2026-11-05)
+
+### Fixes
+
+* add live console progress ticker and handle broken pipe in CLI ([58d4298](https://github.com/browzomje/pokko/commit/58d4298ec793b03199badaaec0f14d6ea4633789))
+
 ## [1.8.0](https://github.com/browzomje/pokko/compare/v1.7.1...v1.8.0) (2026-11-05)
 
 ### Features
