@@ -31,6 +31,25 @@ Download the installer for your platform from the [Releases](https://github.com/
 4. **Settings**: Configure output folder (`~/Downloads/Pokko` by default), request delay, and format.
 5. **Downloads**: Follow live download and packing progress, or open output folders.
 
+## Command Line Interface (CLI)
+
+Pokko can also run entirely from the terminal (both as `pokko` with arguments and as dedicated `pokko-cli`):
+
+```sh
+# Search manga across sources
+pokko search "Berserk" --source mw
+
+# Inspect series metadata and chapters
+pokko info "https://www.mangaworld.mx/manga/2278/berserk"
+
+# Download specific chapters or ranges (PDF, CBZ, CBR, images)
+pokko download "https://www.mangaworld.mx/manga/2278/berserk" --chapters 1-5 --format cbz
+
+# List and test catalog sources
+pokko sources list
+pokko sources test mw
+```
+
 ## Custom Sources
 
 Pokko uses 100% declarative JSON connectors (`adapter: "generic"`). You can create new connectors visually via **Source Lab** (`Ctrl+Shift+L` or `Ctrl+L`) or import community presets. See the [connector guide](connectors/README.md) for details.

@@ -489,6 +489,43 @@ pub async fn detail(
 }
 pub fn generic_detail(html: &str, mut manga: Manga, s: &Source) -> Result<Detail, String> {
     let doc = Html::parse_document(html);
+    if manga.title.is_empty()
+        || manga.title.starts_with("http://")
+        || manga.title.starts_with("https://")
+    {
+        if let Ok(og_sel) = css("meta[property='og:title'], meta[name='twitter:title']") {
+            if let Some(og) = doc
+                .select(&og_sel)
+                .next()
+                .and_then(|el| el.value().attr("content"))
+            {
+                let clean = og.split(" - ").next().unwrap_or(og).trim();
+                if !clean.is_empty() {
+                    manga.title = clean.to_string();
+                }
+            }
+        }
+        if manga.title.is_empty() || manga.title.starts_with("http") {
+            if let Ok(h1_sel) = css("h1") {
+                if let Some(h1) = doc.select(&h1_sel).next().map(text) {
+                    let clean = h1.trim();
+                    if !clean.is_empty() {
+                        manga.title = clean.to_string();
+                    }
+                }
+            }
+        }
+        if manga.title.is_empty() || manga.title.starts_with("http") {
+            if let Ok(title_sel) = css("title") {
+                if let Some(t) = doc.select(&title_sel).next().map(text) {
+                    let clean = t.split(" - ").next().unwrap_or(&t).trim();
+                    if !clean.is_empty() {
+                        manga.title = clean.to_string();
+                    }
+                }
+            }
+        }
+    }
     manga.authors.extend(structured_authors(html));
     if !s.author_selector.is_empty() {
         manga.authors.extend(
