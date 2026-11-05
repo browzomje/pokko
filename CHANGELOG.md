@@ -1,3 +1,9 @@
+## [1.7.1](https://github.com/browzomje/pokko/compare/v1.7.0...v1.7.1) (2026-11-05)
+
+### Fixes
+
+* localize remaining hardcoded save status messages in App and SourceLab ([57b68aa](https://github.com/browzomje/pokko/commit/57b68aa0cd909c2a8483e06c7420347b478f9f8d))
+
 ## [1.7.0](https://github.com/browzomje/pokko/compare/v1.6.0...v1.7.0) (2026-11-05)
 
 ### Features
