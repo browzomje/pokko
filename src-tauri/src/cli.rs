@@ -5,6 +5,7 @@ use crate::{
     Engine, Job, Settings, Verification,
 };
 use clap::{Parser, Subcommand};
+use std::io::Write;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -95,6 +96,14 @@ pub fn is_cli_invocation(args: &[String]) -> bool {
 
 /// Synchronous entry point that sets up a multithreaded Tokio runtime.
 pub fn run_cli_sync() {
+    std::panic::set_hook(Box::new(|info| {
+        let msg = info.to_string();
+        if msg.contains("Broken pipe") || msg.contains("os error 32") {
+            std::process::exit(0);
+        }
+        eprintln!("{info}");
+    }));
+
     let rt = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -510,7 +519,35 @@ async fn handle_download(
                 saved.jobs.push(job.clone());
             }
 
-            match crate::download(&engine, None, &job).await {
+            let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Job>();
+            *engine.progress_sink.lock().await = Some(tx);
+            let fmt_name = format.to_uppercase();
+            let reporter = tokio::spawn(async move {
+                while let Some(j) = rx.recv().await {
+                    if j.phase == "downloading" && j.pages_total > 0 {
+                        let pct = (j.pages_done * 100) / j.pages_total;
+                        print!(
+                            "\r    ↳ Scans: {}/{} ({:>2}%)   ",
+                            j.pages_done, j.pages_total, pct
+                        );
+                        let _ = std::io::stdout().flush();
+                    } else if j.phase == "exporting" && j.export_total > 0 {
+                        let pct = (j.export_done * 100) / j.export_total;
+                        print!(
+                            "\r    ↳ Packing {}: {}/{} ({:>2}%)   ",
+                            fmt_name, j.export_done, j.export_total, pct
+                        );
+                        let _ = std::io::stdout().flush();
+                    }
+                }
+            });
+
+            let download_res = crate::download(&engine, None, &job).await;
+            reporter.abort();
+            print!("\r                                                           \r");
+            let _ = std::io::stdout().flush();
+
+            match download_res {
                 Ok(_) => {
                     let saved = engine.saved.lock().await;
                     let finished_job = saved.jobs.iter().find(|j| j.id == job_id);

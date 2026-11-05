@@ -129,6 +129,7 @@ pub struct Engine {
     pub active: Mutex<Option<String>>,
     pub preview_pages: Mutex<HashMap<String, Vec<String>>>,
     pub creator_cache: Mutex<HashMap<String, Vec<String>>>,
+    pub progress_sink: Mutex<Option<tokio::sync::mpsc::UnboundedSender<Job>>>,
     pub file: PathBuf,
 }
 fn network_error(error: &reqwest::Error) -> String {
@@ -218,6 +219,7 @@ impl Engine {
             active: Mutex::new(None),
             preview_pages: Mutex::new(HashMap::new()),
             creator_cache: Mutex::new(HashMap::new()),
+            progress_sink: Mutex::new(None),
             file: queue_file,
         })
     }
@@ -242,6 +244,9 @@ impl Engine {
             f(j);
             if let Some(app) = app {
                 let _ = app.emit("job-update", j.clone());
+            }
+            if let Some(sink) = self.progress_sink.lock().await.as_ref() {
+                let _ = sink.send(j.clone());
             }
         }
     }
@@ -1755,6 +1760,7 @@ pub fn run_app() {
                 active: Mutex::new(None),
                 preview_pages: Mutex::new(HashMap::new()),
                 creator_cache: Mutex::new(HashMap::new()),
+                progress_sink: Mutex::new(None),
                 file,
             });
             app.manage(engine.clone());
@@ -1935,6 +1941,7 @@ mod tests {
             active: Mutex::new(None),
             preview_pages: Mutex::new(HashMap::new()),
             creator_cache: Mutex::new(HashMap::new()),
+            progress_sink: Mutex::new(None),
             file: output.join("queue.json"),
         }
     }
