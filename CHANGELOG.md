@@ -1,3 +1,9 @@
+## [1.5.0](https://github.com/browzomje/pokko/compare/v1.4.0...v1.5.0) (2026-11-05)
+
+### Features
+
+* calibrate two-phase export progress, default to Pokko directory, and localize all UI templates ([63f2816](https://github.com/browzomje/pokko/commit/63f28167b8b1002d24eedda8029dedf05a57fbe3))
+
 ## [1.4.0](https://github.com/browzomje/pokko/compare/v1.3.3...v1.4.0) (2026-11-05)
 
 ### Features
