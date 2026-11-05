@@ -1,3 +1,9 @@
+## [1.4.0](https://github.com/browzomje/pokko/compare/v1.3.3...v1.4.0) (2026-11-05)
+
+### Features
+
+* show progress fill and cover thumbnail in downloads sidebar and cards ([427128c](https://github.com/browzomje/pokko/commit/427128ce68d1fa43410a3493f3f8ad55a8121532))
+
 ## [1.3.3](https://github.com/browzomje/pokko/compare/v1.3.2...v1.3.3) (2026-11-05)
 
 ### Fixes
