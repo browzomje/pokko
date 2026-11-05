@@ -1,3 +1,9 @@
+## [1.3.3](https://github.com/browzomje/pokko/compare/v1.3.2...v1.3.3) (2026-11-05)
+
+### Fixes
+
+* optimize PDF export, add sidebar circular progress, and publish draft releases ([1da4a97](https://github.com/browzomje/pokko/commit/1da4a9770479df003e16290ee47add909623e626))
+
 ## [1.3.2](https://github.com/browzomje/pokko/compare/v1.3.1...v1.3.2) (2026-11-02)
 
 ### Fixes
