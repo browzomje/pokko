@@ -26,6 +26,7 @@
     onTheme,
     onShortcuts,
     onLab,
+    downloadStats = { isDownloading: false, progress: 0, current: 0, total: 0 },
   }: {
     active: string;
     navigate: (section: string) => void;
@@ -33,6 +34,12 @@
     onTheme: () => void;
     onShortcuts: () => void;
     onLab: () => void;
+    downloadStats?: {
+      isDownloading: boolean;
+      progress: number;
+      current: number;
+      total: number;
+    };
   } = $props();
 
   let langMenuOpen = $state(false);
@@ -50,7 +57,11 @@
 
 <svelte:window
   onpointerdown={(event) => {
-    if (langMenuOpen && langContainer && !langContainer.contains(event.target as Node)) {
+    if (
+      langMenuOpen &&
+      langContainer &&
+      !langContainer.contains(event.target as Node)
+    ) {
       langMenuOpen = false;
     }
   }}
@@ -69,31 +80,87 @@
 
   <div class="section-label">{t("nav.workspace")}</div>
   <button class:chosen={active === "search"} onclick={() => navigate("search")}>
-    <Search size={18} /> {t("nav.explore")} <kbd>Ctrl K</kbd>
+    <Search size={18} />
+    {t("nav.explore")} <kbd>Ctrl K</kbd>
   </button>
   <button class:chosen={active === "queue"} onclick={() => navigate("queue")}>
-    <Download size={18} /> {t("nav.downloads")} <kbd>Ctrl J</kbd>
+    <div class="sidebar-icon-wrapper">
+      {#if downloadStats?.isDownloading}
+        <svg
+          class="progress-ring"
+          viewBox="0 0 24 24"
+          width="24"
+          height="24"
+          aria-hidden="true"
+        >
+          <circle class="ring-bg" cx="12" cy="12" r="9" stroke-width="2.5" />
+          <circle
+            class="ring-bar"
+            cx="12"
+            cy="12"
+            r="9"
+            stroke-width="2.5"
+            stroke-dasharray={2 * Math.PI * 9}
+            stroke-dashoffset={2 *
+              Math.PI *
+              9 *
+              (1 - Math.max(0, Math.min(100, downloadStats.progress)) / 100)}
+          />
+        </svg>
+        <Download size={13} class="icon-downloading" />
+      {:else}
+        <Download size={18} />
+      {/if}
+    </div>
+    <span>{t("nav.downloads")}</span>
+    {#if downloadStats?.isDownloading}
+      <span
+        class="download-badge"
+        title={`${downloadStats.current}/${downloadStats.total} · ${downloadStats.progress}%`}
+      >
+        {downloadStats.current}/{downloadStats.total}
+      </span>
+    {:else}
+      <kbd>Ctrl J</kbd>
+    {/if}
   </button>
-  <button class:chosen={active === "sources"} onclick={() => navigate("sources")}>
-    <Globe size={18} /> {t("nav.sources")} <kbd>Ctrl ⇧ F</kbd>
+  <button
+    class:chosen={active === "sources"}
+    onclick={() => navigate("sources")}
+  >
+    <Globe size={18} />
+    {t("nav.sources")} <kbd>Ctrl ⇧ F</kbd>
   </button>
   <button class:chosen={active === "lab"} onclick={onLab}>
-    <FlaskConical size={18} /> {t("nav.lab")} <kbd>Ctrl ⇧ L</kbd>
+    <FlaskConical size={18} />
+    {t("nav.lab")} <kbd>Ctrl ⇧ L</kbd>
   </button>
 
   <div class="sidebar-bottom">
-    <button class:chosen={active === "settings"} onclick={() => navigate("settings")}>
-      <Settings size={18} /> {t("nav.settings")} <kbd>Ctrl ,</kbd>
+    <button
+      class:chosen={active === "settings"}
+      onclick={() => navigate("settings")}
+    >
+      <Settings size={18} />
+      {t("nav.settings")} <kbd>Ctrl ,</kbd>
     </button>
 
     <div class="sidebar-divider"></div>
 
     <div class="section-label">{t("nav.quickActions")}</div>
     <div class="quick-actions-row">
-      <button class="quick-action-btn" onclick={onShortcuts} title="{t('nav.shortcuts')} (Ctrl+Shift+H)">
+      <button
+        class="quick-action-btn"
+        onclick={onShortcuts}
+        title="{t('nav.shortcuts')} (Ctrl+Shift+H)"
+      >
         <Keyboard size={17} />
       </button>
-      <button class="quick-action-btn" onclick={onTheme} title="{t('nav.theme')} (Ctrl+Shift+T)">
+      <button
+        class="quick-action-btn"
+        onclick={onTheme}
+        title="{t('nav.theme')} (Ctrl+Shift+T)"
+      >
         {#if theme === "dark"}<Sun size={17} />{:else}<Moon size={17} />{/if}
       </button>
 
@@ -112,7 +179,11 @@
         </button>
 
         {#if langMenuOpen}
-          <div class="lang-popup-menu" role="listbox" aria-label={t("settings.uiLanguage")}>
+          <div
+            class="lang-popup-menu"
+            role="listbox"
+            aria-label={t("settings.uiLanguage")}
+          >
             <div class="lang-popup-header">{t("settings.uiLanguage")}</div>
             <div class="lang-popup-list">
               {#each availableUILanguages as l}
@@ -201,7 +272,9 @@
     background: var(--panel, #1e293b);
     border: 1px solid var(--border, #334155);
     border-radius: 8px;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.3);
+    box-shadow:
+      0 12px 28px rgba(0, 0, 0, 0.5),
+      0 4px 10px rgba(0, 0, 0, 0.3);
     z-index: 100;
     display: flex;
     flex-direction: column;
@@ -279,5 +352,49 @@
   :global(.lang-item-check) {
     color: var(--accent, #818cf8);
     flex-shrink: 0;
+  }
+  .sidebar-icon-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 2px;
+    flex-shrink: 0;
+  }
+  .progress-ring {
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    width: 24px;
+    height: 24px;
+    transform: rotate(-90deg);
+    pointer-events: none;
+  }
+  .ring-bg {
+    fill: none;
+    stroke: color-mix(in srgb, var(--accent, #6366f1) 20%, transparent);
+  }
+  .ring-bar {
+    fill: none;
+    stroke: var(--accent, #6366f1);
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sidebar-icon-wrapper :global(.icon-downloading) {
+    color: var(--accent, #6366f1);
+  }
+  .download-badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent, #6366f1) 18%, transparent);
+    color: var(--accent, #6366f1);
+    border: 1px solid
+      color-mix(in srgb, var(--accent, #6366f1) 35%, transparent);
   }
 </style>

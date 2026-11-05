@@ -543,6 +543,75 @@ footer button {
   background: #6366f120;
   color: var(--accent);
 }
+.snackbar {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel, #1e293b);
+  color: var(--text, #f1f5f9);
+  border: 1px solid var(--border, #334155);
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.4),
+    0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  max-width: 480px;
+  animation: snackbarSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+@keyframes snackbarSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.snackbar-text {
+  flex: 1;
+  line-height: 1.4;
+  color: var(--text, #f1f5f9);
+}
+.snackbar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent, #6366f1) 20%, transparent);
+  color: var(--accent, #818cf8);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 40%, transparent);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.snackbar-action:hover {
+  background: color-mix(in srgb, var(--accent, #6366f1) 30%, transparent);
+}
+.snackbar-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--muted, #94a3b8);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.snackbar-close:hover {
+  color: var(--text, #f1f5f9);
+}
 .settings-card {
   max-width: 720px;
   border: 1px solid var(--border);
@@ -1913,7 +1982,13 @@ main.lab-main {
   word-break: break-all;
 }
 
-.search-progress { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; }
+.search-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
 
 .page-heading-actions {
   display: flex;

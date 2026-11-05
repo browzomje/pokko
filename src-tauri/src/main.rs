@@ -1217,110 +1217,125 @@ async fn download(
         let destination = destination_dir.with_extension(format);
         let export_format = format.to_string();
         let is_pdf = format == "pdf";
-        let result = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
-            if export::images(&source)?.len() != total_pages {
-                return Err("Numero di immagini diverso dalle pagine attese".into());
-            }
-            if export_format == "cbr" {
-                rar::create(&source, &destination, || {
-                    match controls.blocking_lock().get(&job_id).map(String::as_str) {
-                        Some("cancel") => Err("Annullato".into()),
-                        Some("pause") => Err("In pausa".into()),
-                        _ => Ok(()),
-                    }
-                })?;
-                rar::verify(&destination, total_pages)?;
-                integrity::save_export_proof(&destination, "cbr", total_pages)?;
-                return Ok(destination.display().to_string());
-            }
-            if is_pdf {
-                export::pdf(&source, &destination, || {
-                    match controls.blocking_lock().get(&job_id).map(String::as_str) {
-                        Some("cancel") => Err("Annullato".into()),
-                        Some("pause") => Err("In pausa".into()),
-                        _ => Ok(()),
-                    }
-                })?;
-                if lopdf::Document::load(&destination)
-                    .map_err(|e| e.to_string())?
-                    .get_pages()
-                    .len()
-                    != total_pages
-                {
-                    return Err("PDF incompleto".into());
+        let (progress_tx, mut progress_rx) =
+            tokio::sync::mpsc::unbounded_channel::<(usize, usize)>();
+        let blocking_handle =
+            tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+                if export::images(&source)?.len() != total_pages {
+                    return Err("Numero di immagini diverso dalle pagine attese".into());
                 }
-                integrity::save_export_proof(&destination, "pdf", total_pages)?;
-                return Ok(destination.display().to_string());
-            }
-            let temporary = destination.with_extension("cbz.part");
-            let mut zip =
-                zip::ZipWriter::new(std::fs::File::create(&temporary).map_err(|e| e.to_string())?);
-            let options = zip::write::SimpleFileOptions::default()
-                .compression_method(zip::CompressionMethod::Stored);
-            let mut dirs = std::fs::read_dir(&source)
-                .map_err(|e| e.to_string())?
-                .filter_map(Result::ok)
-                .map(|e| e.path())
-                .filter(|p| p.is_dir())
-                .collect::<Vec<_>>();
-            dirs.sort();
-            for d in dirs {
-                let mut files = std::fs::read_dir(d)
+                if export_format == "cbr" {
+                    rar::create(&source, &destination, || {
+                        match controls.blocking_lock().get(&job_id).map(String::as_str) {
+                            Some("cancel") => Err("Annullato".into()),
+                            Some("pause") => Err("In pausa".into()),
+                            _ => Ok(()),
+                        }
+                    })?;
+                    rar::verify(&destination, total_pages)?;
+                    integrity::save_export_proof(&destination, "cbr", total_pages)?;
+                    return Ok(destination.display().to_string());
+                }
+                if is_pdf {
+                    let controls_clone = controls.clone();
+                    let job_id_clone = job_id.clone();
+                    let tx = progress_tx;
+                    let exported_pages = export::pdf(&source, &destination, |curr, total| {
+                        match controls_clone
+                            .blocking_lock()
+                            .get(&job_id_clone)
+                            .map(String::as_str)
+                        {
+                            Some("cancel") => return Err("Annullato".into()),
+                            Some("pause") => return Err("In pausa".into()),
+                            _ => {}
+                        }
+                        let _ = tx.send((curr, total));
+                        Ok(())
+                    })?;
+                    if exported_pages != total_pages {
+                        return Err("PDF incompleto".into());
+                    }
+                    integrity::save_export_proof(&destination, "pdf", total_pages)?;
+                    return Ok(destination.display().to_string());
+                }
+                let temporary = destination.with_extension("cbz.part");
+                let mut zip = zip::ZipWriter::new(
+                    std::fs::File::create(&temporary).map_err(|e| e.to_string())?,
+                );
+                let options = zip::write::SimpleFileOptions::default()
+                    .compression_method(zip::CompressionMethod::Stored);
+                let mut dirs = std::fs::read_dir(&source)
                     .map_err(|e| e.to_string())?
                     .filter_map(Result::ok)
                     .map(|e| e.path())
-                    .filter(|p| {
-                        p.is_file()
-                            && p.extension()
-                                .map(|x| {
-                                    ["jpg", "png", "webp", "gif", "avif"]
-                                        .contains(&x.to_string_lossy().as_ref())
-                                })
-                                .unwrap_or(false)
-                    })
+                    .filter(|p| p.is_dir())
                     .collect::<Vec<_>>();
-                files.sort();
-                for f in files {
-                    match controls.blocking_lock().get(&job_id).map(String::as_str) {
-                        Some("cancel") => return Err("Annullato".into()),
-                        Some("pause") => return Err("In pausa".into()),
-                        _ => {}
-                    }
-                    zip.start_file(
-                        f.strip_prefix(&source)
-                            .unwrap()
-                            .to_string_lossy()
-                            .replace('\\', "/"),
-                        options,
-                    )
-                    .map_err(|e| e.to_string())?;
-                    zip.write_all(&std::fs::read(f).map_err(|e| e.to_string())?)
+                dirs.sort();
+                for d in dirs {
+                    let mut files = std::fs::read_dir(d)
+                        .map_err(|e| e.to_string())?
+                        .filter_map(Result::ok)
+                        .map(|e| e.path())
+                        .filter(|p| {
+                            p.is_file()
+                                && p.extension()
+                                    .map(|x| {
+                                        ["jpg", "png", "webp", "gif", "avif"]
+                                            .contains(&x.to_string_lossy().as_ref())
+                                    })
+                                    .unwrap_or(false)
+                        })
+                        .collect::<Vec<_>>();
+                    files.sort();
+                    for f in files {
+                        match controls.blocking_lock().get(&job_id).map(String::as_str) {
+                            Some("cancel") => return Err("Annullato".into()),
+                            Some("pause") => return Err("In pausa".into()),
+                            _ => {}
+                        }
+                        zip.start_file(
+                            f.strip_prefix(&source)
+                                .unwrap()
+                                .to_string_lossy()
+                                .replace('\\', "/"),
+                            options,
+                        )
                         .map_err(|e| e.to_string())?;
+                        zip.write_all(&std::fs::read(f).map_err(|e| e.to_string())?)
+                            .map_err(|e| e.to_string())?;
+                    }
                 }
-            }
-            zip.finish().map_err(|e| e.to_string())?;
-            std::fs::rename(temporary, &destination).map_err(|e| e.to_string())?;
-            let mut archive =
-                zip::ZipArchive::new(std::fs::File::open(&destination).map_err(|e| e.to_string())?)
-                    .map_err(|e| e.to_string())?;
-            if archive.len() != total_pages {
-                return Err("CBZ incompleto".into());
-            }
-            for i in 0..archive.len() {
-                use std::io::Read;
-                let mut bytes = Vec::new();
-                archive
-                    .by_index(i)
-                    .map_err(|e| e.to_string())?
-                    .read_to_end(&mut bytes)
-                    .map_err(|e| e.to_string())?;
-                integrity::image(&bytes)?;
-            }
-            integrity::save_export_proof(&destination, "cbz", total_pages)?;
-            Ok(destination.display().to_string())
-        })
-        .await
-        .map_err(|e| e.to_string())??;
+                zip.finish().map_err(|e| e.to_string())?;
+                std::fs::rename(temporary, &destination).map_err(|e| e.to_string())?;
+                let mut archive = zip::ZipArchive::new(
+                    std::fs::File::open(&destination).map_err(|e| e.to_string())?,
+                )
+                .map_err(|e| e.to_string())?;
+                if archive.len() != total_pages {
+                    return Err("CBZ incompleto".into());
+                }
+                for i in 0..archive.len() {
+                    use std::io::Read;
+                    let mut bytes = Vec::new();
+                    archive
+                        .by_index(i)
+                        .map_err(|e| e.to_string())?
+                        .read_to_end(&mut bytes)
+                        .map_err(|e| e.to_string())?;
+                    integrity::image(&bytes)?;
+                }
+                integrity::save_export_proof(&destination, "cbz", total_pages)?;
+                Ok(destination.display().to_string())
+            });
+        while let Some((curr, total)) = progress_rx.recv().await {
+            engine
+                .update(app, &job.id, |j| {
+                    j.message = format!("Creazione PDF · pagina {} di {}", curr, total);
+                })
+                .await;
+        }
+        let result = blocking_handle.await.map_err(|e| e.to_string())??;
         engine.checkpoint(&job.id).await?;
         engine.update(app, &job.id, |j| j.output = result).await;
         tokio::fs::remove_dir_all(&dir)

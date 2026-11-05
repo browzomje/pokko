@@ -654,7 +654,7 @@ async fn run_download(
     let dest = destination.clone();
     let controls = engine.controls.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        export::pdf(&source_dir, &dest, || {
+        export::pdf(&source_dir, &dest, |_current, _total| {
             if controls
                 .blocking_lock()
                 .get(&token)
@@ -665,6 +665,7 @@ async fn run_download(
                 Ok(())
             }
         })
+        .map(|_| ())
     })
     .await
     .map_err(|e| e.to_string())?;

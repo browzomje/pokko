@@ -33,20 +33,27 @@ export const jobLabels: Record<string, string> = {
 
 const PRESET_NOTE_KEYS: Record<string, string> = {
   "Verificato · catalogo e volumi": "sourceNote.mw",
-  "API · disattivata: verifica la connessione prima di abilitarla": "sourceNote.md",
+  "API · disattivata: verifica la connessione prima di abilitarla":
+    "sourceNote.md",
   "HTML verificato · capitoli senza gruppi volume": "sourceNote.mf",
   "HTML verificato · capitoli in inglese": "sourceNote.mangaread",
-  "Comics occidentali · raccolte e albi · PDF completo nella coda": "sourceNote.readcomics",
-  "Catalogo manga in lingua inglese · scansioni HD (FMHY)": "sourceNote.mangapill",
+  "Comics occidentali · raccolte e albi · PDF completo nella coda":
+    "sourceNote.readcomics",
+  "Catalogo manga in lingua inglese · scansioni HD (FMHY)":
+    "sourceNote.mangapill",
   "Catalogo manga classico in lingua inglese (FMHY)": "sourceNote.mangatown",
   "Catalogo manga in lingua inglese · scansioni HD": "sourceNote.mangapill",
   "Catalogo manga classico in lingua inglese": "sourceNote.mangatown",
-  "HTML verificato WordPress Madara con capitoli in inglese": "sourceNote.mangaread",
+  "HTML verificato WordPress Madara con capitoli in inglese":
+    "sourceNote.mangaread",
   "HTML verificato con capitoli in lingua inglese": "sourceNote.mf",
   "Catalogo manga italiano con gruppi volumi e capitoli": "sourceNote.mw",
 };
 
-export function formatSourceNote(note: string | undefined, sourceId?: string): string {
+export function formatSourceNote(
+  note: string | undefined,
+  sourceId?: string,
+): string {
   if (sourceId) {
     const key = `sourceNote.${sourceId}`;
     const localized = t(key);
@@ -63,15 +70,14 @@ export function formatSourceNote(note: string | undefined, sourceId?: string): s
 
 export function jobProgress(job: Job) {
   if (job.status === "completed") return 100;
-  return Math.min(
-    100,
-    Math.round(
-      ((job.chapters_done +
-        (job.pages_done && job.chapters_done < job.volume.chapters.length
-          ? job.pages_done / job.pages_total
-          : 0)) /
-        job.volume.chapters.length) *
-        100,
-    ),
+  if (!job.volume?.chapters?.length) return 0;
+  const raw = Math.round(
+    ((job.chapters_done +
+      (job.pages_done && job.chapters_done < job.volume.chapters.length
+        ? job.pages_done / (job.pages_total || 1)
+        : 0)) /
+      job.volume.chapters.length) *
+      100,
   );
+  return Math.min(99, Math.max(0, raw));
 }

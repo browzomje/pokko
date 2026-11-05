@@ -13,7 +13,7 @@
   import DownloadsPage from "./pages/DownloadsPage.svelte";
   import { api, message } from "./lib/api";
   import { newSource } from "./lib/source-config";
-  import { formats } from "./lib/presentation";
+  import { formats, jobProgress } from "./lib/presentation";
   import { t } from "./lib/i18n";
   import type { MangaPage } from "./types";
 
@@ -46,6 +46,44 @@
   let jobs = $state<Job[]>([]);
   let error = $state("");
   let notice = $state("");
+  let noticeTimer: ReturnType<typeof setTimeout> | null = null;
+  function showNotice(msg: string) {
+    notice = msg;
+    if (noticeTimer) clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => {
+      notice = "";
+      noticeTimer = null;
+    }, 1500);
+  }
+
+  let downloadStats = $derived.by(() => {
+    const activeJobs = jobs.filter(
+      (j) => j.status !== "cancelled" && !j.archived,
+    );
+    const pendingJobs = activeJobs.filter(
+      (j) =>
+        j.status === "running" ||
+        j.status === "queued" ||
+        j.status === "paused",
+    );
+    if (!pendingJobs.length) {
+      return { isDownloading: false, progress: 0, current: 0, total: 0 };
+    }
+    const runningJob =
+      pendingJobs.find((j) => j.status === "running") || pendingJobs[0];
+    const completedCount = activeJobs.filter(
+      (j) => j.status === "completed",
+    ).length;
+    const currentIdx = completedCount + 1;
+    const totalCount = completedCount + pendingJobs.length;
+    const progress = runningJob ? jobProgress(runningJob) : 0;
+    return {
+      isDownloading: true,
+      progress,
+      current: currentIdx,
+      total: totalCount,
+    };
+  });
   let settings = $state<Settings>({
     base_url: "https://www.mangaworld.mx",
     output: "",
@@ -457,7 +495,9 @@
       detailPage.selected = detailPage.selected.filter(
         (title) => !volumes.some((v) => v.title === title),
       );
-      notice = `${manga.title} · ${output.length} ${output.length === 1 ? "file inviato" : "file inviati"} alla coda in ${formatLabel}. I duplicati vengono saltati.`;
+      showNotice(
+        `${manga.title} · ${output.length} ${output.length === 1 ? "file inviato" : "file inviati"} alla coda in ${formatLabel}. I duplicati vengono saltati.`,
+      );
     } catch (e) {
       error = message(e);
     } finally {
@@ -490,6 +530,10 @@
       else if (current) returnToResults();
       error = "";
       notice = "";
+      if (noticeTimer) {
+        clearTimeout(noticeTimer);
+        noticeTimer = null;
+      }
       return;
     }
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
@@ -565,6 +609,7 @@
       onTheme={() => (theme = theme === "dark" ? "light" : "dark")}
       onShortcuts={() => (shortcuts = true)}
       onLab={goLab}
+      {downloadStats}
     />
     <div class="main">
       {#if error}<div class="alert error" role="alert">
@@ -573,16 +618,40 @@
             aria-label="Chiudi errore"
             onclick={() => (error = "")}><X size={16} /></button
           >
-        </div>{/if}{#if notice}<div class="alert notice" role="status">
-          <span>{notice}</span>{#if active !== "queue"}<button
-              onclick={() => (active = "queue")}
-              >Apri download <ChevronRight size={15} /></button
-            >{/if}<button
-            class="icon"
-            aria-label="Chiudi messaggio"
-            onclick={() => (notice = "")}><X size={16} /></button
-          >
         </div>{/if}
+      {#if notice}
+        <div class="snackbar notice-snackbar" role="status" aria-live="polite">
+          <span class="snackbar-text">{notice}</span>
+          {#if active !== "queue"}
+            <button
+              class="snackbar-action"
+              onclick={() => {
+                active = "queue";
+                notice = "";
+                if (noticeTimer) {
+                  clearTimeout(noticeTimer);
+                  noticeTimer = null;
+                }
+              }}
+            >
+              Apri download <ChevronRight size={14} />
+            </button>
+          {/if}
+          <button
+            class="icon snackbar-close"
+            aria-label="Chiudi notifica"
+            onclick={() => {
+              notice = "";
+              if (noticeTimer) {
+                clearTimeout(noticeTimer);
+                noticeTimer = null;
+              }
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      {/if}
       <main bind:this={content} class:lab-main={active === "lab"}>
         {#if active === "search" && !current}
           <CatalogPage
@@ -652,7 +721,6 @@
           />
         {/if}
       </main>
-
     </div>
   </div>
 </div>

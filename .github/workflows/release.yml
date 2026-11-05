@@ -2,7 +2,9 @@ name: 🚀 Release (semantic-release)
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - dev
   workflow_dispatch:
     inputs:
       release_tag:
@@ -22,6 +24,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       tag: ${{ steps.release.outputs.tag || steps.retry.outputs.tag }}
+      is_prerelease: ${{ steps.release.outputs.is_prerelease || 'false' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -74,6 +77,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          IS_PRERELEASE: ${{ needs.version.outputs.is_prerelease }}
         run: |
           set -euo pipefail
           mkdir -p installers
@@ -84,4 +88,23 @@ jobs:
           done
           (cd installers && sha256sum * > SHA256SUMS.txt)
           gh release upload "$RELEASE_TAG" installers/* --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --latest
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$RELEASE_TAG" --draft=false --latest
+          fi
+
+  cleanup-draft:
+    needs: [version, build]
+    if: failure() && needs.version.outputs.tag != ''
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Delete orphaned draft on build failure
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          if [ "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null)" = "true" ]; then
+            echo "Deleting orphaned draft release $RELEASE_TAG..."
+            gh release delete "$RELEASE_TAG" -y || true
+          fi
