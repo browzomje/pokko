@@ -166,11 +166,11 @@
         /><input
           bind:value={source[field.key]}
           spellcheck="false"
-          placeholder="Scegli un elemento nell’anteprima"
+          placeholder={t("lab.chooseInPreview")}
         />{#if onPick}<button
             type="button"
             class="source-pick"
-            onclick={() => onPick?.(field.key)}>Seleziona dalla pagina</button
+            onclick={() => onPick?.(field.key)}>{t("lab.selectFromPage")}</button
           >{/if}</label
       >{/each}
   {/if}

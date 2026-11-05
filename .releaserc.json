@@ -116,7 +116,7 @@
     [
       "@semantic-release/github",
       {
-        "draftRelease": true,
+        "draftRelease": false,
         "successComment": false,
         "failComment": false,
         "releasedLabels": false

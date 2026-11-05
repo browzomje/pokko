@@ -38,21 +38,21 @@ jobs:
       - run: npm run check
       - name: Cache dependencies for lockfile synchronization
         run: cargo fetch --locked --manifest-path src-tauri/Cargo.toml
-      - name: Calculate version and create draft
+      - name: Calculate version and create release
         if: inputs.release_tag == ''
         id: release
         run: node scripts/semantic-release.mjs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Validate existing draft for retry
+      - name: Validate existing release tag for retry
         if: inputs.release_tag != ''
         id: retry
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
-          test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = true
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]] || exit 1
+          gh release view "$RELEASE_TAG" >/dev/null
           git rev-parse --verify "refs/tags/$RELEASE_TAG"
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
@@ -89,22 +89,20 @@ jobs:
           (cd installers && sha256sum * > SHA256SUMS.txt)
           gh release upload "$RELEASE_TAG" installers/* --clobber
           if [ "$IS_PRERELEASE" = "true" ]; then
-            gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+            gh release edit "$RELEASE_TAG" --prerelease --latest=false
           else
-            gh release edit "$RELEASE_TAG" --draft=false --latest
+            gh release edit "$RELEASE_TAG" --latest
           fi
 
-  cleanup-draft:
+  cleanup-on-failure:
     needs: [version, build]
     if: failure() && needs.version.outputs.tag != ''
     runs-on: ubuntu-22.04
     steps:
-      - name: Delete orphaned draft on build failure
+      - name: Delete release on build failure
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
         run: |
-          if [ "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null)" = "true" ]; then
-            echo "Deleting orphaned draft release $RELEASE_TAG..."
-            gh release delete "$RELEASE_TAG" -y || true
-          fi
+          echo "Build failed for $RELEASE_TAG. Deleting release and tag to prevent broken releases..."
+          gh release delete "$RELEASE_TAG" --cleanup-tag -y || true

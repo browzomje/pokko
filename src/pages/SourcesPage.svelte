@@ -98,7 +98,7 @@
       const index = sortedSources.findIndex((s) => s.id === imported.id);
       if (index >= 0) sortedSources[index] = imported;
       else sortedSources.push(imported);
-      actionStatus = `Connettore '${imported.name}' importato con successo!`;
+      actionStatus = t("sources.importedSingleSuccess", { name: imported.name });
       importModalOpen = false;
     } catch (e) {
       actionError = msg(e);
@@ -111,7 +111,7 @@
       const selected = await open({
         directory: true,
         multiple: false,
-        title: "Seleziona cartella con file connettori .json",
+        title: t("sources.selectFolderDialog"),
       });
       if (typeof selected !== "string") return;
       const importedList = await api<Source[]>("sources_import_folder", {
@@ -124,7 +124,9 @@
         if (index >= 0) sortedSources[index] = imported;
         else sortedSources.push(imported);
       }
-      actionStatus = `Importati ${importedList.length} connettori con successo!`;
+      actionStatus = t("sources.importedFolderSuccess", {
+        count: importedList.length,
+      });
       importModalOpen = false;
     } catch (e) {
       actionError = msg(e);
@@ -134,17 +136,15 @@
   async function importFromGithub() {
     actionError = "";
     if (!githubRepoInput.trim()) {
-      actionError =
-        "Inserisci l'URL o il percorso repository (es. 'owner/repo').";
+      actionError = t("sources.githubRepoRequired");
       return;
     }
     if (checkArchiveExt(githubRepoInput)) {
-      actionError =
-        "I file archivio non sono consentiti per motivi di sicurezza.";
+      actionError = t("sources.archiveBlocked");
       return;
     }
     try {
-      actionStatus = "Connessione a GitHub in corso…";
+      actionStatus = t("sources.connectingGithub");
       const importedList = await api<Source[]>("sources_import_github", {
         repo: githubRepoInput.trim(),
       });
@@ -155,7 +155,9 @@
         if (index >= 0) sortedSources[index] = imported;
         else sortedSources.push(imported);
       }
-      actionStatus = `Importati ${importedList.length} connettori da GitHub con successo!`;
+      actionStatus = t("sources.importedGithubSuccess", {
+        count: importedList.length,
+      });
       importModalOpen = false;
       githubRepoInput = "";
     } catch (e) {
@@ -169,15 +171,17 @@
       const filename = `${(source.name || "connettore").toLowerCase().replace(/[^a-z0-9]/g, "-")}.json`;
       const selected = await save({
         defaultPath: filename,
-        filters: [{ name: "Connettore JSON", extensions: ["json"] }],
+        filters: [
+          { name: t("sources.jsonConnector"), extensions: ["json"] },
+        ],
       });
       if (!selected) return;
       if (checkArchiveExt(selected)) {
-        actionError = "È consentito esportare solo in formato .json.";
+        actionError = t("sources.exportJsonOnly");
         return;
       }
       await api("sources_export_file", { source, path: selected });
-      actionStatus = `Connettore '${source.name}' esportato con successo!`;
+      actionStatus = t("sources.exportedSuccess", { name: source.name });
     } catch (e) {
       actionError = msg(e);
     }

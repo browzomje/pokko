@@ -13,7 +13,7 @@
   import Select from "../Select.svelte";
   import { flag } from "../lib/presentation";
   import { t } from "../lib/i18n";
-  import type { Manga, MangaPage, Volume, Settings } from "../types";
+  import type { Manga, MangaPage, Volume, Chapter, Settings } from "../types";
   import { unknownVolume, planDownload } from "../download-plan";
   let {
     current,
@@ -42,9 +42,111 @@
     enqueue: (volumes: Volume[]) => void;
     onSettings: () => void;
   } = $props();
-  let selection = $derived(
-    visibleVolumes.filter((v) => current.selected.includes(v.title)),
-  );
+  function isChapterSelected(volume: Volume, chapter: Chapter): boolean {
+    if (current.selected.includes(volume.title)) return true;
+    return (current.selectedChapters || []).includes(chapter.url);
+  }
+
+  function isVolumeFullySelected(volume: Volume): boolean {
+    if (current.selected.includes(volume.title)) return true;
+    if (!volume.chapters.length) return false;
+    const chSet = new Set(current.selectedChapters || []);
+    return volume.chapters.every((c) => chSet.has(c.url));
+  }
+
+  function isVolumeIndeterminate(volume: Volume): boolean {
+    if (isVolumeFullySelected(volume)) return false;
+    const chSet = new Set(current.selectedChapters || []);
+    return volume.chapters.some((c) => chSet.has(c.url));
+  }
+
+  function toggleVolume(volume: Volume) {
+    if (!current.selectedChapters) current.selectedChapters = [];
+    const chUrls = volume.chapters.map((c) => c.url);
+    const fullySelected = isVolumeFullySelected(volume);
+
+    if (fullySelected || isVolumeIndeterminate(volume)) {
+      current.selected = current.selected.filter((t) => t !== volume.title);
+      current.selectedChapters = current.selectedChapters.filter(
+        (u) => !chUrls.includes(u),
+      );
+    } else {
+      if (!current.selected.includes(volume.title)) {
+        current.selected = [...current.selected, volume.title];
+      }
+      const existing = new Set(current.selectedChapters);
+      for (const u of chUrls) existing.add(u);
+      current.selectedChapters = Array.from(existing);
+    }
+  }
+
+  function toggleChapter(volume: Volume, chapter: Chapter) {
+    if (!current.selectedChapters) current.selectedChapters = [];
+    const selected = isChapterSelected(volume, chapter);
+    const chUrls = volume.chapters.map((c) => c.url);
+
+    if (selected) {
+      current.selected = current.selected.filter((t) => t !== volume.title);
+      const baseList =
+        current.selectedChapters.length > 0 ? current.selectedChapters : chUrls;
+      current.selectedChapters = baseList.filter((u) => u !== chapter.url);
+    } else {
+      current.selectedChapters = [...current.selectedChapters, chapter.url];
+      const set = new Set(current.selectedChapters);
+      if (volume.chapters.every((c) => set.has(c.url))) {
+        if (!current.selected.includes(volume.title)) {
+          current.selected = [...current.selected, volume.title];
+        }
+      }
+    }
+  }
+
+  let selection = $derived.by(() => {
+    const selectedChapterSet = new Set(current.selectedChapters || []);
+    const selectedVolumeSet = new Set(current.selected || []);
+
+    return visibleVolumes.flatMap((volume) => {
+      if (selectedVolumeSet.has(volume.title)) {
+        return [volume];
+      }
+      const selectedChs = volume.chapters.filter((c) =>
+        selectedChapterSet.has(c.url),
+      );
+      if (selectedChs.length === volume.chapters.length) {
+        return [volume];
+      }
+      if (selectedChs.length > 0) {
+        return [
+          {
+            title:
+              selectedChs.length === 1
+                ? `${volume.title} - ${selectedChs[0].title}`
+                : `${volume.title} (${selectedChs.length} ${t("downloads.chapters")})`,
+            chapters: selectedChs,
+          },
+        ];
+      }
+      return [];
+    });
+  });
+
+  let totalSelectedChaptersCount = $derived.by(() => {
+    let count = 0;
+    const selectedChapterSet = new Set(current.selectedChapters || []);
+    for (const v of visibleVolumes) {
+      if (current.selected.includes(v.title)) {
+        count += v.chapters.length;
+      } else {
+        count += v.chapters.filter((c) => selectedChapterSet.has(c.url)).length;
+      }
+    }
+    return count;
+  });
+
+  let totalVisibleChaptersCount = $derived.by(() => {
+    return visibleVolumes.reduce((acc, v) => acc + v.chapters.length, 0);
+  });
+
   let output = $derived(planDownload(selection, exportMode));
   let canSplit = $derived(visibleVolumes.some((v) => v.chapters.length > 1));
   $effect(() => {
@@ -60,11 +162,6 @@
         node.indeterminate = next;
       },
     };
-  }
-  function toggle(volume: Volume) {
-    current.selected = current.selected.includes(volume.title)
-      ? current.selected.filter((x) => x !== volume.title)
-      : [...current.selected, volume.title];
   }
   function pageTotal(volume: Volume) {
     return volume.chapters.every((c) => c.page_count != null)
@@ -191,30 +288,32 @@
     <label class="checkbox"
       ><input
         type="checkbox"
-        use:partialSelection={current.selected.length > 0 &&
-          current.selected.length < visibleVolumes.length}
-        checked={visibleVolumes.length > 0 &&
-          current.selected.length === visibleVolumes.length}
+        use:partialSelection={totalSelectedChaptersCount > 0 &&
+          totalSelectedChaptersCount < totalVisibleChaptersCount}
+        checked={totalVisibleChaptersCount > 0 &&
+          totalSelectedChaptersCount === totalVisibleChaptersCount}
         onchange={() => {
-          if (current?.detail)
-            current.selected =
-              current.selected.length === visibleVolumes.length
-                ? []
-                : visibleVolumes.map((v) => v.title);
+          if (current?.detail) {
+            if (totalSelectedChaptersCount === totalVisibleChaptersCount) {
+              current.selected = [];
+              current.selectedChapters = [];
+            } else {
+              current.selected = visibleVolumes.map((v) => v.title);
+              current.selectedChapters = visibleVolumes.flatMap((v) =>
+                v.chapters.map((c) => c.url),
+              );
+            }
+          }
         }}
       /> {t("detail.selectAll")}</label
     >
     <div>
       <button
         class="primary"
-        disabled={!current.selected.length || queueing}
-        onclick={() =>
-          enqueue(
-            visibleVolumes.filter((v) => current!.selected.includes(v.title)),
-          )}
+        disabled={totalSelectedChaptersCount === 0 || queueing}
+        onclick={() => enqueue(selection)}
         ><Download size={16} />
-        {queueing ? "…" : t("detail.downloadSelected")} ({current.selected
-          .length})</button
+        {queueing ? "…" : t("detail.downloadSelected")} ({totalSelectedChaptersCount})</button
       ><button
         disabled={queueing || !visibleVolumes.length}
         onclick={() => enqueue(visibleVolumes)}
@@ -225,14 +324,15 @@
   <div class="volume-list">
     {#each visibleVolumes as volume}<div
         class="volume-row"
-        class:selected={current.selected.includes(volume.title)}
+        class:selected={isVolumeFullySelected(volume) || isVolumeIndeterminate(volume)}
       >
         <div class="volume-main">
           <label class="volume-select"
             ><input
               type="checkbox"
-              checked={current.selected.includes(volume.title)}
-              onchange={() => toggle(volume)}
+              use:partialSelection={isVolumeIndeterminate(volume)}
+              checked={isVolumeFullySelected(volume)}
+              onchange={() => toggleVolume(volume)}
             /><BookOpen size={19} /><strong>{volume.title}</strong><span
               >{volume.chapters.length > 1
                 ? `${volume.chapters.length} ${t("downloads.chapters")} · `
@@ -265,8 +365,19 @@
           >
         </div>
         {#if current.expanded.includes(volume.title)}<div class="chapter-list">
-            {#each volume.chapters as chapter}<div>
-                <span>{chapter.title}</span><span
+            {#each volume.chapters as chapter}<div
+                class="chapter-row"
+                class:selected={isChapterSelected(volume, chapter)}
+              >
+                <label class="chapter-select">
+                  <input
+                    type="checkbox"
+                    checked={isChapterSelected(volume, chapter)}
+                    onchange={() => toggleChapter(volume, chapter)}
+                  />
+                  <span>{chapter.title}</span>
+                </label>
+                <span
                   >{chapter.page_count != null
                     ? `${chapter.page_count} ${t("downloads.pages")}`
                     : `— ${t("downloads.pages")}`}</span
@@ -288,7 +399,8 @@
                 <button
                   class="icon"
                   disabled={queueing}
-                  title={`Scarica ${chapter.title}`}
+                  title={t("detail.downloadVolume", { title: chapter.title })}
+                  aria-label={t("detail.downloadVolume", { title: chapter.title })}
                   onclick={() =>
                     enqueue([
                       {

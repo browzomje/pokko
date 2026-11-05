@@ -86,7 +86,11 @@ test('templates in src/components and src/pages do not contain untranslated raw 
     />\s*Da verificare</,
     />\s*Caricamento dei volumi</,
     />\s*Sto leggendo l’elenco dei capitoli…</,
-    />\s*Impossibile caricare il manga</
+    />\s*Impossibile caricare il manga</,
+    />\s*Scarica tutti</,
+    />\s*Scarica selezionati</,
+    />\s*Seleziona dalla pagina</,
+    /title:\s*"Seleziona cartella/
   ];
 
   for (const d of dirs) {

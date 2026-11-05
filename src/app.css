@@ -1276,8 +1276,22 @@ input[type="checkbox"]:indeterminate::after {
   align-items: center;
   gap: 12px;
 }
-.chapter-list > div > span:first-child {
+.chapter-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  user-select: none;
+}
+.chapter-select span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chapter-row.selected {
+  color: var(--text);
 }
 .chapter-list > div > span:nth-child(2) {
   color: var(--muted);

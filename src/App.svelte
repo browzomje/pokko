@@ -397,6 +397,7 @@
         loading: true,
         error: "",
         selected: [],
+        selectedChapters: [],
         expanded: [],
         catalog:
           settings.sources.find((s) => s.id === manga.source_id)?.category ||
@@ -504,9 +505,26 @@
       detailPage.selected = detailPage.selected.filter(
         (title) => !volumes.some((v) => v.title === title),
       );
-      showNotice(
-        `${manga.title} · ${output.length} ${output.length === 1 ? "file inviato" : "file inviati"} alla coda in ${formatLabel}. I duplicati vengono saltati.`,
-      );
+      if (detailPage.selectedChapters) {
+        const enqueuedUrls = new Set(
+          volumes.flatMap((v) => v.chapters.map((c) => c.url)),
+        );
+        detailPage.selectedChapters = detailPage.selectedChapters.filter(
+          (url) => !enqueuedUrls.has(url),
+        );
+      }
+      const noticeText =
+        output.length === 1
+          ? t("detail.enqueuedNoticeSingle", {
+              title: manga.title,
+              format: formatLabel,
+            })
+          : t("detail.enqueuedNoticeMultiple", {
+              title: manga.title,
+              count: output.length,
+              format: formatLabel,
+            });
+      showNotice(noticeText);
     } catch (e) {
       error = message(e);
     } finally {
@@ -624,7 +642,7 @@
       {#if error}<div class="alert error" role="alert">
           {error}<button
             class="icon"
-            aria-label="Chiudi errore"
+            aria-label={t("shortcuts.close")}
             onclick={() => (error = "")}><X size={16} /></button
           >
         </div>{/if}

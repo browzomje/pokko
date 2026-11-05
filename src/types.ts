@@ -96,6 +96,7 @@ export interface MangaPage {
   loading: boolean;
   error: string;
   selected: string[];
+  selectedChapters?: string[];
   expanded: string[];
   catalog: string;
   volumeFilter: string;
