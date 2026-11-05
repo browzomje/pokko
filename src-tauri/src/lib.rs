@@ -34,6 +34,20 @@ pub struct Settings {
     pub sources: Vec<sources::Source>,
 }
 
+impl Settings {
+    pub fn new_default(output: String) -> Self {
+        Self {
+            base_url: "https://www.mangaworld.mx".into(),
+            output,
+            delay_ms: 500,
+            cbz: false,
+            export_format: "pdf".into(),
+            user_agent: None,
+            sources: sources::defaults(),
+        }
+    }
+}
+
 pub const DEFAULT_USER_AGENT: &str =
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 
@@ -161,6 +175,21 @@ fn network_error(error: &reqwest::Error) -> String {
     };
     format!("Errore di rete: {hint}\nDettagli: {chain}")
 }
+
+pub fn build_http_client(
+    cookie_jar: Arc<reqwest::cookie::Jar>,
+) -> Result<reqwest::Client, reqwest::Error> {
+    reqwest::Client::builder()
+        .cookie_provider(cookie_jar)
+        .gzip(true)
+        .brotli(true)
+        .tcp_keepalive(Duration::from_secs(60))
+        .pool_idle_timeout(Duration::from_secs(90))
+        .pool_max_idle_per_host(10)
+        .timeout(Duration::from_secs(45))
+        .build()
+}
+
 impl Engine {
     pub fn headless(output_dir: Option<PathBuf>) -> Arc<Self> {
         let cookie_jar = Arc::new(reqwest::cookie::Jar::default());
@@ -169,13 +198,7 @@ impl Engine {
             .display()
             .to_string();
 
-        let client = reqwest::Client::builder()
-            .cookie_provider(cookie_jar.clone())
-            .gzip(true)
-            .brotli(true)
-            .timeout(Duration::from_secs(45))
-            .build()
-            .expect("Failed to build reqwest client");
+        let client = build_http_client(cookie_jar.clone()).expect("Failed to build reqwest client");
 
         let app_dir = std::env::var("XDG_CONFIG_HOME")
             .map(PathBuf::from)
@@ -194,15 +217,7 @@ impl Engine {
         };
 
         if saved.settings.is_none() {
-            saved.settings = Some(Settings {
-                base_url: "https://www.mangaworld.mx".into(),
-                output,
-                delay_ms: 500,
-                cbz: false,
-                export_format: "pdf".into(),
-                user_agent: None,
-                sources: sources::defaults(),
-            });
+            saved.settings = Some(Settings::new_default(output));
         }
 
         if let Some(parent) = queue_file.parent() {
@@ -293,14 +308,17 @@ impl Engine {
         let page_host = url::Url::parse(referer)
             .ok()
             .and_then(|u| u.host_str().map(str::to_owned));
-        let cdn_image = image_host != page_host
-            && url.split('?').next().is_some_and(|p| {
-                [".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]
-                    .iter()
-                    .any(|e| p.to_lowercase().ends_with(e))
-            });
-        let delay = if cdn_image && id.is_some_and(|id| !id.starts_with("lab-")) {
-            500
+        let is_image_path = url.split('?').next().is_some_and(|p| {
+            [".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]
+                .iter()
+                .any(|e| p.to_lowercase().ends_with(e))
+        });
+        let is_external_cdn = is_image_path && image_host != page_host;
+
+        let delay = if is_external_cdn && id.is_some_and(|id| !id.starts_with("lab-")) {
+            200
+        } else if is_image_path && id.is_some_and(|id| !id.starts_with("lab-")) {
+            350
         } else if let Some(id) = id {
             self.saved
                 .lock()
@@ -328,12 +346,13 @@ impl Engine {
             .ok_or("Dominio mancante")?
             .to_string();
 
+        let max_host_concurrency = if is_external_cdn { 4 } else { 2 };
         let semaphore = self
             .concurrency
             .lock()
             .await
             .entry(host.clone())
-            .or_insert_with(|| Arc::new(tokio::sync::Semaphore::new(2)))
+            .or_insert_with(|| Arc::new(tokio::sync::Semaphore::new(max_host_concurrency)))
             .clone();
         let _permit = semaphore.acquire().await.map_err(|e| e.to_string())?;
 
@@ -349,8 +368,14 @@ impl Engine {
             })
             .clone();
 
-        let base_delay = delay.max(500);
-        let jitter = 0.70 + rand::random::<f64>() * 0.60;
+        let base_delay = if is_external_cdn {
+            delay.max(150)
+        } else if is_image_path {
+            delay.max(300)
+        } else {
+            delay.max(500)
+        };
+        let jitter = 0.80 + rand::random::<f64>() * 0.40;
         let actual_delay = (base_delay as f64 * jitter) as u64;
 
         let mut gate = loop {
@@ -358,13 +383,13 @@ impl Engine {
                 self.checkpoint(id).await?;
             }
             let gate = limiter.lock().await;
-            let wait = (*gate + Duration::from_millis(actual_delay.max(500)))
+            let wait = (*gate + Duration::from_millis(actual_delay))
                 .saturating_duration_since(tokio::time::Instant::now());
             if wait.is_zero() {
                 break gate;
             }
             drop(gate);
-            tokio::time::sleep(wait.min(Duration::from_millis(200))).await;
+            tokio::time::sleep(wait.min(Duration::from_millis(100))).await;
         };
         *gate = tokio::time::Instant::now();
         drop(gate);
@@ -380,12 +405,7 @@ impl Engine {
             .cloned()
             .unwrap_or_else(|| DEFAULT_USER_AGENT.to_string());
 
-        let accept_header = if cdn_image
-            || url.split('?').next().is_some_and(|p| {
-                [".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]
-                    .iter()
-                    .any(|e| p.to_lowercase().ends_with(e))
-            }) {
+        let accept_header = if is_image_path {
             "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
         } else {
             "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
@@ -1200,7 +1220,7 @@ pub async fn download(
         }
 
         if !to_fetch.is_empty() {
-            const SCAN_CONCURRENCY: usize = 2;
+            const SCAN_CONCURRENCY: usize = 3;
             let mut stream = futures_util::stream::iter(to_fetch)
                 .map(|(pi, url, damaged)| {
                     let chapter_url = chapter.url.clone();
@@ -1260,13 +1280,13 @@ pub async fn download(
                                 }
                                 Err(e) => {
                                     engine.checkpoint(&job.id).await?;
-                                    if e.contains("HTTP 403") || e.contains("HTTP 429") {
+                                    if e.contains("HTTP 403") {
                                         return Err(e);
                                     }
                                     last_error = e;
                                     if attempt < 2 {
                                         tokio::time::sleep(Duration::from_millis(
-                                            500 * (attempt + 1),
+                                            800 * (attempt + 1),
                                         ))
                                         .await;
                                     }
@@ -1632,15 +1652,7 @@ pub fn run_app() {
                     settings.sources = sources::defaults();
                 }
             } else {
-                saved.settings = Some(Settings {
-                    base_url: "https://www.mangaworld.mx".into(),
-                    output,
-                    delay_ms: 500,
-                    cbz: false,
-                    export_format: "pdf".into(),
-                    user_agent: None,
-                    sources: sources::defaults(),
-                });
+                saved.settings = Some(Settings::new_default(output));
             }
             if saved.source_catalog_version < 1 {
                 if let Some(settings) = &mut saved.settings {
@@ -1746,12 +1758,7 @@ pub fn run_app() {
             }
             let cookie_jar = Arc::new(reqwest::cookie::Jar::default());
             let engine = Arc::new(Engine {
-                client: reqwest::Client::builder()
-                    .cookie_provider(cookie_jar.clone())
-                    .gzip(true)
-                    .brotli(true)
-                    .timeout(Duration::from_secs(45))
-                    .build()?,
+                client: build_http_client(cookie_jar.clone())?,
                 saved: Mutex::new(saved),
                 controls: Arc::new(Mutex::new(HashMap::new())),
                 network: Mutex::new(HashMap::new()),
@@ -1926,13 +1933,7 @@ mod tests {
     pub(super) fn test_engine(output: &Path) -> Engine {
         let cookie_jar = Arc::new(reqwest::cookie::Jar::default());
         Engine {
-            client: reqwest::Client::builder()
-                .cookie_provider(cookie_jar.clone())
-                .gzip(true)
-                .brotli(true)
-                .timeout(Duration::from_secs(45))
-                .build()
-                .unwrap(),
+            client: build_http_client(cookie_jar.clone()).unwrap(),
             saved: Mutex::new(Saved::default()),
             controls: Arc::new(Mutex::new(HashMap::new())),
             network: Mutex::new(HashMap::new()),
