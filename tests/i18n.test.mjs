@@ -90,7 +90,17 @@ test('templates in src/components and src/pages do not contain untranslated raw 
     />\s*Scarica tutti</,
     />\s*Scarica selezionati</,
     />\s*Seleziona dalla pagina</,
-    /title:\s*"Seleziona cartella/
+    /title:\s*"Seleziona cartella/,
+    />\s*Apri una serie da un link</,
+    />\s*Apri nell’app\s*</,
+    />\s*Apri manga\s*</,
+    />\s*Elemento selezionato</,
+    />\s*HTML e CSS dell’elemento</,
+    />\s*Elemento padre</,
+    />\s*Usa selettore</,
+    />\s*Usa percorso esatto</,
+    /aria-label="Chiudi notifica"/,
+    /aria-label="Tipo di catalogo"/
   ];
 
   for (const d of dirs) {

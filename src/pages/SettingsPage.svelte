@@ -116,7 +116,7 @@
         <input
           id="output"
           bind:value={settings.output}
-          placeholder="Scegli una cartella…"
+          placeholder={t("settings.chooseFolderPlaceholder")}
         />
         <button onclick={chooseFolder}
           ><FolderOpen size={16} /> {t("settings.browse")}</button

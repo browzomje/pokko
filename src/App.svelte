@@ -184,7 +184,7 @@
   $effect(() => {
     const snapshot = JSON.stringify(settings);
     if (!hydrated || snapshot === lastSaved) return;
-    saveStatus = "Modifiche in corso…";
+    saveStatus = t("settings.savingChanges");
     const timer = setTimeout(() => {
       void persistSettings(snapshot).catch(() => {});
     }, 550);
@@ -196,19 +196,19 @@
       .then(async () => {
         if (snapshot === lastSaved && !force) return;
         if (snapshot === JSON.stringify(settings)) {
-          saveStatus = "Salvataggio…";
+          saveStatus = t("settings.saving");
           saveError = "";
         }
         try {
           await api("save_settings", { settings: JSON.parse(snapshot) });
           lastSaved = snapshot;
           if (snapshot === JSON.stringify(settings)) {
-            saveStatus = "Tutte le modifiche salvate";
+            saveStatus = t("settings.allChangesSaved");
             saveError = "";
           }
         } catch (e) {
           if (snapshot === JSON.stringify(settings)) {
-            saveStatus = "Modifiche non salvate";
+            saveStatus = t("settings.changesNotSaved");
             saveError = message(e);
           }
           throw e;
@@ -661,12 +661,12 @@
                 }
               }}
             >
-              Apri download <ChevronRight size={14} />
+              {t("nav.openDownloads")} <ChevronRight size={14} />
             </button>
           {/if}
           <button
             class="icon snackbar-close"
-            aria-label="Chiudi notifica"
+            aria-label={t("shortcuts.close")}
             onclick={() => {
               notice = "";
               if (noticeTimer) {

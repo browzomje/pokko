@@ -1060,6 +1060,10 @@ async fn download(
         engine
             .update(app, &job.id, |j| j.pages_total = pages.len())
             .await;
+
+        let mut to_fetch = Vec::new();
+        let mut existing_count = 0;
+
         for (pi, url) in pages.iter().enumerate() {
             engine.checkpoint(&job.id).await?;
             let stem = format!("{:04}", pi + 1);
@@ -1095,112 +1099,148 @@ async fn download(
                     }
                 }
             }
-            if !exists {
-                let mut last_error = String::new();
-                for attempt in 0..3 {
-                    engine.checkpoint(&job.id).await?;
-                    engine
-                        .update(app, &job.id, |j| {
-                            j.verification.state = if damaged || attempt > 0 {
-                                "repairing"
-                            } else {
-                                "checking"
-                            }
-                            .into();
-                            j.message = format!(
-                                "Pagina {} di {} · tentativo {}/3",
-                                pi + 1,
-                                pages.len(),
-                                attempt + 1
-                            );
-                        })
-                        .await;
-                    match fetch_verified_page(
-                        engine,
-                        app,
-                        job,
-                        &chapter.url,
-                        url,
-                        source.min_delay_ms,
-                    )
-                    .await
-                    {
-                        Ok(bytes) => {
-                            let ext = image_extension(&bytes)?;
-                            let name = format!("{stem}.{ext}");
-                            let path = chapter_dir.join(&name);
-                            let part = path.with_extension("part");
-                            tokio::fs::write(&part, &bytes)
-                                .await
-                                .map_err(|e| e.to_string())?;
+            if exists {
+                existing_count += 1;
+                engine
+                    .update(app, &job.id, |j| {
+                        j.verification.verified += 1;
+                        j.pages_done = existing_count;
+                        j.message = "Pagina già presente, saltata".into();
+                    })
+                    .await;
+            } else {
+                to_fetch.push((pi, url.clone(), damaged));
+            }
+        }
+
+        if !to_fetch.is_empty() {
+            const SCAN_CONCURRENCY: usize = 2;
+            let mut stream = futures_util::stream::iter(to_fetch)
+                .map(|(pi, url, damaged)| {
+                    let chapter_url = chapter.url.clone();
+                    let min_delay_ms = source.min_delay_ms;
+                    let chapter_dir = chapter_dir.clone();
+                    let pages_total = pages.len();
+                    async move {
+                        let stem = format!("{:04}", pi + 1);
+                        let mut last_error = String::new();
+                        for attempt in 0..3 {
                             engine.checkpoint(&job.id).await?;
-                            tokio::fs::rename(part, path)
-                                .await
-                                .map_err(|e| e.to_string())?;
-                            proofs.insert(
-                                stem.clone(),
-                                integrity::PageProof {
-                                    url: url.clone(),
-                                    file: name.clone(),
-                                    size: bytes.len() as u64,
-                                    crc32: crc32fast::hash(&bytes),
-                                },
-                            );
-                            kept.insert(name);
-                            if damaged || attempt > 0 {
-                                engine
-                                    .update(app, &job.id, |j| j.verification.repaired += 1)
-                                    .await;
+                            engine
+                                .update(app, &job.id, |j| {
+                                    j.verification.state = if damaged || attempt > 0 {
+                                        "repairing"
+                                    } else {
+                                        "checking"
+                                    }
+                                    .into();
+                                    j.message = format!(
+                                        "Pagina {} di {} · tentativo {}/3",
+                                        pi + 1,
+                                        pages_total,
+                                        attempt + 1
+                                    );
+                                })
+                                .await;
+                            match fetch_verified_page(
+                                engine,
+                                app,
+                                job,
+                                &chapter_url,
+                                &url,
+                                min_delay_ms,
+                            )
+                            .await
+                            {
+                                Ok(bytes) => {
+                                    let ext = image_extension(&bytes)?;
+                                    let name = format!("{stem}.{ext}");
+                                    let path = chapter_dir.join(&name);
+                                    let part = path.with_extension("part");
+                                    tokio::fs::write(&part, &bytes)
+                                        .await
+                                        .map_err(|e| e.to_string())?;
+                                    engine.checkpoint(&job.id).await?;
+                                    tokio::fs::rename(part, path)
+                                        .await
+                                        .map_err(|e| e.to_string())?;
+                                    let proof = integrity::PageProof {
+                                        url: url.clone(),
+                                        file: name.clone(),
+                                        size: bytes.len() as u64,
+                                        crc32: crc32fast::hash(&bytes),
+                                    };
+                                    return Ok((pi, stem, name, proof, damaged, attempt > 0));
+                                }
+                                Err(e) => {
+                                    engine.checkpoint(&job.id).await?;
+                                    if e.contains("HTTP 403") || e.contains("HTTP 429") {
+                                        return Err(e);
+                                    }
+                                    last_error = e;
+                                    if attempt < 2 {
+                                        tokio::time::sleep(Duration::from_millis(
+                                            500 * (attempt + 1),
+                                        ))
+                                        .await;
+                                    }
+                                }
                             }
-                            last_error.clear();
-                            break;
                         }
-                        Err(e) => {
-                            engine.checkpoint(&job.id).await?;
-                            if e.contains("HTTP 403") || e.contains("HTTP 429") {
-                                return Err(e);
-                            }
-                            last_error = e;
-                            if attempt < 2 {
-                                tokio::time::sleep(Duration::from_millis(500 * (attempt + 1)))
-                                    .await;
+                        Err(format!(
+                            "Pagina {} non valida dopo 3 tentativi: {last_error}",
+                            pi + 1
+                        ))
+                    }
+                })
+                .buffer_unordered(SCAN_CONCURRENCY);
+
+            while let Some(result) = stream.next().await {
+                match result {
+                    Ok((_pi, stem, name, proof, damaged, retried)) => {
+                        proofs.insert(stem, proof);
+                        kept.insert(name);
+                        if damaged || retried {
+                            engine
+                                .update(app, &job.id, |j| j.verification.repaired += 1)
+                                .await;
+                        }
+                        existing_count += 1;
+                        let count = existing_count;
+                        engine
+                            .update(app, &job.id, |j| {
+                                j.verification.verified += 1;
+                                j.pages_done = count;
+                                j.message = "Pagina salvata".into();
+                            })
+                            .await;
+
+                        let part = proof_file.with_extension("json.part");
+                        if let Ok(data) = serde_json::to_vec(&proofs) {
+                            if tokio::fs::write(&part, data).await.is_ok() {
+                                let _ = tokio::fs::rename(part, &proof_file).await;
                             }
                         }
                     }
-                }
-                if !last_error.is_empty() {
-                    engine.preview_pages.lock().await.remove(&chapter.url);
-                    let _ = tokio::fs::remove_file(&cache).await;
-                    return Err(format!(
-                        "Pagina {} non valida dopo 3 tentativi: {last_error}",
-                        pi + 1
-                    ));
+                    Err(err) => {
+                        engine.preview_pages.lock().await.remove(&chapter.url);
+                        let _ = tokio::fs::remove_file(&cache).await;
+                        return Err(err);
+                    }
                 }
             }
-            let part = proof_file.with_extension("json.part");
-            tokio::fs::write(
-                &part,
-                serde_json::to_vec(&proofs).map_err(|e| e.to_string())?,
-            )
+        }
+
+        let part = proof_file.with_extension("json.part");
+        tokio::fs::write(
+            &part,
+            serde_json::to_vec(&proofs).map_err(|e| e.to_string())?,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+        tokio::fs::rename(part, &proof_file)
             .await
             .map_err(|e| e.to_string())?;
-            tokio::fs::rename(part, &proof_file)
-                .await
-                .map_err(|e| e.to_string())?;
-            engine
-                .update(app, &job.id, |j| j.verification.verified += 1)
-                .await;
-            engine
-                .update(app, &job.id, |j| {
-                    j.pages_done = pi + 1;
-                    j.message = if exists {
-                        "Pagina già presente, saltata".into()
-                    } else {
-                        "Pagina salvata".into()
-                    };
-                })
-                .await;
-        }
         // Remove stale extra pages so the export cannot silently contain duplicates.
         for entry in std::fs::read_dir(&chapter_dir).map_err(|e| e.to_string())? {
             let entry = entry.map_err(|e| e.to_string())?;
@@ -1282,9 +1322,8 @@ async fn download(
                     return Ok(destination.display().to_string());
                 }
                 let temporary = destination.with_extension("cbz.part");
-                let mut zip = zip::ZipWriter::new(
-                    std::fs::File::create(&temporary).map_err(|e| e.to_string())?,
-                );
+                let file = std::fs::File::create(&temporary).map_err(|e| e.to_string())?;
+                let mut zip = zip::ZipWriter::new(std::io::BufWriter::new(file));
                 let options = zip::write::SimpleFileOptions::default()
                     .compression_method(zip::CompressionMethod::Stored);
                 let mut dirs = std::fs::read_dir(&source)
@@ -2268,5 +2307,58 @@ mod tests {
         engine.request(&url, "", 500, None).await.unwrap();
         assert!(start.elapsed() >= Duration::from_secs(1));
         thread.join().unwrap();
+    }
+    #[tokio::test]
+    async fn parallel_scan_downloads_and_integrity_proofs() {
+        use std::io::{Read, Write};
+        let base = std::env::temp_dir().join(format!("mwr-parallel-{}", std::process::id()));
+        std::fs::create_dir_all(&base).unwrap();
+        let engine = test_engine(&base);
+        let mut job = sample_job(&base, "images");
+        job.settings.delay_ms = 10;
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::RgbImage::from_pixel(10, 10, image::Rgb([1, 2, 3]))
+            .write_to(&mut png, image::ImageFormat::Png)
+            .unwrap();
+        let png_bytes = png.into_inner();
+        let server = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = server.local_addr().unwrap();
+        let urls = vec![
+            format!("http://{addr}/p1.png"),
+            format!("http://{addr}/p2.png"),
+            format!("http://{addr}/p3.png"),
+        ];
+        let bytes_clone = png_bytes.clone();
+        let thread = std::thread::spawn(move || {
+            for _ in 0..3 {
+                let (mut socket, _) = server.accept().unwrap();
+                let mut request = [0; 4096];
+                let _ = socket.read(&mut request);
+                write!(
+                    socket,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    bytes_clone.len()
+                )
+                .unwrap();
+                socket.write_all(&bytes_clone).unwrap();
+            }
+        });
+        engine
+            .preview_pages
+            .lock()
+            .await
+            .insert(job.volume.chapters[0].url.clone(), urls);
+        engine.saved.lock().await.jobs.push(job.clone());
+        download(&engine, None, &job).await.unwrap();
+        thread.join().unwrap();
+        let saved = engine.saved.lock().await.jobs[0].clone();
+        assert_eq!(saved.verification.verified, 3);
+        assert_eq!(saved.verification.repaired, 0);
+        let chapter_dir = PathBuf::from(&saved.output).join("0001-Chapter");
+        assert!(chapter_dir.join("0001.png").is_file());
+        assert!(chapter_dir.join("0002.png").is_file());
+        assert!(chapter_dir.join("0003.png").is_file());
+        assert!(chapter_dir.join(".proofs.json").is_file());
+        std::fs::remove_dir_all(base).unwrap();
     }
 }

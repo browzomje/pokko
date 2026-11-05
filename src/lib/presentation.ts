@@ -79,6 +79,7 @@ export function formatJobMessage(message: string): string {
     return t("downloads.msg.extractingPages");
   if (trimmed === "Pagina già presente, saltata")
     return t("downloads.msg.pageSkipped");
+  if (trimmed === "Pagina salvata") return t("downloads.msg.pageSaved");
   if (trimmed === "Sessione ripristinata. Premi Riprendi per continuare")
     return t("downloads.msg.sessionRestored");
   if (

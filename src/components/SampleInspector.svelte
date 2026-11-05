@@ -1,6 +1,7 @@
 <script lang="ts">
   import { stageFields, type SelectorField } from "../lib/source-config";
   import Select from "../Select.svelte";
+  import { t } from "../lib/i18n";
   import type { InspectedElement } from "../lab-preview";
   let {
     inspected,
@@ -22,36 +23,36 @@
 </script>
 
 {#if inspected}<div class="lab-inspector">
-    <strong>Elemento selezionato</strong>
+    <strong>{t("lab.selectedElement")}</strong>
     <p><code>{inspected.selector}</code></p>
     <details>
-      <summary>HTML e CSS dell’elemento</summary>
+      <summary>{t("lab.htmlAndCss")}</summary>
       <pre>{inspected.html}</pre>
       <pre>{inspected.css}</pre>
     </details>
     <div class="lab-controls">
-      <button onclick={() => onParent()}>Elemento padre</button>
+      <button onclick={() => onParent()}>{t("lab.parentElement")}</button>
       {#if generic}<Select
-          label="Applica selettore al campo"
+          label={t("lab.applySelectorToField")}
           bind:value={selectorField}
           options={[
-            { value: "result_selector", label: "Risultati" },
-            { value: "chapter_selector", label: "Capitoli" },
-            { value: "image_selector", label: "Immagini" },
-            { value: "description_selector", label: "Descrizione" },
-            { value: "next_selector", label: "Risultati successivi" },
+            { value: "result_selector", label: t("lab.selectorResults") },
+            { value: "chapter_selector", label: t("lab.selectorChapters") },
+            { value: "image_selector", label: t("lab.selectorImages") },
+            { value: "description_selector", label: t("lab.selectorDescription") },
+            { value: "next_selector", label: t("lab.selectorNext") },
             {
               value: "reader_next_selector",
-              label: "Pagina successiva del lettore",
+              label: t("lab.selectorReaderNext"),
             },
-            { value: "author_selector", label: "Autori" },
+            { value: "author_selector", label: t("lab.selectorAuthors") },
           ].filter((option) =>
             (stageFields[stage] || []).includes(option.value as SelectorField),
           )}
         /><button disabled={!!busy} onclick={() => onApply()}
-          >Usa selettore</button
+          >{t("lab.useSelector")}</button
         ><button disabled={!!busy} onclick={() => onApply(true)}
-          >Usa percorso esatto</button
+          >{t("lab.useExactPath")}</button
         >{/if}
     </div>
   </div>{/if}

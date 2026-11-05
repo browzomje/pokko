@@ -1096,7 +1096,7 @@
         selectedTestChapterUrl &&
         targetSample?.url !== selectedTestChapterUrl
       ) {
-        progress = "Caricamento capitolo selezionato…";
+        progress = t("lab.loadingSelectedChapter");
         if (firefoxRunning) {
           await api("lab_firefox_navigate", {
             url: selectedTestChapterUrl,
@@ -1113,12 +1113,10 @@
       }
 
       if (!targetSample) {
-        throw new Error(
-          "Nessun capitolo disponibile per il download di prova.",
-        );
+        throw new Error(t("lab.noChapterForTestDownload"));
       }
 
-      progress = "Download scan in corso…";
+      progress = t("lab.downloadingScans");
       const result = await api<{
         output: string;
         pages: number;
@@ -1332,7 +1330,7 @@
       a.click();
       status = t("lab.connectorExported");
     } catch (e) {
-      failure = `Errore esportazione: ${msg(e)}`;
+      failure = t("lab.exportError", { error: msg(e) });
     }
   }
 
@@ -1351,8 +1349,7 @@
           name.endsWith(".tar") ||
           name.endsWith(".cbz")
         ) {
-          failure =
-            "I file archivio (ZIP, RAR, TAR, CBZ) non sono consentiti per motivi di sicurezza. Importa solo file connettore .json.";
+          failure = t("sources.archiveBlocked");
           return;
         }
         const text = await file.text();
@@ -1364,11 +1361,11 @@
           ...parsed,
           id: source.id,
         };
-        status = `Connettore '${parsed.name}' importato con successo ✓`;
+        status = t("sources.importedSingleSuccess", { name: parsed.name });
       };
       input.click();
     } catch (e) {
-      failure = `Errore importazione: ${msg(e)}`;
+      failure = t("lab.importError", { error: msg(e) });
     }
   }
 

@@ -45,7 +45,7 @@
   } = $props();
 </script>
 
-<div class="catalog-switch" aria-label="Tipo di catalogo">
+<div class="catalog-switch" aria-label={t("catalog.switchAria")}>
   {#each [{ value: "all", label: t("catalog.all") }, { value: "manga", label: t("catalog.manga") }, { value: "comics", label: t("catalog.comics") }] as kind}
     <button
       class:chosen={catalogKind === kind.value}
@@ -75,7 +75,7 @@
   >
 </form>
 {#if catalogKind === "comics"}<details class="catalog-link">
-    <summary>Apri una serie da un link</summary>
+    <summary>{t("catalog.openFromLink")}</summary>
     <form
       class="input-row"
       onsubmit={(event) => {
@@ -84,24 +84,23 @@
       }}
     >
       <input
-        aria-label="Link della serie comics"
+        aria-label={t("catalog.seriesLinkAria")}
         bind:value={catalogLink}
         placeholder="https://readcomicsonline.lol/comic/Invincible"
       /><button disabled={!catalogLink.trim()}
-        >Apri nell’app <BookOpen size={16} /></button
+        >{t("catalog.openInApp")} <BookOpen size={16} /></button
       >
     </form>
     <p>
-      Usa il link di una serie da una fonte attiva. I file vengono scaricati
-      dalla coda dell’app.
+      {t("catalog.seriesLinkNote")}
     </p>
   </details>{/if}
 {#if reports.some((r) => r.error)}<details class="search-errors">
     <summary
       >{reports.filter((r) => r.error).length}
       {reports.filter((r) => r.error).length === 1
-        ? "fonte non disponibile"
-        : "fonti non disponibili"}</summary
+        ? t("catalog.sourceUnavailableSingle")
+        : t("catalog.sourceUnavailableMultiple")}</summary
     >
     {#each reports.filter((r) => r.error) as report}<p>
         <strong>{report.name}</strong>: {report.error}
@@ -110,7 +109,7 @@
 <div class="results-heading">
   <span
     >{searched
-      ? `${visibleResults.length} risultati · pagina ${page}`
+      ? t("catalog.resultsPage", { count: visibleResults.length, page })
       : ""}</span
   >
 </div>
@@ -127,7 +126,7 @@
         onclick={() => openManga(manga)}
         ><div class="cover">
           <Cover url={manga.cover} title={manga.title} />
-          <span class="cover-action">Apri manga <ChevronRight size={15} /></span
+          <span class="cover-action">{t("catalog.openManga")} <ChevronRight size={15} /></span
           >
         </div>
         <strong>{manga.title}</strong>{#if manga.authors?.length}<small
