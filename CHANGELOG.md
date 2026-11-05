@@ -1,3 +1,13 @@
+## [1.9.0](https://github.com/browzomje/pokko/compare/v1.8.1...v1.9.0) (2026-11-05)
+
+### Features
+
+* add shell completions, custom connector flag, and standalone cli packaging ([5ee93b6](https://github.com/browzomje/pokko/commit/5ee93b685c9424b1169587527dfaf5f176305766))
+
+### Performance
+
+* optimize scan download throughput and deduplicate http client setup ([d6f88c7](https://github.com/browzomje/pokko/commit/d6f88c7e8dbf14098d3fa0a35697420f6cb54a9f))
+
 ## [1.8.1](https://github.com/browzomje/pokko/compare/v1.8.0...v1.8.1) (2026-11-05)
 
 ### Fixes
