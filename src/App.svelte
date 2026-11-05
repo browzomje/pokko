@@ -240,7 +240,7 @@
       previous = $state.snapshot(settings);
       settings = next;
       await persistSettings();
-      saveStatus = "Tutte le modifiche salvate";
+      saveStatus = t("settings.allChangesSaved");
     } catch (e) {
       if (previous) {
         settings = previous;
@@ -612,7 +612,7 @@
             (j) => j.status !== "cancelled" && !removed.has(j.id),
           );
           lastSaved = JSON.stringify(settings);
-          saveStatus = "Tutte le modifiche salvate";
+          saveStatus = t("settings.allChangesSaved");
           hydrated = true;
         } catch (e) {
           error = message(e);

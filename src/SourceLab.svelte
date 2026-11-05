@@ -1370,7 +1370,7 @@
   }
 
   async function saveSource() {
-    await task("Salvataggio", async () => {
+    await task(t("settings.saving"), async () => {
       source.base_url = normalizeUrl(source.base_url);
       if (!source.name.trim() || source.name.trim() === "Nuova fonte") {
         throw new Error(
