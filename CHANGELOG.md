@@ -1,3 +1,13 @@
+## [2.0.0](https://github.com/browzomje/pokko/compare/v1.9.0...v2.0.0) (2026-11-09)
+
+### ⚠ BREAKING CHANGES
+
+* distribute Pokko without bundled connectors
+
+### Features
+
+* distribute Pokko without bundled connectors ([138ac57](https://github.com/browzomje/pokko/commit/138ac570bbb69716e77879a31144dc4fdaa44c19))
+
 ## [1.9.0](https://github.com/browzomje/pokko/compare/v1.8.1...v1.9.0) (2026-11-05)
 
 ### Features
