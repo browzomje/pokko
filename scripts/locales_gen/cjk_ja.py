@@ -296,7 +296,7 @@ JA = {
   "sources.folderDesc": "複数の.jsonファイルが含まれるフォルダをスキャン",
   "sources.genericHtml": "汎用HTML",
   "sources.githubImport": "GitHubリポジトリからインポート",
-  "sources.githubPlaceholder": "例: browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "例: owner/repository",
   "sources.import": "コネクタをインポート",
   "sources.importDialogTitle": "コネクタをインポート",
   "sources.importHelp": "新しいサイト用に設定されたコネクタをインポートします。安全な(HTTPS)URLを持つ.jsonファイルのみ許可されます。ZIP/RAR/CBZアーカイブはセキュリティのためブロックされます。",

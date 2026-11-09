@@ -296,7 +296,7 @@ TR = {
   "sources.folderDesc": "Birden fazla .json dosyası içeren bir klasörü tara",
   "sources.genericHtml": "Genel HTML",
   "sources.githubImport": "GitHub deposundan içe aktar",
-  "sources.githubPlaceholder": "örn. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "örn. owner/repository",
   "sources.import": "Bağlayıcıları içe aktar",
   "sources.importDialogTitle": "Bağlayıcıları içe aktar",
   "sources.importHelp": "Yeni siteler için yapılandırılmış bağlayıcıları içe aktarın. Yalnızca güvenli (HTTPS) URL'lere sahip .json dosyalarına izin verilir. Güvenlik nedeniyle ZIP/RAR/CBZ arşivleri engellenir.",

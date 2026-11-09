@@ -1,6 +1,6 @@
 # pokko
 
-Download manga and comics to read offline. Available for Linux and Windows.
+Research tool for building declarative connectors and exporting authorized manga and comics for offline reading. Available for Linux and Windows.
 
 [Download the latest release](https://github.com/browzomje/pokko/releases/latest) · [Report a problem](https://github.com/browzomje/pokko/issues)
 
@@ -25,7 +25,7 @@ Download the installer for your platform from the [Releases](https://github.com/
 
 ## Quick Start
 
-1. **Catalog Sources**: Enable desired sources from the sidebar.
+1. **Catalog Sources**: Open **Sources → Import** to load a connector JSON file, or create a connector in Source Lab.
 2. **Explore**: Search for a manga or paste a series URL.
 3. **Select**: Choose volumes or specific chapters, then click **Download**.
 4. **Settings**: Configure output folder (`~/Downloads/Pokko` by default), request delay, and format.
@@ -37,18 +37,16 @@ Pokko can also run entirely from the terminal (both as `pokko` with arguments an
 
 ```sh
 # Search manga across sources
-pokko search "Berserk" --source mw
+pokko search "Example title" --connector my-source.json
 
 # Inspect series metadata and chapters (supports local custom connector JSON)
-pokko info "https://www.mangaworld.mx/manga/2278/berserk"
 pokko info "https://example.com/manga/1" --connector my-source.json
 
 # Download specific chapters or ranges (PDF, CBZ, CBR, images)
-pokko download "https://www.mangaworld.mx/manga/2278/berserk" --chapters 1-5 --format cbz
+pokko download "https://example.com/manga/1" --connector my-source.json --chapters 1-5 --format cbz
 
 # List and test catalog sources
 pokko sources list
-pokko sources test mw
 pokko sources test my-source.json
 
 # Shell auto-completions (bash, zsh, fish, powershell, elvish)
@@ -57,7 +55,9 @@ pokko completions bash > ~/.local/share/bash-completion/completions/pokko
 
 ## Custom Sources
 
-Pokko uses 100% declarative JSON connectors (`adapter: "generic"`). You can create new connectors visually via **Source Lab** (`Ctrl+Shift+L` or `Ctrl+L`) or import community presets. See the [connector guide](connectors/README.md) for details.
+Pokko starts with an empty source list. Import a connector you trust from **Sources → Import**, or create one visually in **Source Lab** (`Ctrl+Shift+L` or `Ctrl+L`). Use it only with content you have permission to access and copy. See the [connector guide](CONNECTORS.md) for the JSON format.
+
+On upgrade, Pokko removes sources previously installed as bundled defaults. Sources you created or imported remain in your settings.
 
 ## Build from Source
 

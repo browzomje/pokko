@@ -30,20 +30,20 @@ pub struct Settings {
     pub export_format: String,
     #[serde(default)]
     pub user_agent: Option<String>,
-    #[serde(default = "sources::defaults")]
+    #[serde(default)]
     pub sources: Vec<sources::Source>,
 }
 
 impl Settings {
     pub fn new_default(output: String) -> Self {
         Self {
-            base_url: "https://www.mangaworld.mx".into(),
+            base_url: String::new(),
             output,
             delay_ms: 500,
             cbz: false,
             export_format: "pdf".into(),
             user_agent: None,
-            sources: sources::defaults(),
+            sources: Vec::new(),
         }
     }
 }
@@ -95,6 +95,30 @@ pub struct Saved {
     pub jobs: Vec<Job>,
 }
 // Adopt the direct-download PDF default once, then preserve user choices.
+fn remove_bundled_sources(saved: &mut Saved) {
+    if saved.source_catalog_version >= 7 {
+        return;
+    }
+    if let Some(settings) = &mut saved.settings {
+        settings.sources.retain(|source| {
+            source.origin.as_deref() != Some("official")
+                && !(source.origin.is_none()
+                    && [
+                        "mw",
+                        "mf",
+                        "mangaread",
+                        "mangapill",
+                        "mangatown",
+                        "md",
+                        "readberserk",
+                        "readcomics",
+                    ]
+                    .contains(&source.id.as_str()))
+        });
+    }
+    saved.source_catalog_version = 7;
+}
+
 fn adopt_download_preferences(saved: &mut Saved) {
     if saved.download_preferences_version < 1 {
         if let Some(settings) = &mut saved.settings {
@@ -216,6 +240,7 @@ impl Engine {
             Saved::default()
         };
 
+        remove_bundled_sources(&mut saved);
         if saved.settings.is_none() {
             saved.settings = Some(Settings::new_default(output));
         }
@@ -560,12 +585,18 @@ pub fn manga_source(settings: &Settings, manga: &Manga) -> Result<sources::Sourc
         .cloned()
         .or_else(|| {
             if manga.source_id.is_empty() {
+                let url = url::Url::parse(&manga.url).ok()?;
+                let host = url.host_str()?;
                 settings
                     .sources
                     .iter()
-                    .find(|s| s.id == "mw")
+                    .find(|source| {
+                        url::Url::parse(&source.base_url)
+                            .ok()
+                            .and_then(|base| base.host_str().map(|candidate| candidate == host))
+                            .unwrap_or(false)
+                    })
                     .cloned()
-                    .or_else(|| sources::defaults().into_iter().find(|s| s.id == "mw"))
             } else {
                 None
             }
@@ -793,10 +824,6 @@ async fn test_source_connection(
         return Err(format!("La fonte risponde HTTP {}", response.status()));
     }
     Ok("Connessione HTTPS verificata. Puoi abilitare la fonte nel passo Verifica e salva.".into())
-}
-#[tauri::command]
-async fn source_defaults() -> Vec<sources::Source> {
-    sources::defaults()
 }
 #[tauri::command]
 async fn archive_completed(
@@ -1619,24 +1646,11 @@ pub fn run_app() {
             std::fs::create_dir_all(&path)?;
             let file = path.join("queue.json");
             let mut saved: Saved = if file.exists() {
-                let value: serde_json::Value = serde_json::from_slice(&std::fs::read(&file)?)?;
-                let mut restored: Saved = serde_json::from_value(value.clone())?;
-                if let Some(settings) = &mut restored.settings {
-                    settings
-                        .sources
-                        .retain(|s| s.id != "readberserk" && s.id != "md" && s.id != "readcomics");
-                }
-                if value["settings"].get("sources").is_none() {
-                    if let Some(settings) = &mut restored.settings {
-                        if let Some(mw) = settings.sources.iter_mut().find(|s| s.id == "mw") {
-                            mw.base_url = settings.base_url.clone();
-                        }
-                    }
-                }
-                restored
+                serde_json::from_slice(&std::fs::read(&file)?)?
             } else {
                 Saved::default()
             };
+            remove_bundled_sources(&mut saved);
             saved.jobs.retain(|j| j.status != "cancelled");
             let output = app
                 .path()
@@ -1648,101 +1662,8 @@ pub fn run_app() {
                 if settings.output.trim().is_empty() {
                     settings.output = output;
                 }
-                if settings.sources.is_empty() {
-                    settings.sources = sources::defaults();
-                }
             } else {
                 saved.settings = Some(Settings::new_default(output));
-            }
-            if saved.source_catalog_version < 1 {
-                if let Some(settings) = &mut saved.settings {
-                    let retired = [
-                        "mw-ac",
-                        "bato",
-                        "comick-app",
-                        "comick-io",
-                        "mangascan",
-                        "mangakalot",
-                        "manganelo",
-                        "mangapark",
-                    ];
-                    settings
-                        .sources
-                        .retain(|source| !retired.contains(&source.id.as_str()));
-                    if !settings
-                        .sources
-                        .iter()
-                        .any(|source| source.id == "mangaread")
-                    {
-                        if let Some(source) = sources::defaults()
-                            .into_iter()
-                            .find(|source| source.id == "mangaread")
-                        {
-                            settings.sources.push(source);
-                        }
-                    }
-                }
-                saved.source_catalog_version = 1;
-            }
-            if saved.source_catalog_version < 2 {
-                if let Some(settings) = &mut saved.settings {
-                    if !settings.sources.iter().any(|s| s.id == "readcomics") {
-                        if let Some(source) = sources::defaults()
-                            .into_iter()
-                            .find(|s| s.id == "readcomics")
-                        {
-                            settings.sources.push(source);
-                        }
-                    }
-                }
-                saved.source_catalog_version = 2;
-            }
-            if saved.source_catalog_version < 3 {
-                if let Some(settings) = &mut saved.settings {
-                    for source in &mut settings.sources {
-                        if source.adapter == "readcomics" {
-                            source.category = "comics".into();
-                        }
-                    }
-                }
-                saved.source_catalog_version = 3;
-            }
-            if saved.source_catalog_version < 5 {
-                if let Some(settings) = &mut saved.settings {
-                    settings
-                        .sources
-                        .retain(|s| s.id != "md" && s.id != "readcomics");
-                    for s in &mut settings.sources {
-                        s.adapter = "generic".into();
-                    }
-                    for def in sources::defaults() {
-                        if !settings.sources.iter().any(|s| s.id == def.id) {
-                            settings.sources.push(def);
-                        } else if let Some(existing) =
-                            settings.sources.iter_mut().find(|s| s.id == def.id)
-                        {
-                            if existing.id == "mw" {
-                                existing.adapter = "generic".into();
-                                existing.search_path = def.search_path.clone();
-                                existing.result_selector = def.result_selector.clone();
-                                existing.volume_selector = def.volume_selector.clone();
-                                existing.volume_title_selector = def.volume_title_selector.clone();
-                                existing.chapter_title_selector =
-                                    def.chapter_title_selector.clone();
-                                existing.chapter_url_suffix = def.chapter_url_suffix.clone();
-                            }
-                        }
-                    }
-                }
-                saved.source_catalog_version = 5;
-            }
-            if saved.source_catalog_version < 6 {
-                if let Some(settings) = &mut saved.settings {
-                    settings
-                        .sources
-                        .retain(|s| s.id != "readberserk" && s.id != "md" && s.id != "readcomics");
-                }
-                saved.source_catalog_version = 6;
             }
             if let Some(settings) = &mut saved.settings {
                 if settings.export_format.is_empty() {
@@ -1875,7 +1796,6 @@ pub fn run_app() {
             control_job,
             remove_job,
             archive_completed,
-            source_defaults,
             test_source_connection,
             remove_all_jobs,
             open_job_folder,
@@ -1947,11 +1867,16 @@ mod tests {
         }
     }
     fn sample_job(path: &Path, format: &str) -> Job {
+        let source = sources::Source {
+            id: "example".into(),
+            base_url: "https://source.test".into(),
+            ..Default::default()
+        };
         serde_json::from_value(serde_json::json!({
-            "id": format, "manga": {"title":"Test", "url":"https://www.mangaworld.mx/manga/1/test", "cover":""},
-            "volume":{"title":"Volume", "chapters":[{"title":"Chapter", "url":"https://www.mangaworld.mx/read/1/test"}]},
+            "id": format, "manga": {"title":"Test", "url":"https://source.test/manga/1/test", "cover":""},
+            "volume":{"title":"Volume", "chapters":[{"title":"Chapter", "url":"https://source.test/read/1/test"}]},
             "status":"queued", "chapter":"", "chapters_done":0, "pages_done":0, "pages_total":0, "bytes":0, "message":"", "output":"",
-            "settings":{"base_url":"https://www.mangaworld.mx", "output":path.display().to_string(), "delay_ms":500, "cbz":true, "export_format":format}
+            "settings":{"base_url":"https://source.test", "output":path.display().to_string(), "delay_ms":500, "cbz":true, "export_format":format, "sources":[source]}
         })).unwrap()
     }
     fn seed_pages(path: &Path, job: &Job) -> PathBuf {
@@ -2097,7 +2022,7 @@ mod tests {
         let base = std::env::temp_dir().join(format!("mwr-mangapill-live-{}", std::process::id()));
         std::fs::create_dir_all(&base).unwrap();
         let engine = test_engine(&base);
-        let source = sources::defaults()
+        let source = sources::live_test_sources()
             .into_iter()
             .find(|s| s.id == "mangapill")
             .unwrap();
@@ -2179,7 +2104,7 @@ mod tests {
             cbz: true,
             export_format: "cbz".into(),
             user_agent: None,
-            sources: sources::defaults(),
+            sources: Vec::new(),
         });
         engine.persist().await.unwrap();
         let restored: Saved =
@@ -2206,7 +2131,7 @@ mod tests {
             .text()
             .await
             .unwrap();
-        let source = sources::defaults()
+        let source = sources::live_test_sources()
             .into_iter()
             .find(|s| s.id == "mw")
             .unwrap();
@@ -2249,7 +2174,7 @@ mod tests {
                 cbz: true,
                 export_format: "cbz".into(),
                 user_agent: None,
-                sources: sources::defaults(),
+                sources: vec![source],
             },
             phase: "queued".into(),
             export_done: 0,
@@ -2300,7 +2225,7 @@ mod tests {
                 cbz: true,
                 export_format: "cbz".into(),
                 user_agent: None,
-                sources: sources::defaults(),
+                sources: Vec::new(),
             },
             phase: "queued".into(),
             export_done: 0,
@@ -2322,7 +2247,7 @@ mod tests {
     #[ignore = "Verifica live ricerca, capitoli e una scan per fonti generiche"]
     async fn live_multiple_sources() {
         let engine = test_engine(&std::env::temp_dir());
-        for s in sources::defaults()
+        for s in sources::live_test_sources()
             .into_iter()
             .filter(|s| ["mw", "mf"].contains(&s.id.as_str()))
         {
@@ -2362,20 +2287,50 @@ mod tests {
         assert_eq!(reloaded.settings.unwrap().export_format, "images");
     }
     #[test]
+    fn source_migration_preserves_explicitly_imported_connectors() {
+        let mut settings = Settings::new_default("/tmp/pokko".into());
+        assert!(settings.sources.is_empty());
+        for (id, origin) in [
+            ("mw", Some("official")),
+            ("mf", None),
+            ("mangapill", Some("imported")),
+            ("custom", Some("created")),
+        ] {
+            settings.sources.push(sources::Source {
+                id: id.into(),
+                origin: origin.map(str::to_owned),
+                ..Default::default()
+            });
+        }
+        let mut saved = Saved {
+            settings: Some(settings),
+            ..Default::default()
+        };
+        remove_bundled_sources(&mut saved);
+        let ids = saved
+            .settings
+            .unwrap()
+            .sources
+            .into_iter()
+            .map(|source| source.id)
+            .collect::<Vec<_>>();
+        assert_eq!(ids, ["mangapill", "custom"]);
+    }
+
+    #[test]
     fn old_preferences_remain_readable() {
         let settings: Settings = serde_json::from_str(
             r#"{"base_url":"https://www.mangaworld.mx","output":"/existing/folder","delay_ms":3000,"cbz":true}"#,
         )
         .unwrap();
         assert_eq!(settings.output, "/existing/folder");
-        assert_eq!(settings.sources.iter().filter(|s| s.enabled).count(), 5);
-        assert!(settings.sources.iter().any(|s| s.id == "mw"));
+        assert!(settings.sources.is_empty());
         let manga: Manga = serde_json::from_str(
             r#"{"title":"Old","url":"https://www.mangaworld.mx/manga/1/old","cover":""}"#,
         )
         .unwrap();
         assert_eq!(manga.language, "it");
-        assert_eq!(manga_source(&settings, &manga).unwrap().adapter, "generic");
+        assert!(manga_source(&settings, &manga).is_err());
     }
     #[tokio::test]
     async fn retry_after_is_enforced() {

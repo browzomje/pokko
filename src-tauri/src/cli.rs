@@ -28,7 +28,7 @@ pub enum Commands {
     Search {
         /// Title query to search for
         query: String,
-        /// Filter by source identifier (e.g. mw, mangapill, mf, mangaread, mangatown)
+        /// Filter by source identifier
         #[arg(short, long)]
         source: Option<String>,
         /// Filter by language (e.g. it, en)
@@ -37,6 +37,9 @@ pub enum Commands {
         /// Maximum number of results to display
         #[arg(short = 'n', long, default_value_t = 15)]
         limit: usize,
+        /// Path to custom connector JSON file
+        #[arg(short = 'C', long)]
+        connector: Option<PathBuf>,
     },
     /// Show metadata and chapter list for a manga series URL
     Info {
@@ -160,7 +163,17 @@ pub async fn run_cli() -> Result<(), String> {
             source,
             language,
             limit,
-        } => handle_search(&query, source.as_deref(), language.as_deref(), limit).await,
+            connector,
+        } => {
+            handle_search(
+                &query,
+                source.as_deref(),
+                language.as_deref(),
+                limit,
+                connector.as_deref(),
+            )
+            .await
+        }
         Commands::Info {
             target,
             source,
@@ -203,17 +216,26 @@ async fn handle_search(
     source_filter: Option<&str>,
     lang_filter: Option<&str>,
     limit: usize,
+    connector: Option<&Path>,
 ) -> Result<(), String> {
     let engine = Engine::headless(None);
-    let mut sources = {
+    let mut sources = if let Some(path) = connector {
+        let mut source = load_connector(path).await?;
+        source.enabled = true;
+        sources::validate(&source)?;
+        vec![source]
+    } else {
         let saved = engine.saved.lock().await;
         saved
             .settings
             .as_ref()
             .map(|s| s.sources.clone())
-            .unwrap_or_else(sources::defaults)
+            .unwrap_or_default()
     };
 
+    if sources.is_empty() {
+        return Err("No connectors configured. Pass a JSON file with --connector.".into());
+    }
     if let Some(src_id) = source_filter {
         sources.retain(|s| s.id.eq_ignore_ascii_case(src_id));
         if sources.is_empty() {
@@ -327,7 +349,7 @@ async fn handle_info(
             .settings
             .as_ref()
             .map(|s| s.sources.clone())
-            .unwrap_or_else(sources::defaults)
+            .unwrap_or_default()
     };
 
     let source = if let Some(conn_path) = connector_file {
@@ -483,7 +505,7 @@ async fn handle_download(
             .settings
             .as_ref()
             .map(|s| s.sources.clone())
-            .unwrap_or_else(sources::defaults)
+            .unwrap_or_default()
     };
 
     let source = if let Some(conn_path) = connector_file {
@@ -634,8 +656,15 @@ async fn handle_sources_list() -> Result<(), String> {
             .settings
             .as_ref()
             .map(|s| s.sources.clone())
-            .unwrap_or_else(sources::defaults)
+            .unwrap_or_default()
     };
+
+    if sources.is_empty() {
+        println!(
+            "No connectors configured. Use --connector <file.json> with search, info, or download."
+        );
+        return Ok(());
+    }
 
     println!(
         "{:<12} {:<15} {:<6} {:<8} {:<8} BASE URL",
@@ -668,7 +697,7 @@ async fn handle_sources_test(target: &str) -> Result<(), String> {
                 .settings
                 .as_ref()
                 .map(|s| s.sources.clone())
-                .unwrap_or_else(sources::defaults)
+                .unwrap_or_default()
         };
         sources
             .into_iter()
@@ -807,17 +836,27 @@ mod tests {
 
     #[test]
     fn test_resolve_source_by_url() {
-        let sources = sources::defaults();
-        let resolved =
-            resolve_source(&sources, "https://www.mangaworld.mx/manga/test", None).unwrap();
-        assert_eq!(resolved.id, "mw");
-
-        let resolved_pill =
-            resolve_source(&sources, "https://mangapill.com/manga/123", None).unwrap();
-        assert_eq!(resolved_pill.id, "mangapill");
-
-        let override_source =
-            resolve_source(&sources, "https://random.com/manga/123", Some("mf")).unwrap();
-        assert_eq!(override_source.id, "mf");
+        let sources = [
+            ("example", "https://example.com"),
+            ("sample", "https://sample.test"),
+        ]
+        .map(|(id, base)| Source {
+            id: id.into(),
+            base_url: base.into(),
+            ..Source::default()
+        });
+        assert_eq!(
+            resolve_source(&sources, "https://example.com/series/1", None)
+                .unwrap()
+                .id,
+            "example"
+        );
+        assert_eq!(
+            resolve_source(&sources, "https://example.com/series/1", Some("sample"))
+                .unwrap()
+                .id,
+            "sample"
+        );
+        assert!(resolve_source(&[], "https://example.com/series/1", None).is_err());
     }
 }

@@ -86,7 +86,7 @@ mod tests {
     async fn invincible_creators_live() {
         let dir = std::env::temp_dir().join("mwr-creators-live");
         let engine = crate::tests::test_engine(&dir);
-        let source = sources::defaults()
+        let source = sources::live_test_sources()
             .into_iter()
             .find(|s| s.id == "mf")
             .unwrap();

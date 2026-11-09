@@ -393,7 +393,7 @@
   "sources.folderDesc": "Scan een map met meerdere .json-bestanden",
   "sources.genericHtml": "Generieke HTML",
   "sources.githubImport": "Importeren uit GitHub-opslagplaats",
-  "sources.githubPlaceholder": "bijv. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "bijv. owner/repository",
   "sources.githubRepoRequired": "Voer de repository-URL of het pad in (bijv. 'owner/repo').",
   "sources.import": "Connectoren importeren",
   "sources.importDialogTitle": "Connectoren importeren",

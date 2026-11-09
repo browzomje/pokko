@@ -1,22 +1,10 @@
-# Pokko Connectors Catalog
+# Connector guide
 
-Pokko connectors use a **100% declarative JSON** specification (`adapter: "generic"`), functioning similarly to adblock rule lists. No site-specific Rust code is required or permitted.
-
-## Verified Official Connectors
-
-| ID | Name | Language | Type | Features |
-| --- | --- | --- | --- | --- |
-| `mw` | MangaWorld | Italian (`it`) | Catalog | Volume groupings (`volume_selector`), list mode (`chapter_url_suffix`) |
-| `mangapill` | MangaPill | English (`en`) | Catalog | Standard web reader, clean chapter lists |
-| `mangatown` | MangaTown | English (`en`) | Catalog | Single-page paginated reader (`reader_next_selector`) |
-| `mf` | MangaFreak | English (`en`) | Catalog | Multi-page list-view reader |
-| `mangaread` | MangaRead | English (`en`) | Catalog | WP-Manga catalog structure |
-
-> **Note**: Deprecated connectors (`mangadex`, `readcomicsonline`) have been removed in favor of generic declarative definitions.
+Pokko uses declarative JSON connectors (`adapter: "generic"`). Each connector is a separate JSON file that you can import from **Sources → Import**.
 
 ## Connector JSON Schema
 
-Connectors are stored as individual `.json` files in `connectors/<id>.json`.
+Save each connector in its own `.json` file.
 
 ```json
 {
@@ -50,7 +38,7 @@ Connectors are stored as individual `.json` files in `connectors/<id>.json`.
 | `id` | string | Unique connector identifier (lowercase alphanumeric). |
 | `name` | string | Human-readable name. |
 | `base_url` | string | Base URL (`https://...`). |
-| `category` | string | Content type (`manga` or `comic`). |
+| `category` | string | Content type (`manga` or `comics`). |
 | `language` | string | ISO language code (`it`, `en`, `es`, `fr`, etc.). |
 | `adapter` | string | Must be `"generic"`. |
 | `enabled` | boolean | Whether the source is enabled by default. |
@@ -76,10 +64,3 @@ Create and verify connectors interactively inside Pokko (`Ctrl+L`):
 3. **Series**: Navigate to a series page; use automatic detection or click-picker to capture chapter and volume selectors.
 4. **Pages**: Open a reader chapter; pick scan image selector, test reader suffix or single-page next selector.
 5. **Verify**: Run field test (end-to-end test chapter download to PDF), verify search generalization, and enable connector.
-
-## Contributing
-
-1. Create and verify the connector using the Source Lab.
-2. Export the connector JSON.
-3. Place the file at `connectors/<id>.json`.
-4. Submit a Pull Request following [Conventional Commits](../CONTRIBUTING.md).

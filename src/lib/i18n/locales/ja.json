@@ -393,7 +393,7 @@
   "sources.folderDesc": "複数の.jsonファイルが含まれるフォルダをスキャン",
   "sources.genericHtml": "汎用HTML",
   "sources.githubImport": "GitHubリポジトリからインポート",
-  "sources.githubPlaceholder": "例: browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "例: owner/repository",
   "sources.githubRepoRequired": "リポジトリのURLまたはパス（例: 'owner/repo'）を入力してください。",
   "sources.import": "コネクタをインポート",
   "sources.importDialogTitle": "コネクタをインポート",

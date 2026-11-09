@@ -393,7 +393,7 @@
   "sources.folderDesc": "Birden fazla .json dosyası içeren bir klasörü tara",
   "sources.genericHtml": "Genel HTML",
   "sources.githubImport": "GitHub deposundan içe aktar",
-  "sources.githubPlaceholder": "örn. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "örn. owner/repository",
   "sources.githubRepoRequired": "Depo URL'sini veya yolunu girin (ör. 'owner/repo').",
   "sources.import": "Bağlayıcıları içe aktar",
   "sources.importDialogTitle": "Bağlayıcıları içe aktar",

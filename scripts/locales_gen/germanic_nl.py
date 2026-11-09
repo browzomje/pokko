@@ -296,7 +296,7 @@ NL = {
   "sources.folderDesc": "Scan een map met meerdere .json-bestanden",
   "sources.genericHtml": "Generieke HTML",
   "sources.githubImport": "Importeren uit GitHub-opslagplaats",
-  "sources.githubPlaceholder": "bijv. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "bijv. owner/repository",
   "sources.import": "Connectoren importeren",
   "sources.importDialogTitle": "Connectoren importeren",
   "sources.importHelp": "Importeer geconfigureerde connectoren voor nieuwe websites. Alleen .json-bestanden met veilige (HTTPS) URL's zijn toegestaan. ZIP/RAR/CBZ-archieven worden om veiligheidsredenen geblokkeerd.",

@@ -296,7 +296,7 @@ ZH = {
   "sources.folderDesc": "扫描包含多个 .json 连接器文件的文件夹",
   "sources.genericHtml": "通用 HTML",
   "sources.githubImport": "从 GitHub 仓库导入",
-  "sources.githubPlaceholder": "例如 browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "例如 owner/repository",
   "sources.import": "导入连接器",
   "sources.importDialogTitle": "导入连接器",
   "sources.importHelp": "导入为新站点配置的图源连接器。出于安全考虑，仅允许包含安全 (HTTPS) 地址的 .json 文件，ZIP/RAR/CBZ 压缩包将被阻止。",

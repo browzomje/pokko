@@ -2192,20 +2192,19 @@ mod tests {
         .is_err());
     }
     #[test]
-    fn dedicated_adapters_are_available_in_workbench() {
-        let presets = sources::defaults();
-        let mw = presets.iter().find(|s| s.id == "mw").unwrap();
+    fn generic_selectors_work_on_offline_samples() {
+        let mw = sources::offline_test_source("mw");
         let result = lab_extract(
-            mw.clone(),
+            mw,
             include_str!("../../tests/fixtures/detail.html").into(),
             "https://www.mangaworld.mx/manga/1/test".into(),
             "detail".into(),
         )
         .unwrap();
         assert!(result["items"].as_array().unwrap().len() > 100);
-        let mf = presets.iter().find(|s| s.id == "mf").unwrap();
+        let mf = sources::offline_test_source("mf");
         let result = lab_extract(
-            mf.clone(),
+            mf,
             include_str!("../../tests/fixtures/mf-reader.html").into(),
             "https://ww3.mangafreak.me/Read1_Test_1".into(),
             "reader".into(),

@@ -296,7 +296,7 @@ RU = {
   "sources.folderDesc": "Сканировать папку с несколькими файлами .json",
   "sources.genericHtml": "Обычный HTML",
   "sources.githubImport": "Импортировать из репозитория GitHub",
-  "sources.githubPlaceholder": "напр. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "напр. owner/repository",
   "sources.import": "Импорт коннекторов",
   "sources.importDialogTitle": "Импорт коннекторов",
   "sources.importHelp": "Импортируйте коннекторы, настроенные для новых сайтов. Разрешены только файлы .json с безопасными (HTTPS) адресами. Архивы ZIP/RAR/CBZ заблокированы в целях безопасности.",

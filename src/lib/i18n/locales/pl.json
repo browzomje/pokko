@@ -393,7 +393,7 @@
   "sources.folderDesc": "Skanuj folder zawierający wiele plików .json",
   "sources.genericHtml": "Ogólny HTML",
   "sources.githubImport": "Importuj z repozytorium GitHub",
-  "sources.githubPlaceholder": "np. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "np. owner/repository",
   "sources.githubRepoRequired": "Wprowadź adres URL lub ścieżkę repozytorium (np. 'owner/repo').",
   "sources.import": "Importuj konektory",
   "sources.importDialogTitle": "Importuj konektory",

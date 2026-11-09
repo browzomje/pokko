@@ -393,7 +393,7 @@
   "sources.folderDesc": "여러 .json 파일이 포함된 폴더 검사",
   "sources.genericHtml": "일반 HTML",
   "sources.githubImport": "GitHub 저장소에서 가져오기",
-  "sources.githubPlaceholder": "예: browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "예: owner/repository",
   "sources.githubRepoRequired": "저장소 URL 또는 경로(예: 'owner/repo')를 입력하세요.",
   "sources.import": "커넥터 가져오기",
   "sources.importDialogTitle": "커넥터 가져오기",

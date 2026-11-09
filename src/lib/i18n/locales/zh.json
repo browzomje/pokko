@@ -393,7 +393,7 @@
   "sources.folderDesc": "扫描包含多个 .json 连接器文件的文件夹",
   "sources.genericHtml": "通用 HTML",
   "sources.githubImport": "从 GitHub 仓库导入",
-  "sources.githubPlaceholder": "例如 browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "例如 owner/repository",
   "sources.githubRepoRequired": "请输入仓库 URL 或路径（例如 'owner/repo'）。",
   "sources.import": "导入连接器",
   "sources.importDialogTitle": "导入连接器",

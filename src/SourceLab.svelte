@@ -88,7 +88,6 @@
     onNew?: () => void;
   } = $props();
 
-  const builtInIds = ["mw", "mf", "mangaread", "mangapill", "mangatown"];
 
   let url = $state("");
   let testQuery = $state("");
@@ -315,28 +314,15 @@
 
   // Template pre-compilation
   let templateOptions = $derived.by(() => {
-    const builtIns = sources.filter((s) => builtInIds.includes(s.id));
     const customs = sources.filter(
       (s) =>
         s.adapter === "generic" &&
-        !builtInIds.includes(s.id) &&
         s.id !== source.id,
     );
 
     const list: { value: string; label: string; disabled?: boolean }[] = [
       { value: "", label: t("lab.templatePlaceholder") },
     ];
-
-    if (builtIns.length > 0) {
-      list.push({
-        value: "--group-builtin",
-        label: t("lab.builtinGroup"),
-        disabled: true,
-      });
-      for (const s of builtIns) {
-        list.push({ value: s.id, label: s.name });
-      }
-    }
 
     if (customs.length > 0) {
       list.push({

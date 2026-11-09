@@ -296,7 +296,7 @@ DE = {
   "sources.folderDesc": "Einen Ordner mit mehreren .json-Dateien scannen",
   "sources.genericHtml": "Generisches HTML",
   "sources.githubImport": "Aus GitHub-Repository importieren",
-  "sources.githubPlaceholder": "z. B. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "z. B. owner/repository",
   "sources.import": "Connectoren importieren",
   "sources.importDialogTitle": "Connectoren importieren",
   "sources.importHelp": "Importiere konfigurierte Connectoren für neue Seiten. Nur .json-Dateien mit sicheren (HTTPS) URLs sind erlaubt. ZIP/RAR/CBZ-Archive sind aus Sicherheitsgründen blockiert.",

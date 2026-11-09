@@ -296,7 +296,7 @@ AR = {
   "sources.folderDesc": "فحص مجلد يحتوي على عدة ملفات .json",
   "sources.genericHtml": "HTML عام",
   "sources.githubImport": "استيراد من مستودع GitHub",
-  "sources.githubPlaceholder": "مثال browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "مثال owner/repository",
   "sources.import": "استيراد الموصلات",
   "sources.importDialogTitle": "استيراد الموصلات",
   "sources.importHelp": "استيراد موصلات مهيأة لمواقع جديدة. يُسمح فقط بملفات .json ذات عناوين URL آمنة (HTTPS). يتم حظر أرشيفات ZIP/RAR/CBZ لأسباب أمنية.",

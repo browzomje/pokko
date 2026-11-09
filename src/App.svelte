@@ -21,7 +21,6 @@
   import { rankSearchResults } from "./lib/search-ranking";
   import SourceLab from "./SourceLab.svelte";
   import { catalogElements, planDownload } from "./download-plan";
-  import sourcePresets from "../resources/sources.json";
   import type {
     Manga,
     Detail,
@@ -94,12 +93,12 @@
     };
   });
   let settings = $state<Settings>({
-    base_url: "https://www.mangaworld.mx",
+    base_url: "",
     output: "",
     delay_ms: 500,
     cbz: false,
     export_format: "pdf",
-    sources: sourcePresets,
+    sources: [],
   });
   let hydrated = $state(false);
   let saveStatus = $state("Caricamento preferenze…");
@@ -252,13 +251,6 @@
   function openLab(source: Source) {
     sourceDraft = structuredClone($state.snapshot(source));
     active = "lab";
-  }
-  async function restoreSources() {
-    try {
-      settings.sources = await api<Source[]>("source_defaults");
-    } catch (e) {
-      error = message(e);
-    }
   }
   async function removeJob(job: Job) {
     try {
@@ -715,7 +707,6 @@
             {sortedSources}
             {saveError}
             {saveStatus}
-            {restoreSources}
             {addSource}
             {editSource}
             {openLab}

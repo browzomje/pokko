@@ -48,10 +48,9 @@ Breaking changes trigger a **Major** release (`2.0.0`). Indicate a breaking chan
 
 ## Connector Guidelines
 
-- Connectors reside in `connectors/<id>.json`.
-- All connectors must use `adapter: "generic"` (100% declarative JSON; site-specific Rust code is not accepted).
-- Connectors must be tested via the 5-step Source Lab (`Ctrl+L`) co-pilot, including the test PDF download, prior to submitting a PR.
-- Commit scope: `feat(connectors): add <name> connector`.
+- Keep site-specific connectors outside this repository.
+- Use `adapter: "generic"` and follow the [connector guide](CONNECTORS.md).
+- Exercise new connector features with offline fixtures or a source you have permission to test.
 
 ## Development and Verification
 

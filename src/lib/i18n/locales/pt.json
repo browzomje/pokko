@@ -393,7 +393,7 @@
   "sources.folderDesc": "Escanear uma pasta com múltiplos arquivos .json",
   "sources.genericHtml": "HTML genérico",
   "sources.githubImport": "Importar do repositório GitHub",
-  "sources.githubPlaceholder": "ex. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "ex. owner/repository",
   "sources.githubRepoRequired": "Introduza o URL ou caminho do repositório (ex.: 'owner/repo').",
   "sources.import": "Importar conectores",
   "sources.importDialogTitle": "Importar conectores",

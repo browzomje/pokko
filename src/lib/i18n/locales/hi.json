@@ -393,7 +393,7 @@
   "sources.folderDesc": "एकाधिक .json फ़ाइलों वाले फ़ोल्डर को स्कैन करें",
   "sources.genericHtml": "सामान्य HTML",
   "sources.githubImport": "GitHub रिपॉजिटरी से आयात करें",
-  "sources.githubPlaceholder": "उदा. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "उदा. owner/repository",
   "sources.githubRepoRequired": "रिपॉजिटरी URL या पथ दर्ज करें (उदा. 'owner/repo')।",
   "sources.import": "कनेक्टर्स आयात करें",
   "sources.importDialogTitle": "कनेक्टर्स आयात करें",

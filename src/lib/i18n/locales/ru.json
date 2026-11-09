@@ -393,7 +393,7 @@
   "sources.folderDesc": "Сканировать папку с несколькими файлами .json",
   "sources.genericHtml": "Обычный HTML",
   "sources.githubImport": "Импортировать из репозитория GitHub",
-  "sources.githubPlaceholder": "напр. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "напр. owner/repository",
   "sources.githubRepoRequired": "Введите URL или путь к репозиторию (например, 'owner/repo').",
   "sources.import": "Импорт коннекторов",
   "sources.importDialogTitle": "Импорт коннекторов",

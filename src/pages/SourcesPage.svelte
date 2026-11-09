@@ -10,9 +10,7 @@
     X,
     Pencil,
     FlaskConical,
-    ShieldCheck,
     Plus,
-    RotateCcw,
   } from "lucide-svelte";
   import { open, save } from "@tauri-apps/plugin-dialog";
   import { api, message as msg } from "../lib/api";
@@ -24,7 +22,6 @@
     sortedSources,
     saveError,
     saveStatus: _saveStatus,
-    restoreSources,
     addSource,
     editSource,
     openLab,
@@ -33,7 +30,6 @@
     sortedSources: Source[];
     saveError: string;
     saveStatus: string;
-    restoreSources: () => void;
     addSource?: () => void;
     editSource: (source: Source) => void;
     openLab: (source: Source) => void;
@@ -45,18 +41,9 @@
   let actionStatus = $state("");
   let actionError = $state("");
 
-  const builtInIds = ["mw", "mf", "mangaread", "mangapill", "mangatown"];
-
-  let officialSources = $derived(
-    sortedSources.filter(
-      (s) => s.origin === "official" || builtInIds.includes(s.id),
-    ),
-  );
-
   let createdSources = $derived(
     sortedSources.filter(
       (s) =>
-        !builtInIds.includes(s.id) &&
         (s.origin === "created" ||
           (!s.origin && !s.id.startsWith("imported-"))),
     ),
@@ -65,7 +52,6 @@
   let importedSources = $derived(
     sortedSources.filter(
       (s) =>
-        !builtInIds.includes(s.id) &&
         (s.origin === "imported" || s.id.startsWith("imported-")),
     ),
   );
@@ -242,9 +228,6 @@
     <button class="primary" onclick={() => (importModalOpen = true)}>
       <Upload size={15} /> {t("sources.import")}
     </button>
-    <button class="danger-btn" onclick={restoreSources}>
-      <RotateCcw size={15} /> {t("sources.restore")}
-    </button>
   </div>
 </div>
 
@@ -302,22 +285,6 @@
     </div>
   </div>
 {/if}
-
-<!-- Section 1: Official Sources -->
-<section class="sources-section">
-  <div class="sources-section-header">
-    <div class="section-title-wrap">
-      <ShieldCheck size={18} class="section-icon official-icon" />
-      <h2>{t("sources.sectionOfficial")}</h2>
-      <span class="count-badge">{officialSources.length}</span>
-    </div>
-  </div>
-  <div class="sources-list">
-    {#each officialSources as source (source.id)}
-      {@render sourceCard(source)}
-    {/each}
-  </div>
-</section>
 
 <!-- Section 2: Created Connectors (Source Lab) -->
 <section class="sources-section">
@@ -410,10 +377,6 @@
     font-weight: 600;
     margin: 0;
     color: var(--fg, #f3f4f6);
-  }
-
-  :global(.section-icon.official-icon) {
-    color: #60a5fa;
   }
 
   :global(.section-icon.created-icon) {

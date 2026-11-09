@@ -296,7 +296,7 @@ PL = {
   "sources.folderDesc": "Skanuj folder zawierający wiele plików .json",
   "sources.genericHtml": "Ogólny HTML",
   "sources.githubImport": "Importuj z repozytorium GitHub",
-  "sources.githubPlaceholder": "np. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "np. owner/repository",
   "sources.import": "Importuj konektory",
   "sources.importDialogTitle": "Importuj konektory",
   "sources.importHelp": "Importuj konektory skonfigurowane dla nowych witryn. Dozwolone są tylko pliki .json z bezpiecznymi adresami URL (HTTPS). Archiwa ZIP/RAR/CBZ są blokowane ze względów bezpieczeństwa.",

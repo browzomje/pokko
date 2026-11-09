@@ -393,7 +393,7 @@
   "sources.folderDesc": "فحص مجلد يحتوي على عدة ملفات .json",
   "sources.genericHtml": "HTML عام",
   "sources.githubImport": "استيراد من مستودع GitHub",
-  "sources.githubPlaceholder": "مثال browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "مثال owner/repository",
   "sources.githubRepoRequired": "أدخل عنوان URL أو مسار المستودع (مثل 'owner/repo').",
   "sources.import": "استيراد الموصلات",
   "sources.importDialogTitle": "استيراد الموصلات",

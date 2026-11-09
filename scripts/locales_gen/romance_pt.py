@@ -296,7 +296,7 @@ PT = {
   "sources.folderDesc": "Escanear uma pasta com múltiplos arquivos .json",
   "sources.genericHtml": "HTML genérico",
   "sources.githubImport": "Importar do repositório GitHub",
-  "sources.githubPlaceholder": "ex. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "ex. owner/repository",
   "sources.import": "Importar conectores",
   "sources.importDialogTitle": "Importar conectores",
   "sources.importHelp": "Importe conectores configurados para novos sites. Apenas arquivos .json com URLs seguras (HTTPS) são permitidos. Arquivos ZIP/RAR/CBZ são bloqueados por segurança.",

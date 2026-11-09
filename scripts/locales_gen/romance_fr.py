@@ -296,7 +296,7 @@ FR = {
   "sources.folderDesc": "Analyser un dossier contenant plusieurs fichiers .json",
   "sources.genericHtml": "HTML générique",
   "sources.githubImport": "Importer depuis un dépôt GitHub",
-  "sources.githubPlaceholder": "ex. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "ex. owner/repository",
   "sources.import": "Importer des connecteurs",
   "sources.importDialogTitle": "Importer des connecteurs",
   "sources.importHelp": "Importez des connecteurs configurés pour de nouveaux sites. Seuls les fichiers .json avec des URL sécurisées (HTTPS) sont autorisés. Les archives ZIP/RAR/CBZ sont bloquées pour des raisons de sécurité.",

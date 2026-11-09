@@ -296,7 +296,7 @@ KO = {
   "sources.folderDesc": "여러 .json 파일이 포함된 폴더 검사",
   "sources.genericHtml": "일반 HTML",
   "sources.githubImport": "GitHub 저장소에서 가져오기",
-  "sources.githubPlaceholder": "예: browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "예: owner/repository",
   "sources.import": "커넥터 가져오기",
   "sources.importDialogTitle": "커넥터 가져오기",
   "sources.importHelp": "새 사이트용으로 구성된 커넥터를 가져옵니다. 보안(HTTPS) URL이 포함된 .json 파일만 허용됩니다. ZIP/RAR/CBZ 아카이브는 보안상 차단됩니다.",

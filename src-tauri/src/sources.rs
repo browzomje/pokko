@@ -81,14 +81,6 @@ impl Default for Source {
         }
     }
 }
-pub fn defaults() -> Vec<Source> {
-    let mut list: Vec<Source> = serde_json::from_str(include_str!("../../resources/sources.json"))
-        .expect("Preset fonti incorporati non validi");
-    for s in &mut list {
-        s.origin = Some("official".into());
-    }
-    list
-}
 pub fn validate(s: &Source) -> Result<(), String> {
     provider::site(&s.base_url)?;
     if !["manga", "comics"].contains(&s.category.as_str()) {
@@ -1063,7 +1055,7 @@ pub async fn import_connectors_from_github(
         .trim_end_matches(".git")
         .trim_end_matches('/');
 
-    // Parse owner, repo, and optional subpath (e.g. browzomje/pokko/connectors or browzomje/pokko/tree/main/connectors)
+    // Parse owner, repo, and optional subpath (e.g. owner/repo/connectors or owner/repo/tree/main/connectors)
     let parts: Vec<&str> = clean.split('/').collect();
     if parts.len() < 2 {
         return Err(
@@ -1210,6 +1202,58 @@ pub async fn import_connectors_from_github(
 }
 
 #[cfg(test)]
+pub(crate) fn live_test_sources() -> Vec<Source> {
+    let directory = std::env::var_os("POKKO_TEST_CONNECTORS")
+        .expect("Set POKKO_TEST_CONNECTORS to a directory of connector JSON files");
+    std::fs::read_dir(directory)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
+        .map(|path| validate_connector_json(&std::fs::read_to_string(path).unwrap()).unwrap())
+        .collect()
+}
+
+#[cfg(test)]
+pub(crate) fn offline_test_source(id: &str) -> Source {
+    let (base, result, chapter, image) = match id {
+        "mw" => (
+            "https://www.mangaworld.mx",
+            "a.manga-title",
+            "a.chap",
+            "img.page-image",
+        ),
+        "mf" => (
+            "https://ww3.mangafreak.me",
+            ".manga_search_item h3 a",
+            "a.chapter-link",
+            "img#gohere",
+        ),
+        "mangaread" => (
+            "https://www.mangaread.org",
+            ".post-title a",
+            ".wp-manga-chapter a",
+            ".reading-content img",
+        ),
+        _ => panic!("Unknown offline fixture"),
+    };
+    let mut source = Source {
+        id: id.into(),
+        name: "Offline fixture".into(),
+        base_url: base.into(),
+        result_selector: result.into(),
+        chapter_selector: chapter.into(),
+        image_selector: image.into(),
+        ..Source::default()
+    };
+    if id == "mw" {
+        source.volume_selector = ".volume-element".into();
+        source.volume_title_selector = ".volume-name".into();
+        source.chapter_title_selector = "span".into();
+    }
+    source
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -1272,7 +1316,7 @@ mod tests {
 
     #[test]
     fn mf_html() {
-        let s = defaults().into_iter().find(|s| s.id == "mf").unwrap();
+        let s = offline_test_source("mf");
         let r = generic_search(
             include_str!("../../tests/fixtures/mf-search.html"),
             &s.base_url,
@@ -1302,10 +1346,7 @@ mod tests {
 
     #[test]
     fn mangaread_html() {
-        let source = defaults()
-            .into_iter()
-            .find(|s| s.id == "mangaread")
-            .unwrap();
+        let source = offline_test_source("mangaread");
         let results = generic_search(
             include_str!("../../tests/fixtures/mangaread-search.html"),
             &source.base_url,
@@ -1336,7 +1377,7 @@ mod tests {
 
     #[test]
     fn mangaworld_generic_html() {
-        let s = defaults().into_iter().find(|s| s.id == "mw").unwrap();
+        let s = offline_test_source("mw");
         assert_eq!(s.adapter, "generic");
         let r = generic_search(
             include_str!("../../tests/fixtures/archive.html"),
@@ -1455,7 +1496,7 @@ mod tests {
 
     #[test]
     fn source_validation() {
-        for s in defaults() {
+        for s in ["mw", "mf", "mangaread"].map(offline_test_source) {
             validate(&s).unwrap();
         }
         let s = Source {

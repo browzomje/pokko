@@ -296,7 +296,7 @@ HI = {
   "sources.folderDesc": "एकाधिक .json फ़ाइलों वाले फ़ोल्डर को स्कैन करें",
   "sources.genericHtml": "सामान्य HTML",
   "sources.githubImport": "GitHub रिपॉजिटरी से आयात करें",
-  "sources.githubPlaceholder": "उदा. browzomje/pokko/connectors",
+  "sources.githubPlaceholder": "उदा. owner/repository",
   "sources.import": "कनेक्टर्स आयात करें",
   "sources.importDialogTitle": "कनेक्टर्स आयात करें",
   "sources.importHelp": "नई साइटों के लिए कॉन्फ़िगर किए गए कनेक्टर्स आयात करें। केवल सुरक्षित (HTTPS) URL वाली .json फ़ाइलों की अनुमति है। सुरक्षा कारणों से ZIP/RAR/CBZ अभिलेखागार अवरुद्ध हैं।",
