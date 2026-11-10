@@ -1,3 +1,9 @@
+## [2.0.1](https://github.com/browzomje/pokko/compare/v2.0.0...v2.0.1) (2026-11-10)
+
+### Fixes
+
+* select the GUI binary by default ([6409b47](https://github.com/browzomje/pokko/commit/6409b479590da55c5a41a1614dc0bd6b761fdf78))
+
 ## [2.0.0](https://github.com/browzomje/pokko/compare/v1.9.0...v2.0.0) (2026-11-09)
 
 ### ⚠ BREAKING CHANGES
