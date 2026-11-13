@@ -1,3 +1,9 @@
+## [2.0.2](https://github.com/browzomje/pokko/compare/v2.0.1...v2.0.2) (2026-11-13)
+
+### Fixes
+
+* **connectors:** remove remaining bundled source assumptions ([1471a5f](https://github.com/browzomje/pokko/commit/1471a5f666f30eb0b1055e32029b5d41f5d38190))
+
 ## [2.0.1](https://github.com/browzomje/pokko/compare/v2.0.0...v2.0.1) (2026-11-10)
 
 ### Fixes
