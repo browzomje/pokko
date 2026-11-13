@@ -192,7 +192,8 @@
     <div>
       <div class="eyebrow">
         {flag(current.detail.manga.language)}
-        {current.detail.manga.source_name || "MangaWorld"} · {current.detail.volumes.reduce(
+        {#if current.detail.manga.source_name || current.detail.manga.source_id}{current
+            .detail.manga.source_name || current.detail.manga.source_id} · {/if}{current.detail.volumes.reduce(
           (n, v) => n + v.chapters.length,
           0,
         )} {t("detail.chapters").toUpperCase()}

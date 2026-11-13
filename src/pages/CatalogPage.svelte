@@ -26,6 +26,7 @@
     search,
     openCatalogLink,
     openManga,
+    onSources,
   }: {
     query: string;
     searchInput?: HTMLInputElement;
@@ -42,6 +43,7 @@
     search: (page?: number) => void;
     openCatalogLink: () => void;
     openManga: (manga: Manga) => void;
+    onSources?: () => void;
   } = $props();
 </script>
 
@@ -86,7 +88,7 @@
       <input
         aria-label={t("catalog.seriesLinkAria")}
         bind:value={catalogLink}
-        placeholder="https://readcomicsonline.lol/comic/Invincible"
+        placeholder="https://example.com/comic/series"
       /><button disabled={!catalogLink.trim()}
         >{t("catalog.openInApp")} <BookOpen size={16} /></button
       >
@@ -133,11 +135,20 @@
             >{manga.authors.join(", ")}</small
           >{/if}<span class="result-source"
           >{flag(manga.language)}
-          {manga.source_name || "MangaWorld"} · {(
-            manga.language || "it"
-          ).toUpperCase()}</span
+          {#if manga.source_name || manga.source_id}{manga.source_name ||
+              manga.source_id} · {/if}{(manga.language || "").toUpperCase()}</span
         ></button
       >{/each}
+  </div>
+{:else if !searched && !catalogSources.length}<div class="empty">
+    <div class="empty-icon"><BookOpen size={34} /></div>
+    <h2>{t("nav.sources")}</h2>
+    <p>{t("sources.emptyImported")}</p>
+    {#if onSources}
+      <button class="primary" onclick={onSources}>
+        {t("nav.sources")} <ChevronRight size={16} />
+      </button>
+    {/if}
   </div>
 {:else}<div class="empty">
     <div class="empty-icon"><BookOpen size={34} /></div>

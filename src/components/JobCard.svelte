@@ -61,7 +61,8 @@
       <h3>{job.manga.title}</h3>
       <span
         >{flag(job.manga.language)}
-        {job.manga.source_name || "MangaWorld"} · {job.volume.title} · {job
+        {#if job.manga.source_name || job.manga.source_id}{job.manga
+            .source_name || job.manga.source_id} · {/if}{job.volume.title} · {job
           .volume.chapters.length}
         {job.volume.chapters.length === 1
           ? t("downloads.chapter")

@@ -537,13 +537,7 @@ async fn bootstrap(engine: State<'_, Arc<Engine>>) -> Result<Saved, String> {
     })
 }
 #[tauri::command]
-async fn save_settings(
-    mut settings: Settings,
-    engine: State<'_, Arc<Engine>>,
-) -> Result<(), String> {
-    settings
-        .sources
-        .retain(|s| s.id != "readberserk" && s.id != "md" && s.id != "readcomics");
+async fn save_settings(settings: Settings, engine: State<'_, Arc<Engine>>) -> Result<(), String> {
     let mut ids = std::collections::HashSet::new();
     for source in &settings.sources {
         sources::validate(source)?;

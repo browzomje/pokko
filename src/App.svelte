@@ -689,6 +689,7 @@
             {search}
             {openCatalogLink}
             {openManga}
+            onSources={() => (active = "sources")}
           />
         {:else if active === "queue"}
           <DownloadsPage

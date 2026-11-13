@@ -1307,13 +1307,14 @@
 
   async function exportConnector() {
     try {
-      const data = JSON.stringify($state.snapshot(source), null, 2);
-      const filename = `${(source.name || "connettore").toLowerCase().replace(/[^a-z0-9]/g, "-")}.json`;
-      const blob = new Blob([data], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      a.click();
+      const snapshot = $state.snapshot(source);
+      const filename = `${(snapshot.name || "connettore").toLowerCase().replace(/[^a-z0-9]/g, "-")}.json`;
+      const selected = await save({
+        defaultPath: filename,
+        filters: [{ name: t("sources.jsonConnector"), extensions: ["json"] }],
+      });
+      if (!selected) return;
+      await api("sources_export_file", { source: snapshot, path: selected });
       status = t("lab.connectorExported");
     } catch (e) {
       failure = t("lab.exportError", { error: msg(e) });
@@ -1322,34 +1323,20 @@
 
   async function importConnector() {
     try {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = ".json,application/json";
-      input.onchange = async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        const name = file.name.toLowerCase();
-        if (
-          name.endsWith(".zip") ||
-          name.endsWith(".rar") ||
-          name.endsWith(".tar") ||
-          name.endsWith(".cbz")
-        ) {
-          failure = t("sources.archiveBlocked");
-          return;
-        }
-        const text = await file.text();
-        const parsed = JSON.parse(text) as Source;
-        if (!parsed.base_url || !parsed.name) {
-          throw new Error(t("lab.invalidConnectorFile"));
-        }
-        source = {
-          ...parsed,
-          id: source.id,
-        };
-        status = t("sources.importedSingleSuccess", { name: parsed.name });
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: t("sources.jsonConnector"), extensions: ["json"] }],
+      });
+      if (typeof selected !== "string") return;
+      const imported = await api<Source>("sources_import_file", {
+        path: selected,
+      });
+      source = {
+        ...imported,
+        id: source.id,
+        origin: imported.origin || "imported",
       };
-      input.click();
+      status = t("sources.importedSingleSuccess", { name: imported.name });
     } catch (e) {
       failure = t("lab.importError", { error: msg(e) });
     }
@@ -1365,7 +1352,7 @@
         );
       }
       source.enabled = true;
-      source.origin = "created";
+      source.origin = source.origin === "imported" ? "imported" : "created";
       await onSave($state.snapshot(source));
       status = t("lab.sourceSavedSuccess");
     });

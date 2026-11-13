@@ -31,41 +31,11 @@ export const jobLabels: Record<string, string> = {
   cancelled: "Annullato",
 };
 
-const PRESET_NOTE_KEYS: Record<string, string> = {
-  "Verificato · catalogo e volumi": "sourceNote.mw",
-  "API · disattivata: verifica la connessione prima di abilitarla":
-    "sourceNote.md",
-  "HTML verificato · capitoli senza gruppi volume": "sourceNote.mf",
-  "HTML verificato · capitoli in inglese": "sourceNote.mangaread",
-  "Comics occidentali · raccolte e albi · PDF completo nella coda":
-    "sourceNote.readcomics",
-  "Catalogo manga in lingua inglese · scansioni HD (FMHY)":
-    "sourceNote.mangapill",
-  "Catalogo manga classico in lingua inglese (FMHY)": "sourceNote.mangatown",
-  "Catalogo manga in lingua inglese · scansioni HD": "sourceNote.mangapill",
-  "Catalogo manga classico in lingua inglese": "sourceNote.mangatown",
-  "HTML verificato WordPress Madara con capitoli in inglese":
-    "sourceNote.mangaread",
-  "HTML verificato con capitoli in lingua inglese": "sourceNote.mf",
-  "Catalogo manga italiano con gruppi volumi e capitoli": "sourceNote.mw",
-};
-
 export function formatSourceNote(
   note: string | undefined,
-  sourceId?: string,
+  _sourceId?: string,
 ): string {
-  if (sourceId) {
-    const key = `sourceNote.${sourceId}`;
-    const localized = t(key);
-    if (localized && localized !== key) return localized;
-  }
-  if (!note) return "";
-  const key = PRESET_NOTE_KEYS[note.trim()];
-  if (key) {
-    const localized = t(key);
-    if (localized && localized !== key) return localized;
-  }
-  return note;
+  return note || "";
 }
 
 export function formatJobMessage(message: string): string {

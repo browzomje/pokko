@@ -90,11 +90,11 @@ pub enum Commands {
 
 #[derive(Subcommand, Debug)]
 pub enum SourcesAction {
-    /// List all built-in and configured sources
+    /// List all configured sources
     List,
     /// Test connection to a source or connector JSON file
     Test {
-        /// Source ID (e.g. mw) or path to a connector .json file
+        /// Source ID or path to a connector .json file
         target: String,
     },
 }
@@ -220,10 +220,7 @@ async fn handle_search(
 ) -> Result<(), String> {
     let engine = Engine::headless(None);
     let mut sources = if let Some(path) = connector {
-        let mut source = load_connector(path).await?;
-        source.enabled = true;
-        sources::validate(&source)?;
-        vec![source]
+        vec![load_connector(path).await?]
     } else {
         let saved = engine.saved.lock().await;
         saved
@@ -297,13 +294,13 @@ async fn handle_search(
     Ok(())
 }
 
-/// Load a custom declarative connector from a local JSON file.
+/// Load and validate a custom declarative connector from a local JSON file.
 async fn load_connector(path: &Path) -> Result<Source, String> {
     let content = tokio::fs::read_to_string(path)
         .await
         .map_err(|e| format!("Cannot read connector file '{}': {}", path.display(), e))?;
-    serde_json::from_str::<Source>(&content)
-        .map_err(|e| format!("Invalid connector schema in '{}': {}", path.display(), e))
+    sources::validate_connector_json(&content)
+        .map_err(|e| format!("Invalid connector in '{}': {}", path.display(), e))
 }
 
 fn resolve_source(
@@ -329,12 +326,7 @@ fn resolve_source(
             }
         }
     }
-    // Fallback default
-    sources
-        .iter()
-        .find(|s| s.id == "mw")
-        .cloned()
-        .ok_or_else(|| "Could not match URL to a catalog source. Specify --source <id>.".into())
+    Err("Could not match URL to a catalog source. Specify --source <id> or --connector <file.json>.".into())
 }
 
 async fn handle_info(
@@ -858,5 +850,37 @@ mod tests {
             "sample"
         );
         assert!(resolve_source(&[], "https://example.com/series/1", None).is_err());
+
+        let with_mw = [Source {
+            id: "mw".into(),
+            base_url: "https://example.org".into(),
+            ..Source::default()
+        }];
+        assert!(resolve_source(&with_mw, "https://unrelated.test/series/1", None).is_err());
+    }
+
+    #[tokio::test]
+    async fn test_load_connector_validates_connector_json() {
+        let dir = std::env::temp_dir().join(format!("pokko-cli-conn-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let invalid = dir.join("invalid.json");
+        std::fs::write(
+            &invalid,
+            r#"{"id":"bad","name":"Bad","base_url":"http://example.com","category":"manga","language":"en","adapter":"generic","chapter_selector":"a","image_selector":"img"}"#,
+        )
+        .unwrap();
+        assert!(load_connector(&invalid).await.is_err());
+
+        let valid = dir.join("valid.json");
+        std::fs::write(
+            &valid,
+            r#"{"name":"Example","base_url":"https://example.com","category":"manga","language":"en","adapter":"generic","search_path":"/search?q={query}","result_selector":"a.title","chapter_selector":"a.chap","image_selector":"img.page"}"#,
+        )
+        .unwrap();
+        let loaded = load_connector(&valid).await.unwrap();
+        assert!(loaded.enabled);
+        assert!(!loaded.id.is_empty());
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

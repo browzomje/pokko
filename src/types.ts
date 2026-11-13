@@ -77,7 +77,7 @@ export interface Source {
   volume_selector?: string;
   volume_title_selector?: string;
   chapter_title_selector?: string;
-  origin?: "official" | "created" | "imported";
+  origin?: "created" | "imported";
   workflow?: { kind: string; url: string; selector: string }[];
 }
 export interface SourceReport {

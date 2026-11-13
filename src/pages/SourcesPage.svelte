@@ -41,20 +41,12 @@
   let actionStatus = $state("");
   let actionError = $state("");
 
-  let createdSources = $derived(
-    sortedSources.filter(
-      (s) =>
-        (s.origin === "created" ||
-          (!s.origin && !s.id.startsWith("imported-"))),
-    ),
-  );
+  const isImported = (s: Source) =>
+    s.origin === "imported" || (!s.origin && s.id.startsWith("imported-"));
 
-  let importedSources = $derived(
-    sortedSources.filter(
-      (s) =>
-        (s.origin === "imported" || s.id.startsWith("imported-")),
-    ),
-  );
+  let createdSources = $derived(sortedSources.filter((s) => !isImported(s)));
+
+  let importedSources = $derived(sortedSources.filter(isImported));
 
   function checkArchiveExt(filename: string): boolean {
     const lower = filename.toLowerCase();
